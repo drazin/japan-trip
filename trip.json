@@ -1,0 +1,1603 @@
+{
+  "trip": {
+    "name": "Drazin Family Japan Journey",
+    "dates": "2026-08-17 to 2026-08-30",
+    "travelers": {
+      "adults": 2,
+      "children": 2,
+      "children_ages": [
+        9,
+        13
+      ],
+      "names": {
+        "lead": "Matthew Drazin"
+      }
+    },
+    "budget": {
+      "hotels_usd": 3433.53,
+      "hotels_jpy": 920550,
+      "hotels_total_approx_usd": 9224,
+      "fx_rate_planning": 159,
+      "notes": "Before final Tokyo night, local taxes, and incidentals"
+    }
+  },
+  "hotels": [
+    {
+      "id": "hotel-tokyo-1",
+      "segment": "Tokyo",
+      "name": "Keio Plaza Hotel Tokyo",
+      "address": "2-2-1 Nishi-Shinjuku, Tokyo 160-8330",
+      "neighborhood": "Shinjuku",
+      "city": "Tokyo",
+      "dates": "Aug 17-22",
+      "nights": 5,
+      "status": "booked",
+      "confirmation": "27044SG354195",
+      "member_id": "PHVFC6QJ4B",
+      "room": "Deluxe Select Twin (inter-connected)",
+      "cost": "USD 3,433.53 total",
+      "cost_breakdown": "Room rate USD 2,694.37 + taxes/fees USD 739.17",
+      "payment": "Card ending 2001",
+      "checkin": null,
+      "checkout": null,
+      "perks": [],
+      "notes": "Breakfast included"
+    },
+    {
+      "id": "hotel-hakone",
+      "segment": "Hakone",
+      "name": "Nazuna Hakone Miyanosita Kiga",
+      "address": "1013-63, Miyanoshita, Hakone, Kanagawa",
+      "neighborhood": "Miyanoshita",
+      "city": "Hakone",
+      "dates": "Aug 22-23",
+      "nights": 1,
+      "status": "booked",
+      "phone": "+81-460-83-9753",
+      "room": "Superior Twin Room, 2 adults + 2 children (ages 9 and 13)",
+      "cost": "JPY 240,360 total",
+      "cancellation": "Free cancellation until Aug 14, 2026 11:59 PM JST",
+      "checkin": "3:00-9:00 PM",
+      "checkout": "11:00 AM",
+      "perks": [
+        "Private onsen"
+      ],
+      "notes": "Confirm dinner/breakfast inclusions and private onsen specifics"
+    },
+    {
+      "id": "hotel-kyoto",
+      "segment": "Kyoto",
+      "name": "Dusit Thani Kyoto",
+      "address": "466 Nishinotoin-cho, Kyoto 600-8327",
+      "neighborhood": "Shimogyo-ku (Kyoto Station area)",
+      "city": "Kyoto",
+      "dates": "Aug 23-27",
+      "nights": 4,
+      "status": "booked",
+      "phone": "+81-75-343-7151",
+      "confirmation": "9101112699190",
+      "amex_trip": "ZO-AX1051-02591",
+      "room": "2 Premier Rooms (1 King Bed each), special request: adjoining, 1 king + 1 twin",
+      "cost": "JPY 564,190 total due at hotel",
+      "cancellation": "100% penalty Aug 21 6:00 PM - Aug 23 6:00 PM JST",
+      "checkin": "12 PM if available",
+      "checkout": "Guaranteed 4 PM",
+      "perks": [
+        "Amex FHR: breakfast for two",
+        "$100 property credit",
+        "Wi-Fi",
+        "Room upgrade if available",
+        "12 PM check-in if available",
+        "Guaranteed 4 PM checkout"
+      ],
+      "notes": "Confirm Room 2 can be twin/adjoining. Confirm additional breakfast for children."
+    },
+    {
+      "id": "hotel-kanazawa",
+      "segment": "Kanazawa",
+      "name": "The Hotel Sanraku Kanazawa",
+      "address": "Kanazawa",
+      "neighborhood": "Central Kanazawa",
+      "city": "Kanazawa",
+      "dates": "Aug 27-29",
+      "nights": 2,
+      "status": "booked",
+      "confirmation": "036-00017168-01",
+      "plan": "Early Bird Advantage 90, room with breakfast",
+      "room": "Garden Connecting Room for 4 guests, 1 room",
+      "cost": "JPY 116,000 total (Aug 27: JPY 57,200; Aug 28: JPY 58,800)",
+      "checkin": null,
+      "checkout": null,
+      "perks": [
+        "Breakfast included"
+      ],
+      "notes": "Accommodation tax extra on site. Child breakfast/lounge fee under 11 may be collected on site."
+    },
+    {
+      "id": "hotel-tokyo-final",
+      "segment": "Tokyo Final",
+      "name": "Hotel New Otani Tokyo Garden Tower",
+      "city": "Tokyo",
+      "dates": "Aug 29-30",
+      "nights": 1,
+      "status": "confirmed",
+      "notes": "Strong Haneda and Tokyo Station access. Calmer final-night energy. Good access to Ginza, Marunouchi, Akasaka.",
+      "address": "Chiyoda-ku Kioicho 4-1, Tokyo",
+      "neighborhood": "Chiyoda/Akasaka",
+      "room": "Garden Tower Standard Twin — 2 Connecting Rooms, Non-Smoking",
+      "cost": "JPY 122,936",
+      "cancellation": "Free cancellation until Aug 26, 2026 at 11:59 PM JST"
+    }
+  ],
+  "days": [
+    {
+      "day": 1,
+      "date": "2026-08-17",
+      "weekday": "Monday",
+      "title": "Yokoso, Welcome to Japan",
+      "city": "Tokyo",
+      "neighborhood": "Shinjuku",
+      "hotel": "hotel-tokyo-1",
+      "theme": "Arrival and acclimation",
+      "activities": [
+        {
+          "name": "Arrive Haneda Airport",
+          "type": "travel",
+          "time_of_day": "afternoon",
+          "status": "planned"
+        },
+        {
+          "name": "Transfer to Keio Plaza",
+          "type": "travel",
+          "time_of_day": "afternoon",
+          "duration_min": "50-80",
+          "status": "planned"
+        },
+        {
+          "name": "Local ramen dinner",
+          "type": "food",
+          "time_of_day": "evening",
+          "neighborhood": "Shinjuku",
+          "status": "flexible"
+        },
+        {
+          "name": "Department store food halls",
+          "type": "food",
+          "time_of_day": "evening",
+          "neighborhood": "Shinjuku",
+          "status": "flexible"
+        },
+        {
+          "name": "Kabukicho Tower",
+          "type": "attraction",
+          "time_of_day": "evening",
+          "neighborhood": "Kabukicho",
+          "status": "flexible"
+        },
+        {
+          "name": "Omoide Yokocho stroll",
+          "type": "food",
+          "time_of_day": "evening",
+          "neighborhood": "Shinjuku",
+          "status": "flexible"
+        }
+      ],
+      "meals": {
+        "breakfast": "N/A (arrival day)",
+        "lunch": "TBD",
+        "dinner": "Flexible - ramen or food halls"
+      },
+      "logistics": "Avoid ambitious dinner reservations on arrival night.",
+      "luggage": "All luggage with you"
+    },
+    {
+      "day": 2,
+      "date": "2026-08-18",
+      "weekday": "Tuesday",
+      "title": "The Many Facets of Tokyo",
+      "city": "Tokyo",
+      "neighborhood": "East Tokyo",
+      "hotel": "hotel-tokyo-1",
+      "theme": "Guided eastern Tokyo day",
+      "activities": [
+        {
+          "name": "Tsukiji Outer Market",
+          "type": "market/food",
+          "time_of_day": "morning",
+          "neighborhood": "Tsukiji",
+          "status": "suggested"
+        },
+        {
+          "name": "Senso-ji Temple",
+          "type": "temple",
+          "time_of_day": "morning",
+          "neighborhood": "Asakusa",
+          "status": "suggested"
+        },
+        {
+          "name": "Nakamise Shopping Street",
+          "type": "shopping",
+          "time_of_day": "morning",
+          "neighborhood": "Asakusa",
+          "status": "suggested"
+        },
+        {
+          "name": "Yanaka neighborhood",
+          "type": "neighborhood",
+          "time_of_day": "afternoon",
+          "neighborhood": "Yanaka",
+          "status": "suggested"
+        },
+        {
+          "name": "Akihabara",
+          "type": "shopping/culture",
+          "time_of_day": "afternoon",
+          "neighborhood": "Akihabara",
+          "status": "suggested"
+        },
+        {
+          "name": "Capybara Cafe",
+          "type": "attraction",
+          "time_of_day": "afternoon",
+          "neighborhood": "TBD",
+          "status": "subject to availability"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel",
+        "lunch": "Midday break (AC)",
+        "dinner": "TBD"
+      },
+      "logistics": "Local transit/taxis. Use taxis when heat peaks. Major walking in morning; midday AC/lunch break.",
+      "luggage": "N/A"
+    },
+    {
+      "day": 3,
+      "date": "2026-08-19",
+      "weekday": "Wednesday",
+      "title": "Shrines, Fashion and Youth Culture",
+      "city": "Tokyo",
+      "neighborhood": "West Tokyo",
+      "hotel": "hotel-tokyo-1",
+      "theme": "Independent western Tokyo day",
+      "activities": [
+        {
+          "name": "Meiji Shrine",
+          "type": "shrine",
+          "time_of_day": "early morning",
+          "neighborhood": "Yoyogi/Harajuku",
+          "status": "suggested"
+        },
+        {
+          "name": "Yoyogi Park / Harajuku",
+          "type": "neighborhood",
+          "time_of_day": "morning",
+          "neighborhood": "Harajuku",
+          "status": "suggested"
+        },
+        {
+          "name": "Takeshita Street",
+          "type": "shopping/culture",
+          "time_of_day": "morning",
+          "neighborhood": "Harajuku",
+          "status": "suggested"
+        },
+        {
+          "name": "Omotesando",
+          "type": "shopping",
+          "time_of_day": "midday",
+          "neighborhood": "Omotesando",
+          "status": "suggested"
+        },
+        {
+          "name": "Cat Street",
+          "type": "shopping",
+          "time_of_day": "afternoon",
+          "neighborhood": "Harajuku/Shibuya",
+          "status": "suggested"
+        },
+        {
+          "name": "Shibuya Crossing",
+          "type": "landmark",
+          "time_of_day": "late afternoon",
+          "neighborhood": "Shibuya",
+          "status": "suggested"
+        },
+        {
+          "name": "Shibuya Sky",
+          "type": "attraction",
+          "time_of_day": "sunset",
+          "neighborhood": "Shibuya",
+          "status": "suggested, timed ticket"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel",
+        "lunch": "TBD",
+        "dinner": "TBD"
+      },
+      "logistics": "All local transit. Shinjuku base has good JR/subway access to Harajuku/Shibuya.",
+      "luggage": "N/A"
+    },
+    {
+      "day": 4,
+      "date": "2026-08-20",
+      "weekday": "Thursday",
+      "title": "Art, Architecture and Ginza",
+      "city": "Tokyo",
+      "neighborhood": "Central/East Tokyo",
+      "hotel": "hotel-tokyo-1",
+      "theme": "Art and upscale shopping",
+      "activities": [
+        {
+          "name": "teamLab Borderless",
+          "type": "museum/art",
+          "time_of_day": "morning",
+          "neighborhood": "Azabudai Hills",
+          "status": "suggested"
+        },
+        {
+          "name": "Ginza district",
+          "type": "shopping",
+          "time_of_day": "afternoon",
+          "neighborhood": "Ginza",
+          "status": "suggested"
+        },
+        {
+          "name": "Marunouchi",
+          "type": "shopping/architecture",
+          "time_of_day": "afternoon",
+          "neighborhood": "Marunouchi",
+          "status": "suggested"
+        },
+        {
+          "name": "KITTE rooftop",
+          "type": "viewpoint",
+          "time_of_day": "afternoon",
+          "neighborhood": "Marunouchi",
+          "status": "suggested"
+        },
+        {
+          "name": "Tokyo Station architecture",
+          "type": "landmark",
+          "time_of_day": "afternoon",
+          "neighborhood": "Marunouchi",
+          "status": "suggested"
+        },
+        {
+          "name": "Pokemon/Nintendo stores",
+          "type": "shopping",
+          "time_of_day": "afternoon",
+          "neighborhood": "Ginza/Shibuya",
+          "status": "optional"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel",
+        "lunch": "TBD",
+        "dinner": "TBD"
+      },
+      "logistics": "Local transit/taxis.",
+      "luggage": "N/A"
+    },
+    {
+      "day": 5,
+      "date": "2026-08-21",
+      "weekday": "Friday",
+      "title": "Flexible Tokyo Discovery Day",
+      "city": "Tokyo",
+      "neighborhood": "Various",
+      "hotel": "hotel-tokyo-1",
+      "theme": "Buffer/flex day - Warner Bros or exploration",
+      "activities": [
+        {
+          "name": "Warner Bros. Studio Tour Tokyo (Harry Potter)",
+          "type": "attraction",
+          "time_of_day": "morning/afternoon",
+          "neighborhood": "Nerima",
+          "status": "strong option",
+          "notes": "Indoor, half-day, heat-proof. Book tickets in advance."
+        },
+        {
+          "name": "Odaiba",
+          "type": "entertainment",
+          "time_of_day": "all day",
+          "neighborhood": "Odaiba",
+          "status": "option"
+        },
+        {
+          "name": "Nakano Broadway",
+          "type": "shopping/otaku",
+          "time_of_day": "all day",
+          "neighborhood": "Nakano",
+          "status": "option"
+        },
+        {
+          "name": "Arcades / shopping / recovery",
+          "type": "flexible",
+          "time_of_day": "all day",
+          "neighborhood": "Various",
+          "status": "option"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel",
+        "lunch": "TBD",
+        "dinner": "TBD"
+      },
+      "logistics": "No intercity travel. Confirm luggage forwarding with concierge before evening.",
+      "luggage": "Forward large bags Tokyo -> Dusit Thani Kyoto",
+      "action_items": [
+        "Confirm luggage forwarding cut-off time with Keio Plaza"
+      ]
+    },
+    {
+      "day": 6,
+      "date": "2026-08-22",
+      "weekday": "Saturday",
+      "title": "Mountain Retreat and Private Onsen Escape",
+      "city": "Hakone",
+      "neighborhood": "Miyanoshita",
+      "hotel": "hotel-hakone",
+      "theme": "Travel day + ryokan/onsen",
+      "activities": [
+        {
+          "name": "Travel to Hakone",
+          "type": "travel",
+          "time_of_day": "morning",
+          "status": "planned"
+        },
+        {
+          "name": "Check in to Nazuna",
+          "type": "hotel",
+          "time_of_day": "afternoon",
+          "neighborhood": "Miyanoshita",
+          "status": "planned"
+        },
+        {
+          "name": "Private onsen",
+          "type": "experience",
+          "time_of_day": "afternoon/evening",
+          "neighborhood": "Miyanoshita",
+          "status": "planned"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel (Keio Plaza)",
+        "lunch": "TBD",
+        "dinner": "Confirm if ryokan dinner included"
+      },
+      "logistics": "Option A: private car ~2-2.5 hr. Option B: Romancecar to Hakone-Yumoto + local train/taxi ~2.5-3.25 hr.",
+      "luggage": "Forward large bags to Dusit Kyoto; carry overnight bag + day packs",
+      "action_items": [
+        "Confirm whether dinner is included at Nazuna"
+      ]
+    },
+    {
+      "day": 7,
+      "date": "2026-08-23",
+      "weekday": "Sunday",
+      "title": "Bullet Train to The Old Capital",
+      "city": "Kyoto",
+      "neighborhood": "Various",
+      "hotel": "hotel-kyoto",
+      "theme": "Travel day + light Kyoto evening",
+      "activities": [
+        {
+          "name": "Hakone Open-Air Museum or Ropeway",
+          "type": "museum/nature",
+          "time_of_day": "morning",
+          "neighborhood": "Hakone",
+          "status": "weather dependent"
+        },
+        {
+          "name": "Shinkansen Odawara to Kyoto",
+          "type": "travel",
+          "time_of_day": "midday",
+          "duration_min": "103-130",
+          "status": "planned"
+        },
+        {
+          "name": "Nishiki Market",
+          "type": "market/food",
+          "time_of_day": "evening",
+          "neighborhood": "Nakagyo",
+          "status": "flexible"
+        },
+        {
+          "name": "Pontocho alley stroll",
+          "type": "dining/atmosphere",
+          "time_of_day": "evening",
+          "neighborhood": "Pontocho",
+          "status": "flexible"
+        },
+        {
+          "name": "Gion stroll",
+          "type": "neighborhood",
+          "time_of_day": "evening",
+          "neighborhood": "Gion",
+          "status": "flexible"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hakone (if included)",
+        "lunch": "TBD (transit)",
+        "dinner": "Flexible Kyoto"
+      },
+      "logistics": "Taxi to Odawara. Hikari ~1:43-2:10 station-to-station. Green Car recommended. ~3-4 hr door-to-door.",
+      "luggage": "Forwarded bags should be at Dusit. Carry overnight bags from Hakone."
+    },
+    {
+      "day": 8,
+      "date": "2026-08-24",
+      "weekday": "Monday",
+      "title": "Classical Kyoto and Arashiyama",
+      "city": "Kyoto",
+      "neighborhood": "West Kyoto",
+      "hotel": "hotel-kyoto",
+      "theme": "Private guide - classical Kyoto",
+      "activities": [
+        {
+          "name": "Arashiyama Bamboo Grove",
+          "type": "nature/landmark",
+          "time_of_day": "early morning",
+          "neighborhood": "Arashiyama",
+          "status": "suggested"
+        },
+        {
+          "name": "Tenryu-ji Temple",
+          "type": "temple",
+          "time_of_day": "morning",
+          "neighborhood": "Arashiyama",
+          "status": "suggested"
+        },
+        {
+          "name": "Togetsukyo Bridge",
+          "type": "landmark",
+          "time_of_day": "morning",
+          "neighborhood": "Arashiyama",
+          "status": "suggested"
+        },
+        {
+          "name": "Kinkaku-ji (Golden Pavilion)",
+          "type": "temple",
+          "time_of_day": "late morning",
+          "neighborhood": "Kita-ku",
+          "status": "suggested"
+        },
+        {
+          "name": "Ryoan-ji",
+          "type": "temple",
+          "time_of_day": "afternoon",
+          "neighborhood": "Kita-ku",
+          "status": "suggested"
+        },
+        {
+          "name": "Chopsticks workshop",
+          "type": "experience",
+          "time_of_day": "afternoon",
+          "neighborhood": "TBD",
+          "status": "optional"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel (Amex FHR for 2; confirm kids)",
+        "lunch": "TBD",
+        "dinner": "TBD"
+      },
+      "logistics": "Use taxis/guide vehicle. Start early, return to hotel midday/late afternoon. Minimize midday heat walking.",
+      "luggage": "N/A"
+    },
+    {
+      "day": 9,
+      "date": "2026-08-25",
+      "weekday": "Tuesday",
+      "title": "Osaka Day Trip - Nintendo World / Food",
+      "city": "Kyoto / Osaka",
+      "neighborhood": "Various",
+      "hotel": "hotel-kyoto",
+      "theme": "Osaka day trip with possible Super Nintendo World",
+      "activities": [
+        {
+          "name": "Super Nintendo World (Universal Studios Japan)",
+          "type": "theme park area",
+          "time_of_day": "afternoon/evening",
+          "neighborhood": "Osaka - Konohana",
+          "status": "maybe",
+          "notes": "Requires USJ ticket + timed entry. Best paired with evening Osaka food."
+        },
+        {
+          "name": "Osaka Castle or Umeda",
+          "type": "landmark/shopping",
+          "time_of_day": "afternoon",
+          "neighborhood": "Osaka - Chuo/Kita",
+          "status": "option A"
+        },
+        {
+          "name": "Shinsaibashi",
+          "type": "shopping",
+          "time_of_day": "evening",
+          "neighborhood": "Osaka - Minami",
+          "status": "option A"
+        },
+        {
+          "name": "Dotonbori",
+          "type": "food/nightlife",
+          "time_of_day": "evening",
+          "neighborhood": "Osaka - Namba",
+          "status": "option A"
+        },
+        {
+          "name": "Slower Kyoto day",
+          "type": "flexible",
+          "time_of_day": "all day",
+          "neighborhood": "Kyoto",
+          "status": "option B"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel",
+        "lunch": "TBD",
+        "dinner": "Dotonbori street food (if Osaka)"
+      },
+      "logistics": "Kyoto -> Osaka 30-60 min each way. No luggage. Osaka best late afternoon/evening.",
+      "luggage": "No luggage"
+    },
+    {
+      "day": 10,
+      "date": "2026-08-26",
+      "weekday": "Wednesday",
+      "title": "Eastern Kyoto and Gion",
+      "city": "Kyoto",
+      "neighborhood": "East Kyoto",
+      "hotel": "hotel-kyoto",
+      "theme": "Temples and Gion",
+      "activities": [
+        {
+          "name": "Fushimi Inari",
+          "type": "shrine",
+          "time_of_day": "early morning",
+          "neighborhood": "Fushimi",
+          "status": "suggested"
+        },
+        {
+          "name": "Kiyomizu-dera",
+          "type": "temple",
+          "time_of_day": "morning",
+          "neighborhood": "Higashiyama",
+          "status": "suggested"
+        },
+        {
+          "name": "Ninenzaka / Sannenzaka",
+          "type": "historic street",
+          "time_of_day": "morning",
+          "neighborhood": "Higashiyama",
+          "status": "suggested"
+        },
+        {
+          "name": "Midday hotel/AC break",
+          "type": "rest",
+          "time_of_day": "midday",
+          "neighborhood": "Hotel",
+          "status": "strongly recommended"
+        },
+        {
+          "name": "Yasaka Shrine",
+          "type": "shrine",
+          "time_of_day": "evening",
+          "neighborhood": "Gion",
+          "status": "suggested"
+        },
+        {
+          "name": "Gion / Pontocho evening",
+          "type": "neighborhood",
+          "time_of_day": "evening",
+          "neighborhood": "Gion",
+          "status": "suggested"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel",
+        "lunch": "TBD",
+        "dinner": "Gion/Pontocho area"
+      },
+      "logistics": "Local taxis worth using. Split day: early morning outing + evening Gion/Pontocho.",
+      "luggage": "N/A",
+      "action_items": [
+        "Arrange luggage forwarding Kyoto -> final Tokyo hotel (if booked)"
+      ]
+    },
+    {
+      "day": 11,
+      "date": "2026-08-27",
+      "weekday": "Thursday",
+      "title": "Rail to Kanazawa and Regional Arrival",
+      "city": "Kanazawa",
+      "neighborhood": "Central Kanazawa",
+      "hotel": "hotel-kanazawa",
+      "theme": "Travel day + light Kanazawa arrival",
+      "activities": [
+        {
+          "name": "Train to Kanazawa",
+          "type": "travel",
+          "time_of_day": "morning/midday",
+          "duration_min": "165-210",
+          "status": "planned"
+        },
+        {
+          "name": "Omicho Market",
+          "type": "market/food",
+          "time_of_day": "afternoon",
+          "neighborhood": "Central Kanazawa",
+          "status": "flexible"
+        },
+        {
+          "name": "Higashi Chaya District stroll",
+          "type": "historic district",
+          "time_of_day": "evening",
+          "neighborhood": "Higashi Chaya",
+          "status": "flexible"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel (Dusit)",
+        "lunch": "Transit/Omicho",
+        "dinner": "Kanazawa"
+      },
+      "logistics": "Kyoto -> Tsuruga (Thunderbird) + Tsuruga -> Kanazawa (Hokuriku Shinkansen). ~2.75-3.5 hr door-to-door.",
+      "luggage": "Forward large bags Kyoto -> final Tokyo hotel (if booked). Bring 2-night Kanazawa bag."
+    },
+    {
+      "day": 12,
+      "date": "2026-08-28",
+      "weekday": "Friday",
+      "title": "Kanazawa Core or Kaga Onsen Day Trip",
+      "city": "Kanazawa",
+      "neighborhood": "Central Kanazawa / Optional Kaga",
+      "hotel": "hotel-kanazawa",
+      "theme": "Kanazawa highlights or Kaga day trip",
+      "activities": [
+        {
+          "name": "Omicho Market",
+          "type": "market/food",
+          "time_of_day": "morning",
+          "neighborhood": "Central Kanazawa",
+          "status": "suggested"
+        },
+        {
+          "name": "Kenrokuen Garden",
+          "type": "garden",
+          "time_of_day": "morning",
+          "neighborhood": "Central Kanazawa",
+          "status": "suggested"
+        },
+        {
+          "name": "Kanazawa Castle",
+          "type": "castle",
+          "time_of_day": "midday",
+          "neighborhood": "Central Kanazawa",
+          "status": "suggested"
+        },
+        {
+          "name": "Higashi Chaya District",
+          "type": "historic district",
+          "time_of_day": "afternoon",
+          "neighborhood": "Higashi Chaya",
+          "status": "suggested"
+        },
+        {
+          "name": "Nagamachi Samurai District",
+          "type": "historic district",
+          "time_of_day": "afternoon",
+          "neighborhood": "Nagamachi",
+          "status": "suggested"
+        },
+        {
+          "name": "Kaga Onsen day trip",
+          "type": "onsen/day trip",
+          "time_of_day": "all day",
+          "neighborhood": "Kaga",
+          "status": "optional alternative"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel (included)",
+        "lunch": "TBD",
+        "dinner": "TBD"
+      },
+      "logistics": "Kanazawa -> Kagaonsen ~16-19 min by shinkansen, 45-75 min door-to-door. In Kanazawa, use taxis between sites.",
+      "luggage": "No luggage",
+      "action_items": [
+        "Decide whether to book private day-use onsen in Kaga"
+      ]
+    },
+    {
+      "day": 13,
+      "date": "2026-08-29",
+      "weekday": "Saturday",
+      "title": "Return to the Mega-Metropolis",
+      "city": "Tokyo",
+      "neighborhood": "TBD",
+      "hotel": "hotel-tokyo-final",
+      "theme": "Travel day + final Tokyo evening",
+      "activities": [
+        {
+          "name": "Shinkansen to Tokyo",
+          "type": "travel",
+          "time_of_day": "morning/midday",
+          "duration_min": "147-187",
+          "status": "planned"
+        },
+        {
+          "name": "Final shopping",
+          "type": "shopping",
+          "time_of_day": "evening",
+          "neighborhood": "TBD",
+          "status": "flexible"
+        },
+        {
+          "name": "Skyline dinner",
+          "type": "food",
+          "time_of_day": "evening",
+          "neighborhood": "TBD",
+          "status": "flexible"
+        },
+        {
+          "name": "Arcades",
+          "type": "entertainment",
+          "time_of_day": "evening",
+          "neighborhood": "TBD",
+          "status": "flexible"
+        },
+        {
+          "name": "Department store food hall",
+          "type": "food",
+          "time_of_day": "evening",
+          "neighborhood": "TBD",
+          "status": "flexible"
+        }
+      ],
+      "meals": {
+        "breakfast": "Hotel (Sanraku)",
+        "lunch": "TBD",
+        "dinner": "Flexible"
+      },
+      "logistics": "Kanazawa -> Tokyo Hokuriku Shinkansen ~2:27-3:07 station-to-station. ~3.25-4 hr door-to-door.",
+      "luggage": "Large bags should be at final hotel. Carry Kanazawa bag.",
+      "action_items": [
+        "Book final Tokyo night hotel"
+      ]
+    },
+    {
+      "day": 14,
+      "date": "2026-08-30",
+      "weekday": "Sunday",
+      "title": "Sayonara, Mata Ne",
+      "city": "Tokyo",
+      "neighborhood": "TBD",
+      "hotel": null,
+      "theme": "Departure",
+      "activities": [
+        {
+          "name": "Relaxed breakfast",
+          "type": "food",
+          "time_of_day": "morning",
+          "status": "planned"
+        },
+        {
+          "name": "Transfer to Haneda",
+          "type": "travel",
+          "time_of_day": "varies",
+          "duration_min": "40-80",
+          "status": "planned"
+        }
+      ],
+      "meals": {
+        "breakfast": "Final hotel",
+        "lunch": "Airport/flight",
+        "dinner": "N/A"
+      },
+      "logistics": "Keep this day simple. Build airport buffer based on airline guidance and family luggage.",
+      "luggage": "All luggage with you"
+    }
+  ],
+  "transport": [
+    {
+      "date": "2026-08-17",
+      "from": "Haneda Airport",
+      "to": "Keio Plaza Hotel",
+      "mode": "Private transfer / airport bus + taxi",
+      "duration": "50-80 min",
+      "status": "not booked"
+    },
+    {
+      "date": "2026-08-22",
+      "from": "Keio Plaza Tokyo",
+      "to": "Nazuna Hakone",
+      "mode": "Private car or Romancecar + local",
+      "duration": "2-3.25 hr",
+      "status": "not booked"
+    },
+    {
+      "date": "2026-08-23",
+      "from": "Nazuna Hakone",
+      "to": "Dusit Thani Kyoto",
+      "mode": "Taxi to Odawara + Tokaido Shinkansen Hikari",
+      "duration": "3-4 hr door-to-door",
+      "status": "not booked",
+      "notes": "Green Car recommended"
+    },
+    {
+      "date": "2026-08-25",
+      "from": "Kyoto",
+      "to": "Osaka (day trip)",
+      "mode": "JR / local rail",
+      "duration": "30-60 min each way",
+      "status": "not booked"
+    },
+    {
+      "date": "2026-08-27",
+      "from": "Dusit Thani Kyoto",
+      "to": "Hotel Sanraku Kanazawa",
+      "mode": "Thunderbird to Tsuruga + Hokuriku Shinkansen",
+      "duration": "2.75-3.5 hr door-to-door",
+      "status": "not booked"
+    },
+    {
+      "date": "2026-08-28",
+      "from": "Kanazawa",
+      "to": "Kaga Onsen (optional day trip)",
+      "mode": "Hokuriku Shinkansen",
+      "duration": "45-75 min each way door-to-door",
+      "status": "not booked"
+    },
+    {
+      "date": "2026-08-29",
+      "from": "Hotel Sanraku Kanazawa",
+      "to": "Final Tokyo hotel",
+      "mode": "Hokuriku Shinkansen",
+      "duration": "3.25-4 hr door-to-door",
+      "status": "not booked",
+      "notes": "Green Car recommended"
+    },
+    {
+      "date": "2026-08-30",
+      "from": "Final Tokyo hotel",
+      "to": "Haneda Airport",
+      "mode": "Private transfer / taxi / airport bus",
+      "duration": "40-80 min",
+      "status": "not booked"
+    }
+  ],
+  "luggage_forwarding": [
+    {
+      "from": "Keio Plaza Tokyo",
+      "to": "Dusit Thani Kyoto",
+      "send_by": "Aug 21 evening",
+      "status": "not arranged",
+      "notes": "Confirm cut-off time with Keio Plaza concierge"
+    },
+    {
+      "from": "Dusit Thani Kyoto",
+      "to": "Final Tokyo hotel",
+      "send_by": "Aug 26 evening",
+      "status": "blocked",
+      "notes": "Requires final Tokyo hotel to be booked first"
+    }
+  ],
+  "open_decisions": [
+    {
+      "item": "Kaga private day-use onsen",
+      "priority": "low",
+      "notes": "Optional. Transport is easy; availability of private/family bath is the constraint."
+    },
+    {
+      "item": "Luggage forwarding confirmation",
+      "priority": "medium",
+      "notes": "Tokyo -> Kyoto before Hakone. Kyoto -> Tokyo before Kanazawa (needs final hotel)."
+    },
+    {
+      "item": "Train reservations",
+      "priority": "medium",
+      "notes": "Reserve when 2026 schedules are available. Green Car recommended for longer rides."
+    },
+    {
+      "item": "Dusit adjoining/twin request",
+      "priority": "medium",
+      "notes": "Confirm Room 2 can be twin/adjoining. Amex confirmation lists 1 King + special request."
+    },
+    {
+      "item": "Nazuna meals",
+      "priority": "medium",
+      "notes": "Confirm dinner/breakfast inclusions and private onsen specifics."
+    },
+    {
+      "item": "Warner Bros. Studio Tour tickets (Day 5)",
+      "priority": "high",
+      "notes": "Book tickets for preferred time. Strong Day 5 option - indoor, heat-safe, half-day. Already available to book."
+    },
+    {
+      "item": "Super Nintendo World / USJ (Day 9 - Osaka)",
+      "priority": "medium",
+      "notes": "Requires USJ admission + timed entry for Nintendo area. Would replace or combine with Osaka sightseeing. Research ticket availability."
+    }
+  ],
+  "instagram_places": [
+    {
+      "name": "3COINS",
+      "type": "Shop",
+      "city": "Japan",
+      "neighborhood": "Various",
+      "category": "Shopping",
+      "why": "Great for cheap travel accessories, compression bags",
+      "time_of_day": "any",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DVWDijxCZGZ/",
+      "day_match": "1, 2, 3, 4, 5, 6"
+    },
+    {
+      "name": "Japanese Skincare Shopping",
+      "type": "Shopping",
+      "city": "Japan",
+      "neighborhood": "Various",
+      "category": "Tips",
+      "why": "10 Japanese skincare products worth buying",
+      "time_of_day": "any",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYWtgnwu_Vn/",
+      "day_match": "1, 2, 3, 4, 5, 6"
+    },
+    {
+      "name": "Aqua Garden Kyoto",
+      "type": "Restaurant",
+      "city": "Kyoto",
+      "neighborhood": "Nakagyo (Sanjo)",
+      "category": "Aquarium Dining",
+      "why": "Dine surrounded by aquariums - stunning for kids",
+      "time_of_day": "dinner",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYoQqvPyu3B/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Actual Kyoto",
+      "type": "Cafe/Shop",
+      "city": "Kyoto",
+      "neighborhood": "TBD",
+      "category": "Cafe",
+      "why": "Local Kyoto spot",
+      "time_of_day": "any",
+      "family_fit": "Good",
+      "heat_safe": true,
+      "source_url": "https://www.instagram.com/reel/DPf2q3WkpDG/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Kyoto Engine",
+      "type": "Restaurant/Cafe",
+      "city": "Kyoto",
+      "neighborhood": "TBD",
+      "category": "Cafe",
+      "why": "Must-visit Kyoto spot",
+      "time_of_day": "any",
+      "family_fit": "Good",
+      "heat_safe": true,
+      "source_url": "https://www.instagram.com/reel/DPf2q3WkpDG/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Good Morning Record Bar",
+      "type": "Cafe/Bar",
+      "city": "Kyoto",
+      "neighborhood": "TBD",
+      "category": "Cafe/Bar",
+      "why": "Music-themed cafe/bar",
+      "time_of_day": "afternoon/evening",
+      "family_fit": "Older kids",
+      "heat_safe": true,
+      "source_url": "https://www.instagram.com/reel/DPf2q3WkpDG/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Private Tea Ceremony",
+      "type": "Experience",
+      "city": "Kyoto",
+      "neighborhood": "Gion/Higashiyama",
+      "category": "Cultural Experience",
+      "why": "Private or small-group tea ceremony - great indoor heat escape",
+      "time_of_day": "afternoon",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DRDINy2CN9y/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Umishen Karaage",
+      "type": "Restaurant",
+      "city": "Kyoto",
+      "neighborhood": "TBD",
+      "category": "Fried Chicken",
+      "why": "Must-try karaage spot",
+      "time_of_day": "lunch",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DPf2q3WkpDG/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Glanta Kyoto",
+      "type": "Shop",
+      "city": "Kyoto",
+      "neighborhood": "Sanjo-Kawaramachi",
+      "category": "Jewelry/Souvenir",
+      "why": "Custom silver pinky ring ~$60 - favorite souvenir",
+      "time_of_day": "afternoon",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DXP8simjzJk/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Kibune Kawadoko Riverside Dining",
+      "type": "Restaurant",
+      "city": "Kyoto",
+      "neighborhood": "Kibune",
+      "category": "Kawadoko (riverside)",
+      "why": "Summer-only platform dining over cool river - heat escape",
+      "time_of_day": "lunch",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DX1wVZPMfFD/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Okeya Kyujiro",
+      "type": "Restaurant",
+      "city": "Kyoto",
+      "neighborhood": "TBD",
+      "category": "Omakase/Sushi",
+      "why": "Top-tier Kyoto omakase experience",
+      "time_of_day": "dinner",
+      "family_fit": "Teens/adults",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DXeMLzMCdi_/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Gion Tanto",
+      "type": "Restaurant",
+      "city": "Kyoto",
+      "neighborhood": "Gion",
+      "category": "Restaurant",
+      "why": "Must-visit Kyoto restaurant",
+      "time_of_day": "dinner",
+      "family_fit": "Good",
+      "heat_safe": true,
+      "source_url": "https://www.instagram.com/reel/DPf2q3WkpDG/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Hozugawa River Boat Ride",
+      "type": "Experience",
+      "city": "Kyoto",
+      "neighborhood": "Arashiyama/Kameoka",
+      "category": "River Boat",
+      "why": "Scenic river ride ending in Arashiyama",
+      "time_of_day": "morning",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DX7aYaPzBS9/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Sagano Romantic Train",
+      "type": "Experience",
+      "city": "Kyoto",
+      "neighborhood": "Arashiyama",
+      "category": "Scenic Train",
+      "why": "Scenic ride through Arashiyama valley",
+      "time_of_day": "morning",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DSRYxCmk-Dy/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Le Labo Fragrances Kyoto",
+      "type": "Shop",
+      "city": "Kyoto",
+      "neighborhood": "TBD",
+      "category": "Shopping",
+      "why": "Exclusive Kyoto scent available only here",
+      "time_of_day": "afternoon",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DPf2q3WkpDG/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Heian Jingu Shrine",
+      "type": "Shrine",
+      "city": "Kyoto",
+      "neighborhood": "Okazaki",
+      "category": "Shrine",
+      "why": "Grand shrine with beautiful gardens",
+      "time_of_day": "morning",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYhPqg8yVrr/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Kitano Tenmangu Shrine",
+      "type": "Shrine",
+      "city": "Kyoto",
+      "neighborhood": "Kamigyo",
+      "category": "Shrine",
+      "why": "Scholar shrine, flea market on 25th",
+      "time_of_day": "morning",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYhPqg8yVrr/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Shimogamo Shrine",
+      "type": "Shrine",
+      "city": "Kyoto",
+      "neighborhood": "Shimogamo",
+      "category": "Shrine",
+      "why": "Beautiful, less-touristy shrine",
+      "time_of_day": "morning",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYhPqg8yVrr/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Adashino Nenbutsu-ji",
+      "type": "Temple",
+      "city": "Kyoto",
+      "neighborhood": "Arashiyama (north)",
+      "category": "Temple",
+      "why": "Less-crowded alternative to Bamboo Grove",
+      "time_of_day": "morning",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYpuKWFsiv9/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Hashilab Chopsticks Workshop",
+      "type": "Experience",
+      "city": "Kyoto",
+      "neighborhood": "TBD",
+      "category": "Workshop",
+      "why": "Make personalized chopsticks - great family activity",
+      "time_of_day": "afternoon",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DXeinB9ke4u/",
+      "day_match": "7, 8, 9, 10"
+    },
+    {
+      "name": "Hankyu Garaku Train",
+      "type": "Experience",
+      "city": "Kyoto/Osaka",
+      "neighborhood": "N/A",
+      "category": "Scenic Train",
+      "why": "Zen garden-themed train Kyoto-Osaka for fraction of shinkansen cost",
+      "time_of_day": "any",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DXurURgEdSe/",
+      "day_match": "9"
+    },
+    {
+      "name": "Kanizen Crab",
+      "type": "Restaurant",
+      "city": "Osaka",
+      "neighborhood": "Shinsaibashi",
+      "category": "Crab/Seafood",
+      "why": "Real crab restaurant, not tourist trap - live crab prepared fresh",
+      "time_of_day": "dinner",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DXJvn-zEdLM/",
+      "day_match": "9"
+    },
+    {
+      "name": "MooKEN Cream Puffs",
+      "type": "Shop",
+      "city": "Osaka",
+      "neighborhood": "TBD",
+      "category": "Dessert",
+      "why": "Viral cream puffs",
+      "time_of_day": "afternoon",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DWmp4PtCcfr/",
+      "day_match": "9"
+    },
+    {
+      "name": "Hitomukashi",
+      "type": "Restaurant",
+      "city": "Osaka",
+      "neighborhood": "Namba/Shinsekai",
+      "category": "Hidden Gem",
+      "why": "Local-recommended hidden gem",
+      "time_of_day": "lunch",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYaq8eQzUH3/",
+      "day_match": "9"
+    },
+    {
+      "name": "Zauo Fishing Restaurant",
+      "type": "Restaurant",
+      "city": "Osaka",
+      "neighborhood": "Various",
+      "category": "Interactive Dining",
+      "why": "Catch your own fish and they cook it - chaotic fun",
+      "time_of_day": "dinner",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DWbdUqICeFA/",
+      "day_match": "9"
+    },
+    {
+      "name": "Cup Noodles Museum",
+      "type": "Attraction",
+      "city": "Osaka",
+      "neighborhood": "Ikeda",
+      "category": "Museum",
+      "why": "DIY cup noodles for ~$3, super fun for families",
+      "time_of_day": "morning/afternoon",
+      "family_fit": "Excellent",
+      "heat_safe": true,
+      "source_url": "https://www.instagram.com/reel/DXNjyo8E9aS/",
+      "day_match": "9"
+    },
+    {
+      "name": "IDATEN Wagyu",
+      "type": "Restaurant",
+      "city": "Osaka",
+      "neighborhood": "Namba",
+      "category": "Wagyu",
+      "why": "Premium wagyu near Namba station",
+      "time_of_day": "dinner",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DXoK13_EnO3/",
+      "day_match": "9"
+    },
+    {
+      "name": "Kitan Hibiki",
+      "type": "Restaurant",
+      "city": "Osaka",
+      "neighborhood": "Namba",
+      "category": "Wagyu Burger",
+      "why": "Famous wagyu burger",
+      "time_of_day": "lunch",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DV1nt-kEsba/",
+      "day_match": "9"
+    },
+    {
+      "name": "Bizenkai Samurai Training",
+      "type": "Experience",
+      "city": "Tokyo",
+      "neighborhood": "TBD",
+      "category": "Cultural Experience",
+      "why": "Authentic samurai combat training by descendant",
+      "time_of_day": "morning/afternoon",
+      "family_fit": "Excellent for teens",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DW5-lF1gUju/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Iyoshi Cola",
+      "type": "Shop/Cafe",
+      "city": "Tokyo",
+      "neighborhood": "Various",
+      "category": "Drink",
+      "why": "Viral craft cola - unique Japanese cola experience",
+      "time_of_day": "any",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYbqUyDvfy0/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Train Station Stamp Collecting",
+      "type": "Activity",
+      "city": "Tokyo",
+      "neighborhood": "Various",
+      "category": "Free Side Quest",
+      "why": "Collect unique stamps at each JR station",
+      "time_of_day": "any",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYth43ZBQWA/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Night Go-Karting",
+      "type": "Activity",
+      "city": "Tokyo",
+      "neighborhood": "Various",
+      "category": "Go-Kart",
+      "why": "Night go-karting through Tokyo streets - kids can drive",
+      "time_of_day": "evening",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DVXiq1nE07j/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Tokyo Joypolis",
+      "type": "Attraction",
+      "city": "Tokyo",
+      "neighborhood": "Odaiba",
+      "category": "Indoor Amusement Park",
+      "why": "3-level indoor rides, VR, arcade - heat escape",
+      "time_of_day": "afternoon",
+      "family_fit": "Excellent",
+      "heat_safe": true,
+      "source_url": "https://www.instagram.com/reel/DXMEF-2DaYY/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Fileja",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "TBD",
+      "category": "Italian/Pasta",
+      "why": "Chef-crafted pasta, riveting experience",
+      "time_of_day": "dinner",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DTRTRRPgRcS/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Ginza Hachigo",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "Ginza",
+      "category": "Ramen",
+      "why": "Refined shoyu ramen with elegant flavors",
+      "time_of_day": "lunch/dinner",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DUavL1cDbLQ/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Ichiran Ramen",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "Various",
+      "category": "Ramen",
+      "why": "Famous solo-booth ramen chain",
+      "time_of_day": "any",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DTK9HFOEW-e/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "SOBAHOUSE Konjiki-Hototogisu",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "Shinjuku",
+      "category": "Ramen",
+      "why": "Michelin-starred ramen with truffle aroma",
+      "time_of_day": "lunch/dinner",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DTK9HFOEW-e/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Sushi Ebisu Hana",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "Shibuya/Ebisu",
+      "category": "Sushi/Omakase",
+      "why": "19-dish omakase for ¥5,500 - great value",
+      "time_of_day": "lunch",
+      "family_fit": "Good for adventurous eaters",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DTTXX4GFByu/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Tsukiji Jisaku",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "Tsukiji",
+      "category": "Traditional Japanese (ryotei)",
+      "why": "Hidden traditional ryotei near Tsukiji market",
+      "time_of_day": "lunch/dinner",
+      "family_fit": "Good for older kids",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYmaPSRzZjE/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "SEN Tokyo Ikebukuro",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "Ikebukuro",
+      "category": "Tsukemen",
+      "why": "Hokkaido wheat noodles, smooth and chewy",
+      "time_of_day": "lunch/dinner",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DUqE-r1Eo2K/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "One Vintage",
+      "type": "Shop",
+      "city": "Tokyo",
+      "neighborhood": "TBD",
+      "category": "Vintage Shopping",
+      "why": "Incredible vintage band tees, anime tees, Chrome Hearts",
+      "time_of_day": "afternoon",
+      "family_fit": "Good for teens",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DVPWqtDj-jJ/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Nakame Cha Note",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "Nakameguro",
+      "category": "Wagyu & Matcha Omakase",
+      "why": "Warabi mochi with freshly ground matcha",
+      "time_of_day": "lunch/dinner",
+      "family_fit": "Good",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYlCm7Xv2kH/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    },
+    {
+      "name": "Yakiniku Inoue",
+      "type": "Restaurant",
+      "city": "Tokyo",
+      "neighborhood": "Ginza",
+      "category": "Wagyu/Yakiniku",
+      "why": "A5 wagyu lunch from ¥2,400 - incredible value",
+      "time_of_day": "lunch",
+      "family_fit": "Excellent",
+      "heat_safe": false,
+      "source_url": "https://www.instagram.com/reel/DYrdzLZOvbD/",
+      "day_match": "1, 2, 3, 4, 5, 13"
+    }
+  ],
+  "booking_tracker": [
+    {
+      "item": "Nintendo Museum lottery",
+      "city": "Kyoto (Uji)",
+      "status": "entered",
+      "date_entered": "2026-05-25",
+      "priority": "critical",
+      "notes": "Lottery entered. Awaiting results. If won, plan a Uji day: Nintendo Museum + Byodo-in + tea workshop."
+    },
+    {
+      "item": "Warner Bros. Studio Tour Tokyo",
+      "city": "Tokyo (Nerima)",
+      "status": "to book",
+      "priority": "high",
+      "notes": "Tickets available now. Book preferred time slot for Day 5 (Aug 21). Indoor/heat-proof."
+    }
+  ]
+}

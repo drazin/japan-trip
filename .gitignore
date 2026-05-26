@@ -1,0 +1,16 @@
+*.pdf
+*.zip
+*.xlsx
+instagram-export/
+instagram_parsed.json
+instagram_extracted_places.json
+instagram_complete.json
+guide_places.json
+dashboard_data.json
+dashboard_data_v2.json
+dashboard_data.js
+dashboard_data_enriched.js
+master_places.csv
+instagram_places.csv
+itinerary.csv
+.DS_Store
