@@ -13,4 +13,7 @@ dashboard_data_enriched.js
 master_places.csv
 instagram_places.csv
 itinerary.csv
+shared-actions.json
+dashboard.html
+node_modules/
 .DS_Store

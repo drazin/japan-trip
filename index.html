@@ -367,16 +367,45 @@ const DAYS = [
   {n:14,d:'Sun 8/30',c:'Tokyo',t:'Departure'},
 ];
 
-// Persistence
+// Persistence — shared server with localStorage fallback
 const STORAGE_KEY = 'drazin-japan-actions';
+const MANUAL_KEY = 'drazin-japan-manual';
 let itemActions = {};
+let saveTimer = null;
 
-function loadActions() {
+async function loadActions() {
+  try {
+    const res = await fetch('/api/state');
+    if (res.ok) {
+      const data = await res.json();
+      itemActions = data.actions || {};
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(itemActions));
+      if (data.manual && data.manual.length) {
+        const existing = new Set(DATA.map(d => d.name.toLowerCase()));
+        data.manual.forEach(item => {
+          if (!existing.has(item.name.toLowerCase())) { DATA.push(item); existing.add(item.name.toLowerCase()); }
+        });
+        localStorage.setItem(MANUAL_KEY, JSON.stringify(data.manual));
+      }
+      return;
+    }
+  } catch(e) {}
   try { itemActions = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { itemActions = {}; }
 }
+
 function saveActions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(itemActions));
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const manual = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]');
+    fetch('/api/state', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ actions: itemActions, manual })
+    }).catch(() => {});
+  }, 500);
 }
+
 function getAction(name) { return itemActions[name] || { status: 'none', day: null, notes: '', reserveDate: '' }; }
 function setAction(name, status, day, notes, reserveDate) {
   const prev = itemActions[name] || {};
@@ -404,7 +433,7 @@ let sortField = 'priority'; let sortDir = -1;
 let searchTerm = ''; let map = null; let markers = [];
 let openMenu = null;
 
-function init() { loadActions(); renderAll(); setupListeners(); }
+async function init() { await loadActions(); renderAll(); setupListeners(); }
 
 function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
@@ -1159,9 +1188,10 @@ function setupListeners() {
       url: ''
     });
     // Save manual additions to localStorage so they persist
-    const manualItems = JSON.parse(localStorage.getItem('drazin-japan-manual') || '[]');
+    const manualItems = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]');
     manualItems.push(DATA[DATA.length-1]);
-    localStorage.setItem('drazin-japan-manual', JSON.stringify(manualItems));
+    localStorage.setItem(MANUAL_KEY, JSON.stringify(manualItems));
+    saveActions();
     // Reset form
     document.getElementById('ap-name').value = '';
     document.getElementById('ap-hood').value = '';
@@ -1175,7 +1205,7 @@ function setupListeners() {
 
 // Restore manual additions from localStorage
 function restoreManual() {
-  const manualItems = JSON.parse(localStorage.getItem('drazin-japan-manual') || '[]');
+  const manualItems = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]');
   const existing = new Set(DATA.map(d => d.name.toLowerCase()));
   manualItems.forEach(item => {
     if (!existing.has(item.name.toLowerCase())) {
