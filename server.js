@@ -58,14 +58,18 @@ async function initDb() {
   await pool.query(`ALTER TABLE app_state ADD COLUMN IF NOT EXISTS trip_id TEXT`);
   await pool.query(`ALTER TABLE captures ADD COLUMN IF NOT EXISTS trip_id TEXT`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS app_state_trip_uidx ON app_state(trip_id)`);
+  await pool.query(`CREATE SEQUENCE IF NOT EXISTS app_state_id_seq`);
+  await pool.query(`SELECT setval('app_state_id_seq', GREATEST((SELECT COALESCE(MAX(id),1) FROM app_state), 1))`);
+  await pool.query(`ALTER TABLE app_state ALTER COLUMN id SET DEFAULT nextval('app_state_id_seq')`);
   console.log('Connected to Postgres');
 }
 
 const DATA_FILE = path.join(__dirname, 'shared-actions.json');
 
-async function readActions() {
+async function readActions(tripId) {
+  const tid = tripId || 'japan-2026';
   if (pool) {
-    const { rows } = await pool.query('SELECT data, updated FROM app_state WHERE id = 1');
+    const { rows } = await pool.query('SELECT data, updated FROM app_state WHERE trip_id = $1', [tid]);
     if (!rows.length) return EMPTY;
     return { ...rows[0].data, updated: rows[0].updated };
   }
@@ -76,12 +80,13 @@ async function readActions() {
   }
 }
 
-async function writeActions(data) {
+async function writeActions(tripId, data) {
+  const tid = tripId || 'japan-2026';
   if (pool) {
     await pool.query(
-      `INSERT INTO app_state (id, data, updated) VALUES (1, $1, now())
-       ON CONFLICT (id) DO UPDATE SET data = $1, updated = now()`,
-      [JSON.stringify(data)]
+      `INSERT INTO app_state (trip_id, data, updated) VALUES ($1, $2, now())
+       ON CONFLICT (trip_id) DO UPDATE SET data = $2, updated = now()`,
+      [tid, JSON.stringify(data)]
     );
     return;
   }
@@ -90,7 +95,7 @@ async function writeActions(data) {
 
 app.get('/api/state', async (req, res) => {
   try {
-    res.json(await readActions());
+    res.json(await readActions(req.query.trip));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to read state' });
@@ -98,10 +103,10 @@ app.get('/api/state', async (req, res) => {
 });
 
 app.post('/api/state', async (req, res) => {
-  const { actions, manual, dayPlans } = req.body;
+  const { actions, manual, dayPlans, tripId } = req.body;
   if (!actions) return res.status(400).json({ error: 'Missing actions' });
   try {
-    await writeActions({ actions, manual: manual || [], dayPlans: dayPlans || {} });
+    await writeActions(tripId, { actions, manual: manual || [], dayPlans: dayPlans || {} });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
