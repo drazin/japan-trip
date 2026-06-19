@@ -1687,7 +1687,8 @@ function setupCapture(){
 
 init();
 setupCapture();
-setupNewTrip();
+// The newtrip modal markup follows this script, so bind its buttons once the DOM is parsed.
+if (document.getElementById('nt-create')) setupNewTrip(); else document.addEventListener('DOMContentLoaded', setupNewTrip);
 </script>
 <div id="newtrip-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;align-items:flex-start;justify-content:center">
   <div style="background:var(--card);margin-top:8vh;padding:24px;border-radius:12px;width:min(520px,92vw);border:1px solid var(--border)">
