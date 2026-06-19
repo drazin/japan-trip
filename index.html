@@ -247,6 +247,7 @@ const DATA = [{"name": "Ghibli Museum", "city": "Tokyo", "neighborhood": "Mitaka
     <div class="subtitle">Aug 17-30, 2026 · Tokyo → Hakone → Kyoto → Kanazawa → Tokyo · <span id="item-count"></span> places</div>
   </div>
   <div class="header-actions">
+    <button id="capture-btn" style="color:var(--green)">📥 Capture <span id="pending-count"></span></button>
     <button onclick="exportActions()">Export Progress</button>
     <button onclick="document.getElementById('import-file').click()">Import Progress</button>
     <button onclick="clearActions()" style="color:var(--red)">Reset All</button>
@@ -262,8 +263,7 @@ const DATA = [{"name": "Ghibli Museum", "city": "Tokyo", "neighborhood": "Mitaka
   <div class="tab" data-view="days">By Day</div>
   <div class="tab" data-view="calendar">Booking Calendar</div>
   <div class="tab" data-view="itinerary">Our Itinerary</div>
-  <div class="tab" id="capture-tab" style="margin-left:auto;color:var(--green)">📥 Capture <span id="pending-count"></span></div>
-  <div class="tab" id="add-place-tab" style="color:var(--green)">+ Add Place</div>
+  <div class="tab" id="add-place-tab" style="margin-left:auto;color:var(--green)">+ Add Place</div>
 </div>
 
 <div id="add-place-form" style="display:none;padding:20px 40px;border-bottom:1px solid var(--border);background:var(--card)">
@@ -1420,7 +1420,7 @@ async function captureSubmit(){
 }
 
 function setupCapture(){
-  const tab = document.getElementById('capture-tab');
+  const tab = document.getElementById('capture-btn');
   const form = document.getElementById('capture-form');
   if(tab && form){
     tab.addEventListener('click', e => {
