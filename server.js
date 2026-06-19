@@ -231,10 +231,11 @@ app.post('/api/capture', async (req, res) => {
   if (rateLimited(String(ip).split(',')[0].trim())) {
     return res.status(429).json({ ok: false, code: 'rate_limited', message: 'Too many captures — try again in a few minutes.' });
   }
-  let { url, caption, category } = req.body || {};
+  let { url, caption, category, tripId } = req.body || {};
   url = (url || '').trim();
   caption = (caption || '').trim();
   category = (category || '').trim() || null;
+  tripId = (tripId || '').trim() || 'japan-2026';
   if (!url) return res.status(400).json({ ok: false, code: 'no_url', message: 'A URL is required.' });
   if (category && !CATEGORIES.includes(category)) category = null;
   if (caption.length > CAPTION_MAX) caption = caption.slice(0, CAPTION_MAX);
@@ -250,8 +251,8 @@ app.post('/api/capture', async (req, res) => {
     if (!caption) caption = await fetchCaption(url);
     if (!caption) {
       await pool.query(
-        `INSERT INTO captures (source_url, caption, category, place, needs_caption) VALUES ($1, '', $2, NULL, true)`,
-        [url, category]
+        `INSERT INTO captures (source_url, caption, category, place, needs_caption, trip_id) VALUES ($1, '', $2, NULL, true, $3)`,
+        [url, category, tripId]
       );
       return res.json({ ok: true, code: 'needs_caption', count: 0, message: "Couldn't read the caption — paste it in the Pending panel to finish." });
     }
@@ -262,8 +263,8 @@ app.post('/api/capture', async (req, res) => {
     for (const r of raw) {
       const place = toPlace(r, url, category);
       await pool.query(
-        `INSERT INTO captures (source_url, caption, category, place) VALUES ($1, $2, $3, $4)`,
-        [url, caption, category, JSON.stringify(place)]
+        `INSERT INTO captures (source_url, caption, category, place, trip_id) VALUES ($1, $2, $3, $4, $5)`,
+        [url, caption, category, JSON.stringify(place), tripId]
       );
     }
     res.json({ ok: true, code: 'ok', count: raw.length, message: `${raw.length} place${raw.length === 1 ? '' : 's'} found — review in Pending.` });
@@ -276,8 +277,10 @@ app.post('/api/capture', async (req, res) => {
 app.get('/api/pending', async (req, res) => {
   if (!pool) return res.json({ pending: [] });
   try {
+    const tid = req.query.trip || 'japan-2026';
     const { rows } = await pool.query(
-      `SELECT id, source_url, place, needs_caption, created_at FROM captures WHERE status = 'pending' ORDER BY created_at DESC, id DESC`
+      `SELECT id, source_url, place, needs_caption, created_at FROM captures WHERE status = 'pending' AND trip_id = $1 ORDER BY created_at DESC, id DESC`,
+      [tid]
     );
     res.json({ pending: rows });
   } catch (err) {
@@ -325,16 +328,16 @@ app.post('/api/pending/enrich', async (req, res) => {
   if (!id || !caption) return res.status(400).json({ ok: false, message: 'id and caption required' });
   if (caption.length > CAPTION_MAX) caption = caption.slice(0, CAPTION_MAX);
   try {
-    const { rows } = await pool.query(`SELECT source_url, category FROM captures WHERE id = $1`, [id]);
+    const { rows } = await pool.query(`SELECT source_url, category, trip_id FROM captures WHERE id = $1`, [id]);
     if (!rows.length) return res.status(404).json({ ok: false, message: 'Capture not found' });
-    const { source_url, category } = rows[0];
+    const { source_url, category, trip_id } = rows[0];
     const raw = await enrich(caption);
     await pool.query(`DELETE FROM captures WHERE id = $1`, [id]);
     for (const r of raw) {
       const place = toPlace(r, source_url, category);
       await pool.query(
-        `INSERT INTO captures (source_url, caption, category, place) VALUES ($1, $2, $3, $4)`,
-        [source_url, caption, category, JSON.stringify(place)]
+        `INSERT INTO captures (source_url, caption, category, place, trip_id) VALUES ($1, $2, $3, $4, $5)`,
+        [source_url, caption, category, JSON.stringify(place), trip_id]
       );
     }
     res.json({ ok: true, count: raw.length, message: raw.length ? `${raw.length} place(s) found.` : 'No places found.' });
@@ -488,6 +491,26 @@ app.put('/api/trips/:id', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Failed to update trip' });
   }
+});
+
+// --- Geocoding proxy (free OpenStreetMap Nominatim) ---------------------
+
+const geoCache = new Map();
+app.get('/api/geocode', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.json({});
+  if (geoCache.has(q)) return res.json(geoCache.get(q));
+  try {
+    const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q),
+      { headers: { 'User-Agent': 'DrazinFamilyTripPlanner/1.0 (personal trip planner)' } });
+    if (!r.ok) return res.json({});
+    const arr = await r.json();
+    const out = (Array.isArray(arr) && arr.length)
+      ? { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon), display_name: arr[0].display_name }
+      : {};
+    if (out.lat) geoCache.set(q, out);
+    res.json(out);
+  } catch (e) { res.json({}); }
 });
 
 initDb()
