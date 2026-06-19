@@ -410,6 +410,86 @@ app.post('/api/plan-day', async (req, res) => {
   }
 });
 
+// --- Trips (multi-trip support) -----------------------------------------
+
+app.get('/api/trips', async (req, res) => {
+  try {
+    if (!pool) return res.json({ trips: [] });
+    const { rows } = await pool.query('SELECT id, name, start_date, end_date FROM trips ORDER BY start_date NULLS LAST, created_at');
+    res.json({ trips: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to list trips' });
+  }
+});
+
+app.get('/api/trips/:id', async (req, res) => {
+  try {
+    if (!pool) return res.status(404).json({ error: 'no db' });
+    const { rows } = await pool.query('SELECT id, name, start_date, end_date, segments, hotels, base_places FROM trips WHERE id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to read trip' });
+  }
+});
+
+app.post('/api/trips', async (req, res) => {
+  try {
+    if (!pool) return res.status(400).json({ error: 'no db' });
+    const { id, name, startDate, endDate, hotels, segments, basePlaces } = req.body || {};
+    if (!id || typeof id !== 'string' || !/^[a-z0-9-]+$/.test(id) || !name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'id (slug) and name required' });
+    }
+    await pool.query(
+      `INSERT INTO trips (id, name, start_date, end_date, segments, hotels, base_places)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (id) DO UPDATE SET name=$2, start_date=$3, end_date=$4, segments=$5, hotels=$6, base_places=$7`,
+      [id, name, startDate || null, endDate || null,
+       JSON.stringify(segments || []), JSON.stringify(hotels || []), JSON.stringify(basePlaces || [])]
+    );
+    res.json({ ok: true, id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create trip' });
+  }
+});
+
+app.put('/api/trips/:id', async (req, res) => {
+  try {
+    if (!pool) return res.status(400).json({ error: 'no db' });
+    const body = req.body || {};
+    const COLS = {
+      name: { col: 'name', json: false },
+      startDate: { col: 'start_date', json: false },
+      endDate: { col: 'end_date', json: false },
+      hotels: { col: 'hotels', json: true },
+      segments: { col: 'segments', json: true },
+      basePlaces: { col: 'base_places', json: true },
+    };
+    const sets = [];
+    const vals = [];
+    for (const [key, meta] of Object.entries(COLS)) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) {
+        vals.push(meta.json ? JSON.stringify(body[key] || []) : (body[key] || null));
+        sets.push(`${meta.col} = $${vals.length}`);
+      }
+    }
+    if (!sets.length) return res.json({ ok: true });
+    vals.push(req.params.id);
+    const { rowCount } = await pool.query(
+      `UPDATE trips SET ${sets.join(', ')} WHERE id = $${vals.length}`,
+      vals
+    );
+    if (!rowCount) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update trip' });
+  }
+});
+
 initDb()
   .then(() => app.listen(PORT, () => console.log(`Japan trip dashboard on port ${PORT}`)))
   .catch((err) => {
