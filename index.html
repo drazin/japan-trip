@@ -262,7 +262,8 @@ const DATA = [{"name": "Ghibli Museum", "city": "Tokyo", "neighborhood": "Mitaka
   <div class="tab" data-view="days">By Day</div>
   <div class="tab" data-view="calendar">Booking Calendar</div>
   <div class="tab" data-view="itinerary">Our Itinerary</div>
-  <div class="tab" id="add-place-tab" style="margin-left:auto;color:var(--green)">+ Add Place</div>
+  <div class="tab" id="capture-tab" style="margin-left:auto;color:var(--green)">📥 Capture <span id="pending-count"></span></div>
+  <div class="tab" id="add-place-tab" style="color:var(--green)">+ Add Place</div>
 </div>
 
 <div id="add-place-form" style="display:none;padding:20px 40px;border-bottom:1px solid var(--border);background:var(--card)">
@@ -298,6 +299,30 @@ const DATA = [{"name": "Ghibli Museum", "city": "Tokyo", "neighborhood": "Mitaka
     <button id="ap-submit" style="padding:8px 20px;border-radius:8px;border:1px solid var(--green);background:rgba(34,197,94,0.15);color:var(--green);font-size:14px;font-weight:600;cursor:pointer">Add</button>
     <button id="ap-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:14px;cursor:pointer">Cancel</button>
   </div>
+</div>
+
+<div id="capture-form" style="display:none;padding:20px 40px;border-bottom:1px solid var(--border);background:var(--card)">
+  <div style="font-weight:600;margin-bottom:10px">Capture from Instagram</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">
+    <div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Instagram URL *</div>
+      <input type="text" id="cap-url" class="search-input" style="width:340px" placeholder="https://www.instagram.com/reel/...">
+    </div>
+    <div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Category (optional)</div>
+      <select id="cap-cat" class="search-input" style="width:160px">
+        <option value="">Auto-detect</option>
+        <option>Food</option><option>Experience</option><option>Attraction</option><option>Shopping</option><option>Temple/Shrine</option>
+      </select>
+    </div>
+    <button id="cap-submit" style="padding:8px 20px;border-radius:8px;border:1px solid var(--green);background:rgba(34,197,94,0.15);color:var(--green);font-size:14px;font-weight:600;cursor:pointer">Capture</button>
+  </div>
+  <div style="margin-top:10px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Caption (optional — paste it for the best results; leave blank to let the server try)</div>
+    <textarea id="cap-caption" class="search-input" style="width:100%;max-width:700px;height:72px;resize:vertical;font-family:inherit" placeholder="Paste the Instagram caption here..."></textarea>
+  </div>
+  <div id="cap-status" style="margin-top:8px;font-size:13px;min-height:18px;color:var(--muted)"></div>
+  <div id="pending-list" style="margin-top:16px"></div>
 </div>
 
 <div class="controls" id="controls">
@@ -1235,8 +1260,183 @@ function restoreManual() {
     }
   });
 }
+// --- Instagram capture -------------------------------------------------
+const CAP_CITIES = ['Tokyo','Kyoto','Osaka','Kanazawa','Hakone','Nara','Hiroshima','Nikko','Yokohama'];
+const CAP_CATS = ['Food','Experience','Attraction','Shopping','Temple/Shrine'];
+
+function capEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function capOptions(list, sel){ return list.map(o=>`<option${o===sel?' selected':''}>${capEsc(o)}</option>`).join(''); }
+
+function setCapStatus(msg, ok){
+  const el = document.getElementById('cap-status');
+  el.textContent = msg || '';
+  el.style.color = ok === false ? 'var(--red)' : (ok === true ? 'var(--green)' : 'var(--muted)');
+}
+
+async function loadPending(){
+  try {
+    const res = await fetch('/api/pending');
+    if(!res.ok) return;
+    const data = await res.json();
+    renderPending(data.pending || []);
+  } catch(e){}
+}
+
+function renderPending(rows){
+  const countEl = document.getElementById('pending-count');
+  if(countEl) countEl.textContent = rows.length ? `(${rows.length})` : '';
+  const wrap = document.getElementById('pending-list');
+  if(!wrap) return;
+  if(!rows.length){ wrap.innerHTML = '<div style="color:var(--muted);font-size:13px">No pending captures.</div>'; return; }
+
+  // Group by source reel
+  const groups = {};
+  rows.forEach(r => { (groups[r.source_url] = groups[r.source_url] || []).push(r); });
+
+  let html = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+    <button id="pend-approve" style="padding:7px 16px;border-radius:8px;border:1px solid var(--green);background:rgba(34,197,94,0.15);color:var(--green);font-weight:600;cursor:pointer">Approve selected</button>
+    <span style="font-size:12px;color:var(--muted)">${rows.length} place(s) waiting</span></div>`;
+
+  for(const [url, items] of Object.entries(groups)){
+    html += `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;background:var(--bg)">
+      <div style="font-size:12px;margin-bottom:8px"><a href="${capEsc(url)}" target="_blank" style="color:var(--muted)">🔗 ${capEsc(url)}</a></div>`;
+    items.forEach(r => {
+      if(r.needs_caption){
+        html += `<div class="pend-card" data-id="${r.id}" data-needs="1" style="padding:8px;border-top:1px solid var(--border)">
+          <div style="font-size:13px;color:var(--amber,#f59e0b);margin-bottom:6px">⚠ Couldn't read the caption — paste it here:</div>
+          <textarea class="pe-caption search-input" style="width:100%;max-width:680px;height:60px;font-family:inherit" placeholder="Paste caption..."></textarea>
+          <div style="margin-top:6px"><button class="pe-enrich" style="padding:6px 14px;border-radius:8px;border:1px solid var(--green);background:rgba(34,197,94,0.15);color:var(--green);cursor:pointer">Enrich</button>
+          <button class="pe-reject" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Reject</button></div></div>`;
+        return;
+      }
+      const p = r.place || {};
+      html += `<div class="pend-card" data-id="${r.id}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px;border-top:1px solid var(--border)">
+        <input type="checkbox" class="pe-keep" checked title="keep">
+        <input class="pe-name search-input" style="width:200px" value="${capEsc(p.name)}">
+        <select class="pe-city search-input" style="width:120px">${capOptions(CAP_CITIES, p.city)}</select>
+        <select class="pe-cat search-input" style="width:140px">${capOptions(CAP_CATS, p.category)}</select>
+        <input class="pe-days search-input" style="width:80px" value="${capEsc(p.days)}" placeholder="days">
+        <input class="pe-why search-input" style="width:260px" value="${capEsc(p.why)}" placeholder="why">
+        <button class="pe-reject" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">✕</button>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  wrap.innerHTML = html;
+
+  const approveBtn = document.getElementById('pend-approve');
+  if(approveBtn) approveBtn.addEventListener('click', approveSelected);
+  wrap.querySelectorAll('.pe-reject').forEach(b => b.addEventListener('click', e => {
+    const id = Number(e.target.closest('.pend-card').dataset.id);
+    rejectPending([id]);
+  }));
+  wrap.querySelectorAll('.pe-enrich').forEach(b => b.addEventListener('click', e => {
+    const card = e.target.closest('.pend-card');
+    enrichPending(Number(card.dataset.id), card.querySelector('.pe-caption').value.trim());
+  }));
+}
+
+function addCapturedPlaces(places){
+  const manualItems = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]');
+  const existing = new Set(DATA.map(d => d.name.toLowerCase()));
+  let added = 0;
+  places.forEach(p => {
+    if(!p || !p.name || existing.has(p.name.toLowerCase())) return;
+    DATA.push(p); manualItems.push(p); existing.add(p.name.toLowerCase()); added++;
+  });
+  localStorage.setItem(MANUAL_KEY, JSON.stringify(manualItems));
+  saveActions();
+  renderAll();
+  return added;
+}
+
+async function approveSelected(){
+  const cards = [...document.querySelectorAll('.pend-card')].filter(c => {
+    const k = c.querySelector('.pe-keep'); return k && k.checked;
+  });
+  if(!cards.length){ setCapStatus('Nothing selected.', false); return; }
+  const ids = cards.map(c => Number(c.dataset.id));
+  const edits = {};
+  cards.forEach(c => {
+    edits[c.dataset.id] = {
+      name: c.querySelector('.pe-name').value.trim(),
+      city: c.querySelector('.pe-city').value,
+      category: c.querySelector('.pe-cat').value,
+      days: c.querySelector('.pe-days').value.trim(),
+      why: c.querySelector('.pe-why').value.trim(),
+    };
+  });
+  try {
+    const res = await fetch('/api/pending/approve', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ ids, edits })
+    });
+    const data = await res.json();
+    const added = addCapturedPlaces(data.places || []);
+    setCapStatus(`Added ${added} place(s) to the board.`, true);
+    loadPending();
+  } catch(e){ setCapStatus('Approve failed.', false); }
+}
+
+async function rejectPending(ids){
+  try {
+    await fetch('/api/pending/reject', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids }) });
+    loadPending();
+  } catch(e){}
+}
+
+async function enrichPending(id, caption){
+  if(!caption){ setCapStatus('Paste a caption first.', false); return; }
+  setCapStatus('Enriching…');
+  try {
+    const res = await fetch('/api/pending/enrich', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, caption }) });
+    const data = await res.json();
+    setCapStatus(data.message || (data.ok ? 'Done.' : 'Failed.'), data.ok !== false);
+    loadPending();
+  } catch(e){ setCapStatus('Enrich failed.', false); }
+}
+
+async function captureSubmit(){
+  const url = document.getElementById('cap-url').value.trim();
+  const caption = document.getElementById('cap-caption').value.trim();
+  const category = document.getElementById('cap-cat').value;
+  if(!url){ setCapStatus('Paste an Instagram URL.', false); return; }
+  setCapStatus('Capturing…');
+  document.getElementById('cap-submit').disabled = true;
+  try {
+    const res = await fetch('/api/capture', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url, caption, category })
+    });
+    const data = await res.json();
+    setCapStatus(data.message || (data.ok ? 'Captured.' : 'Failed.'), data.ok !== false ? true : false);
+    if(data.ok){
+      document.getElementById('cap-url').value = '';
+      document.getElementById('cap-caption').value = '';
+      loadPending();
+    }
+  } catch(e){ setCapStatus('Capture failed — server error.', false); }
+  finally { document.getElementById('cap-submit').disabled = false; }
+}
+
+function setupCapture(){
+  const tab = document.getElementById('capture-tab');
+  const form = document.getElementById('capture-form');
+  if(tab && form){
+    tab.addEventListener('click', e => {
+      e.stopPropagation();
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      if(form.style.display === 'block') loadPending();
+    });
+  }
+  const sub = document.getElementById('cap-submit');
+  if(sub) sub.addEventListener('click', captureSubmit);
+  loadPending();
+}
+
 restoreManual();
 init();
+setupCapture();
 </script>
 </body>
 </html>

@@ -5,6 +5,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(__dirname));
@@ -28,6 +29,18 @@ async function initDb() {
       id INTEGER PRIMARY KEY DEFAULT 1,
       data JSONB NOT NULL,
       updated TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS captures (
+      id SERIAL PRIMARY KEY,
+      source_url TEXT,
+      caption TEXT,
+      category TEXT,
+      place JSONB,
+      status TEXT DEFAULT 'pending',
+      needs_caption BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT now()
     )
   `);
   console.log('Connected to Postgres');
@@ -78,6 +91,236 @@ app.post('/api/state', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to write state' });
+  }
+});
+
+// --- Instagram capture ---------------------------------------------------
+
+const CITY_COORDS = {
+  Tokyo: [35.68, 139.77], Kyoto: [35.01, 135.77], Osaka: [34.69, 135.50],
+  Kanazawa: [36.56, 136.66], Hakone: [35.23, 139.06], Nara: [34.69, 135.80],
+  Hiroshima: [34.39, 132.46], Nikko: [36.75, 139.61], Yokohama: [35.44, 139.64],
+};
+const CATEGORIES = ['Food', 'Experience', 'Attraction', 'Shopping', 'Temple/Shrine'];
+const CAPTION_MAX = 12000;
+
+// Deterministic jitter so map pins don't stack exactly. Avoids Math.random for testability.
+let jitterSeed = 1;
+function cityLatLng(city) {
+  const base = CITY_COORDS[city] || CITY_COORDS.Tokyo;
+  jitterSeed = (jitterSeed * 9301 + 49297) % 233280;
+  const r = jitterSeed / 233280;
+  return [base[0] + (r - 0.5) * 0.02, base[1] + (r - 0.5) * 0.02];
+}
+
+// Simple in-memory per-IP rate limit: max N requests per window.
+const rl = new Map();
+function rateLimited(ip, max = 30, windowMs = 10 * 60 * 1000) {
+  const now = Date.now();
+  const hits = (rl.get(ip) || []).filter(t => now - t < windowMs);
+  hits.push(now);
+  rl.set(ip, hits);
+  return hits.length > max;
+}
+
+async function fetchCaption(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TripBot/1.0)' },
+      redirect: 'follow',
+    });
+    if (!res.ok) return '';
+    const html = await res.text();
+    const m = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
+    if (!m) return '';
+    return m[1].replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&').trim();
+  } catch {
+    return '';
+  }
+}
+
+function toPlace(raw, sourceUrl, categoryOverride) {
+  const city = (raw.city || 'Tokyo').trim();
+  const [lat, lng] = cityLatLng(city);
+  let category = categoryOverride || raw.category || 'Experience';
+  if (!CATEGORIES.includes(category)) category = 'Experience';
+  return {
+    name: (raw.name || 'Unknown').trim(),
+    city,
+    neighborhood: (raw.neighborhood || '').trim(),
+    category,
+    why: (raw.why || '').trim(),
+    family_fit: (raw.family_fit || '').trim(),
+    booking: (raw.booking || '').trim(),
+    priority: Number.isInteger(raw.priority) ? raw.priority : 3,
+    heat: (raw.heat || 'Indoor').trim(),
+    days: '',
+    source: 'Instagram',
+    lat, lng,
+    url: sourceUrl || '',
+  };
+}
+
+async function enrich(caption) {
+  const Anthropic = require('@anthropic-ai/sdk');
+  const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+  const msg = await client.messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 2000,
+    tool_choice: { type: 'tool', name: 'record_places' },
+    tools: [{
+      name: 'record_places',
+      description: 'Record every distinct real-world place (restaurant, shop, attraction, temple, experience) mentioned in an Instagram caption about Japan travel.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          places: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Place name' },
+                city: { type: 'string', description: 'Japanese city, e.g. Tokyo, Kyoto, Osaka. Best guess.' },
+                neighborhood: { type: 'string' },
+                category: { type: 'string', enum: CATEGORIES },
+                why: { type: 'string', description: 'One short sentence on why it is worth visiting.' },
+                family_fit: { type: 'string', description: 'Short note on suitability for a family with kids/teens.' },
+                booking: { type: 'string', description: 'Reservation needs if mentioned, else empty.' },
+                heat: { type: 'string', description: 'Indoor, Outdoor, or Evening.' },
+                priority: { type: 'integer', minimum: 1, maximum: 5 },
+              },
+              required: ['name', 'city', 'category', 'why'],
+            },
+          },
+        },
+        required: ['places'],
+      },
+    }],
+    messages: [{
+      role: 'user',
+      content: `Extract every distinct place from this Instagram caption. If it mentions no real place, return an empty list. Caption:\n\n${caption}`,
+    }],
+  });
+  const tool = msg.content.find(c => c.type === 'tool_use');
+  return (tool && tool.input && Array.isArray(tool.input.places)) ? tool.input.places : [];
+}
+
+app.post('/api/capture', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  if (rateLimited(String(ip).split(',')[0].trim())) {
+    return res.status(429).json({ ok: false, code: 'rate_limited', message: 'Too many captures — try again in a few minutes.' });
+  }
+  let { url, caption, category } = req.body || {};
+  url = (url || '').trim();
+  caption = (caption || '').trim();
+  category = (category || '').trim() || null;
+  if (!url) return res.status(400).json({ ok: false, code: 'no_url', message: 'A URL is required.' });
+  if (category && !CATEGORIES.includes(category)) category = null;
+  if (caption.length > CAPTION_MAX) caption = caption.slice(0, CAPTION_MAX);
+
+  if (!ANTHROPIC_API_KEY) {
+    return res.json({ ok: false, code: 'no_api_key', message: 'Enrichment not configured yet — add ANTHROPIC_API_KEY to enable AI capture.' });
+  }
+  if (!pool) {
+    return res.json({ ok: false, code: 'no_db', message: 'Database not available.' });
+  }
+
+  try {
+    if (!caption) caption = await fetchCaption(url);
+    if (!caption) {
+      await pool.query(
+        `INSERT INTO captures (source_url, caption, category, place, needs_caption) VALUES ($1, '', $2, NULL, true)`,
+        [url, category]
+      );
+      return res.json({ ok: true, code: 'needs_caption', count: 0, message: "Couldn't read the caption — paste it in the Pending panel to finish." });
+    }
+    const raw = await enrich(caption);
+    if (!raw.length) {
+      return res.json({ ok: true, code: 'no_places', count: 0, message: 'No places found in that post.' });
+    }
+    for (const r of raw) {
+      const place = toPlace(r, url, category);
+      await pool.query(
+        `INSERT INTO captures (source_url, caption, category, place) VALUES ($1, $2, $3, $4)`,
+        [url, caption, category, JSON.stringify(place)]
+      );
+    }
+    res.json({ ok: true, code: 'ok', count: raw.length, message: `${raw.length} place${raw.length === 1 ? '' : 's'} found — review in Pending.` });
+  } catch (err) {
+    console.error('capture failed', err);
+    res.status(500).json({ ok: false, code: 'error', message: 'Capture failed: ' + (err.message || 'unknown error') });
+  }
+});
+
+app.get('/api/pending', async (req, res) => {
+  if (!pool) return res.json({ pending: [] });
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, source_url, place, needs_caption, created_at FROM captures WHERE status = 'pending' ORDER BY created_at DESC, id DESC`
+    );
+    res.json({ pending: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to read pending' });
+  }
+});
+
+app.post('/api/pending/approve', async (req, res) => {
+  if (!pool) return res.status(400).json({ error: 'No database' });
+  const ids = (req.body && req.body.ids) || [];
+  const edits = (req.body && req.body.edits) || {};
+  if (!ids.length) return res.json({ ok: true, places: [] });
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, place FROM captures WHERE id = ANY($1) AND status = 'pending' AND place IS NOT NULL`, [ids]
+    );
+    const places = rows.map(r => ({ ...r.place, ...(edits[r.id] || {}) }));
+    await pool.query(`UPDATE captures SET status = 'approved' WHERE id = ANY($1)`, [ids]);
+    res.json({ ok: true, places });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to approve' });
+  }
+});
+
+app.post('/api/pending/reject', async (req, res) => {
+  if (!pool) return res.status(400).json({ error: 'No database' });
+  const ids = (req.body && req.body.ids) || [];
+  if (!ids.length) return res.json({ ok: true });
+  try {
+    await pool.query(`UPDATE captures SET status = 'rejected' WHERE id = ANY($1)`, [ids]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to reject' });
+  }
+});
+
+app.post('/api/pending/enrich', async (req, res) => {
+  if (!pool) return res.status(400).json({ error: 'No database' });
+  if (!ANTHROPIC_API_KEY) return res.json({ ok: false, code: 'no_api_key', message: 'Add ANTHROPIC_API_KEY to enable enrichment.' });
+  const id = req.body && req.body.id;
+  let caption = ((req.body && req.body.caption) || '').trim();
+  if (!id || !caption) return res.status(400).json({ ok: false, message: 'id and caption required' });
+  if (caption.length > CAPTION_MAX) caption = caption.slice(0, CAPTION_MAX);
+  try {
+    const { rows } = await pool.query(`SELECT source_url, category FROM captures WHERE id = $1`, [id]);
+    if (!rows.length) return res.status(404).json({ ok: false, message: 'Capture not found' });
+    const { source_url, category } = rows[0];
+    const raw = await enrich(caption);
+    await pool.query(`DELETE FROM captures WHERE id = $1`, [id]);
+    for (const r of raw) {
+      const place = toPlace(r, source_url, category);
+      await pool.query(
+        `INSERT INTO captures (source_url, caption, category, place) VALUES ($1, $2, $3, $4)`,
+        [source_url, caption, category, JSON.stringify(place)]
+      );
+    }
+    res.json({ ok: true, count: raw.length, message: raw.length ? `${raw.length} place(s) found.` : 'No places found.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, message: 'Enrich failed: ' + (err.message || 'error') });
   }
 });
 
