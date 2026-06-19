@@ -141,6 +141,8 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   /* Day View */
   .day-view { display: none; }
   .day-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px; margin-top: 16px; }
+  .day-builder { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-top: 8px; }
+  @media (max-width: 820px) { .day-builder { grid-template-columns: 1fr; } }
   .day-column { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
   .day-column h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
   .day-column .day-meta { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
@@ -451,11 +453,42 @@ function saveActions() {
   }, 500);
 }
 
-function getAction(name) { return itemActions[name] || { status: 'none', day: null, notes: '', reserveDate: '' }; }
+function getAction(name) { return itemActions[name] || { status: 'none', day: null, notes: '', reserveDate: '', block: '', time: '' }; }
 function setAction(name, status, day, notes, reserveDate) {
   const prev = itemActions[name] || {};
-  itemActions[name] = { status, day: day || null, notes: notes || '', reserveDate: reserveDate !== undefined ? reserveDate : (prev.reserveDate || '') };
+  itemActions[name] = { status, day: day || null, notes: notes || '', reserveDate: reserveDate !== undefined ? reserveDate : (prev.reserveDate || ''), block: prev.block || '', time: prev.time || '' };
   saveActions(); renderAll();
+}
+// --- Day builder: blocks (time-of-day) + time notes ---
+const DAY_BLOCKS = [['morning','🌅 Morning'],['afternoon','☀️ Afternoon'],['evening','🌙 Evening'],['unscheduled','🕐 Unscheduled']];
+let optionsTab = 'recommended';
+let dragName = null;
+function addToDayBlock(name, block){
+  const a = getAction(name);
+  const status = (a.status === 'none') ? 'assigned' : a.status;
+  itemActions[name] = { ...a, status, day: selectedDay, block: block };
+  saveActions(); renderDays();
+}
+function setBlockBtn(el){ addToDayBlock(el.dataset.name, el.dataset.block); }
+function unassignFromDay(el){
+  const name = el.dataset.name; const a = getAction(name);
+  itemActions[name] = { ...a, day: null, block: '', status: a.status === 'assigned' ? 'none' : a.status };
+  saveActions(); renderDays();
+}
+function editTime(el){
+  const name = el.dataset.name; const a = getAction(name);
+  const t = prompt('Time for ' + name + ' (e.g. "after 7pm", "8:00 light show"):', a.time || '');
+  if (t !== null) { itemActions[name] = { ...a, time: t.trim() }; saveActions(); renderDays(); }
+}
+function setOptionsTab(t){ optionsTab = t; renderDays(); }
+function dayDragStart(ev){ dragName = ev.currentTarget.dataset.name || null; if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move'; }
+function dayDragOver(ev){ ev.preventDefault(); if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'; }
+function dayDrop(ev, block){ ev.preventDefault(); if (dragName) { addToDayBlock(dragName, block); dragName = null; } }
+function blockBtns(name){
+  const eName = esc(name);
+  return DAY_BLOCKS.map(([k, lbl]) =>
+    '<button data-name="' + eName + '" data-block="' + k + '" onclick="setBlockBtn(this)" title="Move to ' + lbl + '" style="font-size:12px;background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 6px;cursor:pointer">' + lbl.split(' ')[0] + '</button>'
+  ).join('');
 }
 function exportActions() {
   const blob = new Blob([JSON.stringify(itemActions, null, 2)], {type: 'application/json'});
@@ -958,74 +991,102 @@ async function planDayAI(n){
 }
 
 let selectedDay = null;
-function renderDayColumn(dy, filtered) {
-    const plan = getDayPlan(dy.n);
-    const focusActive = plan.slots.some(s => s.hood);
-    const assigned = filtered.filter(d => getAction(d.name).day === dy.n).sort((a,b) => b.priority - a.priority);
-    const assignedByHood = groupByNeighborhood(assigned);
+function renderDayControls(dy){
+  const plan = getDayPlan(dy.n);
+  const anchors = cityAnchors(dy.c);
+  let controls = '<div style="margin:8px 0;padding:8px;border:1px dashed var(--border);border-radius:8px">';
+  if (!anchors.length) {
+    controls += '<div style="font-size:11px;color:var(--muted)">No focus areas for ' + dy.c + '</div>';
+  } else {
+    controls += plan.slots.map((s, i) =>
+      '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">' +
+      (plan.slots.length > 1 ? '<span style="font-size:11px;color:var(--muted);width:62px">' + s.time + '</span>' : '') +
+      anchorSelect(dy.n, i, dy.c, s.hood || '') + '</div>'
+    ).join('');
+    controls += '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">' +
+      '<button onclick="toggleDaySplit(' + dy.n + ')" style="font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer">' + (plan.slots.length > 1 ? '– Single focus' : '+ Split AM / PM / Eve') + '</button>' +
+      '<button id="plan-btn-' + dy.n + '" onclick="planDayAI(' + dy.n + ')" style="font-size:11px;background:rgba(168,85,247,0.15);border:1px solid #a855f7;color:#a855f7;border-radius:6px;padding:3px 8px;cursor:pointer">✨ Plan day with AI</button>' +
+      '</div>';
+  }
+  controls += '</div>';
+  return controls;
+}
 
-    // focus control strip
-    const anchors = cityAnchors(dy.c);
-    let controls = '<div style="margin:8px 0;padding:8px;border:1px dashed var(--border);border-radius:8px">';
-    if (!anchors.length) {
-      controls += '<div style="font-size:11px;color:var(--muted)">No focus areas for ' + dy.c + '</div>';
-    } else {
-      controls += plan.slots.map((s, i) =>
-        '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">' +
-        (plan.slots.length > 1 ? '<span style="font-size:11px;color:var(--muted);width:62px">' + s.time + '</span>' : '') +
-        anchorSelect(dy.n, i, dy.c, s.hood || '') + '</div>'
-      ).join('');
-      controls += '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">' +
-        '<button onclick="toggleDaySplit(' + dy.n + ')" style="font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer">' + (plan.slots.length > 1 ? '– Single focus' : '+ Split AM / PM / Eve') + '</button>' +
-        '<button id="plan-btn-' + dy.n + '" onclick="planDayAI(' + dy.n + ')" style="font-size:11px;background:rgba(168,85,247,0.15);border:1px solid #a855f7;color:#a855f7;border-radius:6px;padding:3px 8px;cursor:pointer">✨ Plan day with AI</button>' +
-        '</div>';
-    }
-    controls += '</div>';
+function renderBuiltCard(d){
+  const a = getAction(d.name);
+  const eName = esc(d.name);
+  const hotel = hotelForDay(selectedDay);
+  const dest = (typeof d.lat === 'number') ? (d.lat + ',' + d.lng) : null;
+  const dir = dest ? '<a href="https://www.google.com/maps/dir/?api=1&destination=' + dest + '&travelmode=transit" target="_blank" style="color:#3b82f6;font-size:11px">🧭 Directions</a>' + (hotel ? ' · <a href="https://www.google.com/maps/dir/?api=1&origin=' + hotel.lat + ',' + hotel.lng + '&destination=' + dest + '&travelmode=transit" target="_blank" style="color:var(--muted);font-size:11px">from hotel</a>' : '') : '';
+  return '<div class="built-card" draggable="true" data-name="' + eName + '" ondragstart="dayDragStart(event)" style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;background:var(--card);cursor:grab">' +
+    '<div style="font-size:13px;font-weight:600">' + '★'.repeat(d.priority) + ' ' + esc(d.name) + '</div>' +
+    '<div style="font-size:11px;color:var(--muted)">' + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
+    '<div style="margin-top:4px;font-size:11px">⏰ <span data-name="' + eName + '" onclick="editTime(this)" style="cursor:pointer;color:#3b82f6">' + (a.time ? esc(a.time) : 'set time') + '</span></div>' +
+    (dir ? '<div style="margin-top:4px">' + dir + '</div>' : '') +
+    '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">' +
+      blockBtns(d.name) +
+      '<button data-name="' + eName + '" onclick="unassignFromDay(this)" title="Remove from day" style="font-size:11px;background:transparent;border:1px solid var(--border);color:var(--red);border-radius:6px;padding:2px 6px;cursor:pointer;margin-left:auto">✕</button>' +
+    '</div>' +
+  '</div>';
+}
 
-    // body: per-slot recommendations (focus active) OR fallback "could fit"
-    let body = '';
-    if (focusActive) {
-      const hotel = hotelForDay(dy.n);
-      const hotelNote = hotel ? '<div style="font-size:10px;color:var(--muted);margin:4px 0">📍 distances from ' + esc(hotel.name) + (hotel.neighborhood ? ' (' + esc(hotel.neighborhood) + ')' : '') + '</div>' : '';
-      body = hotelNote + plan.slots.filter(s => s.hood).map(s => {
-        const anchor = findAnchor(dy.c, s.hood);
-        const recs = recsForAnchor(dy.c, anchor, 12).filter(r => getAction(r.d.name).day !== dy.n);
-        const label = (plan.slots.length > 1 ? s.time + ' · ' : '') + s.hood;
-        if (!recs.length) return '<div class="section-label" style="color:var(--muted)">' + label + ' — nothing nearby</div>';
-        return '<div class="section-label" style="color:#3b82f6">' + label + ' (' + recs.length + ')</div>' +
-          '<div class="nh-group">' + recs.map(r => {
-            const km = hotel ? haversine(hotel.lat, hotel.lng, r.d.lat, r.d.lng) : r.km;
-            return '<div style="font-size:10px;color:var(--muted);margin:2px 0 -2px 2px">' + distBadge(km) + '</div>' + renderDayCard(r.d, '');
-          }).join('') + '</div>';
-      }).join('');
-    } else {
-      const possible = filtered.filter(d => {
-        if (getAction(d.name).day === dy.n) return false;
-        if (getAction(d.name).status === 'skip') return false;
-        return dayMatchesDayNum(d.days, dy.n);
-      }).sort((a,b) => b.priority - a.priority);
-      const possibleByHood = groupByNeighborhood(possible);
-      body = possible.length ? '<div class="section-label" style="color:var(--muted)">Could fit here (' + possible.length + ')</div>' +
-        possibleByHood.map(([hood, items]) =>
-          '<div class="nh-group"><div class="nh-header"><span>' + hood + '</span><span class="nh-count">' + items.length + '</span></div>' +
-          items.map(d => renderDayCard(d, '')).join('') + '</div>'
-        ).join('') : '';
-    }
+function renderDayBuilt(dy){
+  const assigned = DATA.filter(d => getAction(d.name).day === dy.n);
+  return '<div style="font-weight:700;margin-bottom:8px">📋 Your Day</div>' +
+    DAY_BLOCKS.map(([key, label]) => {
+      const items = assigned.filter(d => (getAction(d.name).block || 'unscheduled') === key).sort((a,b) => b.priority - a.priority);
+      return '<div data-block="' + key + '" ondragover="dayDragOver(event)" ondrop="dayDrop(event,\'' + key + '\')" style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px;min-height:54px;background:var(--bg)">' +
+        '<div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">' + label + ' (' + items.length + ')</div>' +
+        (items.length ? items.map(renderBuiltCard).join('') : '<div style="font-size:11px;color:var(--muted)">drop a place here</div>') +
+      '</div>';
+    }).join('');
+}
 
-    return '<div class="day-column">' +
-      '<h3>Day '+dy.n+' &mdash; '+dy.t+'</h3>' +
-      '<div class="day-meta">'+dy.d+' &middot; '+dy.c+'</div>' +
-      controls +
-      renderAiPlan(dy.n, plan.ai) +
-      (assigned.length ? '<div class="section-label" style="color:var(--green)">&#x2714; Assigned ('+assigned.length+')</div>' +
-        assignedByHood.map(([hood, items]) =>
-          '<div class="nh-group"><div class="nh-header"><span>'+hood+'</span><span class="nh-count">'+items.length+'</span></div>' +
-          items.map(d => renderDayCard(d, 'border-left:3px solid var(--green)')).join('') +
-          '</div>'
-        ).join('') : '') +
-      body +
-      (!assigned.length && !body ? '<div class="day-card"><div class="dc-meta">Travel / rest day</div></div>' : '') +
-    '</div>';
+function renderOptionCard(d, km){
+  const eName = esc(d.name);
+  const badge = (km != null) ? '<span style="font-size:10px;color:var(--muted)">' + distBadge(km) + '</span> ' : '';
+  return '<div class="opt-card" draggable="true" data-name="' + eName + '" ondragstart="dayDragStart(event)" style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;background:var(--card);cursor:grab">' +
+    '<div style="font-size:13px">' + '★'.repeat(d.priority) + ' ' + esc(d.name) + '</div>' +
+    '<div style="font-size:11px;color:var(--muted)">' + badge + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
+    '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">' + blockBtns(d.name) + '</div>' +
+  '</div>';
+}
+
+function recommendedOptions(dy){
+  const plan = getDayPlan(dy.n);
+  const hotel = hotelForDay(dy.n);
+  const focusActive = plan.slots.some(s => s.hood);
+  const distOf = d => (hotel && typeof d.lat === 'number') ? haversine(hotel.lat, hotel.lng, d.lat, d.lng) : null;
+  let recs = []; const seen = new Set();
+  if (focusActive) {
+    plan.slots.filter(s => s.hood).forEach(s => {
+      const anchor = findAnchor(dy.c, s.hood);
+      recsForAnchor(dy.c, anchor, 12).forEach(r => { if (!seen.has(r.d.name)) { seen.add(r.d.name); recs.push(r.d); } });
+    });
+  } else {
+    recs = DATA.filter(d => d.city === dy.c && getAction(d.name).status !== 'skip')
+      .sort((a,b) => (b.priority - a.priority) || ((distOf(a) || 999) - (distOf(b) || 999))).slice(0, 20);
+  }
+  recs = recs.filter(d => getAction(d.name).day !== dy.n);
+  if (!recs.length) return '<div style="font-size:12px;color:var(--muted)">Nothing to recommend — set a focus area above, or use the All tab.</div>';
+  return recs.map(d => renderOptionCard(d, distOf(d))).join('');
+}
+
+function allOptions(dy, filtered){
+  const hotel = hotelForDay(dy.n);
+  const distOf = d => (hotel && typeof d.lat === 'number') ? haversine(hotel.lat, hotel.lng, d.lat, d.lng) : null;
+  const list = filtered.filter(d => getAction(d.name).day !== dy.n);
+  if (!list.length) return '<div style="font-size:12px;color:var(--muted)">No places match the current filters.</div>';
+  return '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">' + list.length + ' place(s) — use the search/filters above to narrow</div>' +
+    list.slice(0, 200).map(d => renderOptionCard(d, distOf(d))).join('');
+}
+
+function renderDayOptions(dy, filtered){
+  const tab = (key, label) => '<button onclick="setOptionsTab(\'' + key + '\')" style="font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer;border:1px solid ' + (optionsTab === key ? '#3b82f6' : 'var(--border)') + ';background:' + (optionsTab === key ? 'rgba(59,130,246,0.15)' : 'transparent') + ';color:' + (optionsTab === key ? '#3b82f6' : 'var(--muted)') + '">' + label + '</button>';
+  const list = optionsTab === 'all' ? allOptions(dy, filtered) : recommendedOptions(dy);
+  return '<div style="font-weight:700;margin-bottom:8px">➕ Options to add</div>' +
+    '<div style="display:flex;gap:6px;margin-bottom:8px">' + tab('recommended', '✨ Recommended') + tab('all', 'All places') + '</div>' +
+    '<div>' + list + '</div>';
 }
 
 // --- Overview <-> single-day navigation ---
@@ -1095,8 +1156,16 @@ function renderDays(){
     (tdi ? '<span style="font-size:12px;color:#f59e0b">✈️ '+esc(tdi)+'</span>' : '') +
     '</div>';
   container.style.display = 'block';
-  const openPrompt = dayIsOpen(dy) ? '<div style="margin-bottom:12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ This day is open — set a neighborhood focus below, or hit ✨ Plan day with AI.</div>' : '';
-  container.innerHTML = nav + openPrompt + '<div style="max-width:720px">' + renderDayColumn(dy, filtered) + '</div>';
+  const openPrompt = dayIsOpen(dy) ? '<div style="margin-bottom:12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ This day is open — set a focus area, drag options into the time blocks, or hit ✨ Plan day with AI.</div>' : '';
+  const hotel = hotelForDay(dy.n);
+  const header = '<h3 style="margin:0 0 2px">Day ' + dy.n + ' — ' + esc(dy.t || '') + '</h3>' +
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">' + esc(dy.d) + ' · ' + esc(dy.c) + (hotel ? ' · 🏨 ' + esc(hotel.name) : '') + '</div>';
+  const plan = getDayPlan(dy.n);
+  container.innerHTML = nav + openPrompt + header + renderDayControls(dy) + renderAiPlan(dy.n, plan.ai) +
+    '<div class="day-builder">' +
+      '<div>' + renderDayBuilt(dy) + '</div>' +
+      '<div>' + renderDayOptions(dy, filtered) + '</div>' +
+    '</div>';
 }
 
 function dcAction(btn) {
