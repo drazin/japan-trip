@@ -1,0 +1,86 @@
+[
+  {
+    "n": 1,
+    "d": "Mon 8/17",
+    "c": "Tokyo",
+    "t": "Arrival"
+  },
+  {
+    "n": 2,
+    "d": "Tue 8/18",
+    "c": "Tokyo",
+    "t": "East Tokyo"
+  },
+  {
+    "n": 3,
+    "d": "Wed 8/19",
+    "c": "Tokyo",
+    "t": "Harajuku/Shibuya"
+  },
+  {
+    "n": 4,
+    "d": "Thu 8/20",
+    "c": "Tokyo",
+    "t": "Art/Ginza"
+  },
+  {
+    "n": 5,
+    "d": "Fri 8/21",
+    "c": "Tokyo",
+    "t": "Flex Day"
+  },
+  {
+    "n": 6,
+    "d": "Sat 8/22",
+    "c": "Hakone",
+    "t": "Onsen"
+  },
+  {
+    "n": 7,
+    "d": "Sun 8/23",
+    "c": "Kyoto",
+    "t": "Arrive Kyoto"
+  },
+  {
+    "n": 8,
+    "d": "Mon 8/24",
+    "c": "Kyoto",
+    "t": "Arashiyama"
+  },
+  {
+    "n": 9,
+    "d": "Tue 8/25",
+    "c": "Osaka",
+    "t": "Osaka Trip"
+  },
+  {
+    "n": 10,
+    "d": "Wed 8/26",
+    "c": "Kyoto",
+    "t": "East Kyoto"
+  },
+  {
+    "n": 11,
+    "d": "Thu 8/27",
+    "c": "Kanazawa",
+    "t": "Arrive Kanazawa"
+  },
+  {
+    "n": 12,
+    "d": "Fri 8/28",
+    "c": "Kanazawa",
+    "t": "Kanazawa/Kaga"
+  },
+  {
+    "n": 13,
+    "d": "Sat 8/29",
+    "c": "Tokyo",
+    "t": "Back to Tokyo"
+  },
+  {
+    "n": 14,
+    "d": "Sun 8/30",
+    "c": "Tokyo",
+    "t": "Departure"
+  }
+]
