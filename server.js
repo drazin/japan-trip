@@ -43,6 +43,21 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT now()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS trips (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      start_date  DATE,
+      end_date    DATE,
+      segments    JSONB DEFAULT '[]',
+      hotels      JSONB DEFAULT '[]',
+      base_places JSONB DEFAULT '[]',
+      created_at  TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await pool.query(`ALTER TABLE app_state ADD COLUMN IF NOT EXISTS trip_id TEXT`);
+  await pool.query(`ALTER TABLE captures ADD COLUMN IF NOT EXISTS trip_id TEXT`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS app_state_trip_uidx ON app_state(trip_id)`);
   console.log('Connected to Postgres');
 }
 
