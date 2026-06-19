@@ -83,10 +83,10 @@ app.get('/api/state', async (req, res) => {
 });
 
 app.post('/api/state', async (req, res) => {
-  const { actions, manual } = req.body;
+  const { actions, manual, dayPlans } = req.body;
   if (!actions) return res.status(400).json({ error: 'Missing actions' });
   try {
-    await writeActions({ actions, manual: manual || [] });
+    await writeActions({ actions, manual: manual || [], dayPlans: dayPlans || {} });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -321,6 +321,72 @@ app.post('/api/pending/enrich', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, message: 'Enrich failed: ' + (err.message || 'error') });
+  }
+});
+
+app.post('/api/plan-day', async (req, res) => {
+  if (!ANTHROPIC_API_KEY) {
+    return res.json({ ok: false, code: 'no_api_key', message: 'Add ANTHROPIC_API_KEY to enable AI planning.' });
+  }
+  const { city, theme, date, slots, candidates } = req.body || {};
+  if (!Array.isArray(candidates) || !candidates.length) {
+    return res.json({ ok: false, message: 'No candidate places to plan from.' });
+  }
+  try {
+    const allowed = new Set(candidates.map(c => c.name));
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+    const slotList = (slots && slots.length) ? slots : [{ time: 'All day', hood: '' }];
+    const candText = candidates.slice(0, 60).map(c =>
+      `- ${c.name} | ${c.category || '?'} | ${c.neighborhood || '?'} | ~${c.distanceKm}km from focus | ${(c.why || '').slice(0, 80)}`
+    ).join('\n');
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 1600,
+      tool_choice: { type: 'tool', name: 'day_plan' },
+      tools: [{
+        name: 'day_plan',
+        description: 'Produce an ordered, geographically sensible day itinerary using ONLY the candidate places provided.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            slots: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  time: { type: 'string' },
+                  picks: {
+                    type: 'array',
+                    items: { type: 'object', properties: { name: { type: 'string' }, note: { type: 'string' } }, required: ['name'] },
+                  },
+                  flow: { type: 'string', description: 'One short sentence on the flow/logic of this slot.' },
+                },
+                required: ['time', 'picks'],
+              },
+            },
+          },
+          required: ['slots'],
+        },
+      }],
+      messages: [{
+        role: 'user',
+        content: `Plan ${date || ''} in ${city} (day theme: ${theme || 'n/a'}).\n\nTime slots and their focus neighborhoods:\n${slotList.map(s => `- ${s.time}: ${s.hood || '(no focus set)'}`).join('\n')}\n\nFor each slot pick a realistic, geographically sensible set of 2-4 stops, ordered logically, using ONLY the candidate places below (distances from each slot's focus are listed). Prefer closer places and higher-interest spots; don't overload a slot. Give each pick a short note and each slot a one-line 'flow' note. Candidate places:\n${candText}`,
+      }],
+    });
+    const tool = msg.content.find(c => c.type === 'tool_use');
+    const raw = (tool && tool.input && Array.isArray(tool.input.slots)) ? tool.input.slots : [];
+    const plan = {
+      slots: raw.map(s => ({
+        time: s.time || '',
+        flow: s.flow || '',
+        picks: (s.picks || []).filter(p => p && allowed.has(p.name)).map(p => ({ name: p.name, note: p.note || '' })),
+      })),
+    };
+    res.json({ ok: true, plan });
+  } catch (err) {
+    console.error('plan-day failed', err);
+    res.status(500).json({ ok: false, message: 'Plan failed: ' + (err.message || 'error') });
   }
 });
 

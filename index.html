@@ -395,12 +395,15 @@ const DAYS = [
 // Persistence — shared server with localStorage fallback
 const STORAGE_KEY = 'drazin-japan-actions';
 const MANUAL_KEY = 'drazin-japan-manual';
+const DAYPLANS_KEY = 'drazin-japan-dayplans';
 let itemActions = {};
+let dayPlans = {};
 let saveTimer = null;
 
 async function loadActions() {
   // Seed from this browser's local copy first so nothing already entered is ever dropped.
   try { itemActions = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { itemActions = {}; }
+  try { dayPlans = JSON.parse(localStorage.getItem(DAYPLANS_KEY)) || {}; } catch(e) { dayPlans = {}; }
   let localManual = [];
   try { localManual = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]'); } catch(e) { localManual = []; }
 
@@ -415,6 +418,10 @@ async function loadActions() {
       const beforeKeys = Object.keys(itemActions).length;
       itemActions = { ...itemActions, ...serverActions };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(itemActions));
+
+      // Day plans: server wins per day, local-only days preserved.
+      dayPlans = { ...dayPlans, ...(data.dayPlans || {}) };
+      localStorage.setItem(DAYPLANS_KEY, JSON.stringify(dayPlans));
 
       // Union manual items by name across local + server.
       const mergedManual = localManual.slice();
@@ -441,13 +448,14 @@ async function loadActions() {
 
 function saveActions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(itemActions));
+  localStorage.setItem(DAYPLANS_KEY, JSON.stringify(dayPlans));
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const manual = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]');
     fetch('/api/state', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ actions: itemActions, manual })
+      body: JSON.stringify({ actions: itemActions, manual, dayPlans })
     }).catch(() => {});
   }, 500);
 }
@@ -706,40 +714,184 @@ function dcDayPick(btn) {
   setAction(name, newStatus, newDay, current.notes, current.reserveDate);
 }
 
+// --- Neighborhood focus & distance ---------------------------------------
+function canonHood(h){
+  h = (h || '').trim();
+  h = h.replace(/\s*(Kyoto|Tokyo|Kanazawa|Osaka)\b/gi, '').trim();
+  if (/^central$/i.test(h)) return 'Central';
+  return h || 'Other';
+}
+let ANCHORS = null; // { city: [ {name, lat, lng, count} ] }
+function buildAnchors(){
+  const groups = {};
+  DATA.forEach(d => {
+    if (typeof d.lat !== 'number' || typeof d.lng !== 'number') return;
+    const hood = canonHood(d.neighborhood);
+    if (hood === 'Other') return;
+    const key = d.city + '||' + hood;
+    const g = groups[key] || (groups[key] = { city: d.city, name: hood, lat: 0, lng: 0, count: 0 });
+    g.lat += d.lat; g.lng += d.lng; g.count++;
+  });
+  const out = {};
+  Object.values(groups).forEach(g => {
+    (out[g.city] = out[g.city] || []).push({ name: g.name, lat: g.lat / g.count, lng: g.lng / g.count, count: g.count });
+  });
+  Object.keys(out).forEach(c => out[c].sort((a, b) => b.count - a.count));
+  return out;
+}
+function cityAnchors(city){ if (!ANCHORS) ANCHORS = buildAnchors(); return (ANCHORS[city] || []).filter(a => a.count >= 2); }
+function findAnchor(city, name){ if (!ANCHORS) ANCHORS = buildAnchors(); return (ANCHORS[city] || []).find(a => a.name === name) || null; }
+function haversine(la1, lo1, la2, lo2){
+  const R = 6371, toRad = x => x * Math.PI / 180;
+  const dLa = toRad(la2 - la1), dLo = toRad(lo2 - lo1);
+  const a = Math.sin(dLa/2)**2 + Math.cos(toRad(la1)) * Math.cos(toRad(la2)) * Math.sin(dLo/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function distBadge(km){
+  if (km <= 1.2) return '🚶 ' + km.toFixed(1) + 'km';
+  if (km <= 4) return '🚇 ' + km.toFixed(1) + 'km';
+  return '🚉 ' + km.toFixed(1) + 'km';
+}
+function recsForAnchor(city, anchor, limit){
+  if (!anchor) return [];
+  return DATA
+    .filter(d => d.city === city && typeof d.lat === 'number' && getAction(d.name).status !== 'skip')
+    .map(d => ({ d, km: haversine(anchor.lat, anchor.lng, d.lat, d.lng) }))
+    .sort((a, b) => (a.km - b.km) || (b.d.priority - a.d.priority))
+    .slice(0, limit || 12);
+}
+
+// --- dayPlans helpers ---
+function getDayPlan(n){
+  const p = dayPlans[n];
+  if (p && Array.isArray(p.slots) && p.slots.length) return p;
+  return { slots: [{ time: 'All day', hood: '' }], ai: null };
+}
+function saveDayPlan(n, plan){ dayPlans[n] = plan; saveActions(); renderDays(); }
+function setDayFocus(n, slotIdx, hood){
+  const p = getDayPlan(n); p.slots = p.slots.slice();
+  p.slots[slotIdx] = { ...(p.slots[slotIdx] || { time: 'All day' }), hood };
+  saveDayPlan(n, p);
+}
+function toggleDaySplit(n){
+  const p = getDayPlan(n);
+  if (p.slots.length > 1) { p.slots = [{ time: 'All day', hood: p.slots[0].hood || '' }]; }
+  else { const h = p.slots[0].hood || ''; p.slots = [{ time: 'Morning', hood: h }, { time: 'Afternoon', hood: '' }, { time: 'Evening', hood: '' }]; }
+  p.ai = null;
+  saveDayPlan(n, p);
+}
+function anchorSelect(n, slotIdx, city, current){
+  const opts = ['<option value="">— focus area —</option>'].concat(
+    cityAnchors(city).map(a => '<option value="' + esc(a.name) + '"' + (a.name === current ? ' selected' : '') + '>' + esc(a.name) + ' (' + a.count + ')</option>')
+  ).join('');
+  return '<select class="search-input" style="padding:4px 8px;font-size:12px;min-width:150px" onchange="setDayFocus(' + n + ',' + slotIdx + ',this.value)">' + opts + '</select>';
+}
+function renderAiPlan(n, ai){
+  if (!ai || !ai.slots || !ai.slots.length) return '';
+  return '<div class="section-label" style="color:#a855f7">✨ AI plan</div>' +
+    '<div class="nh-group" style="border:1px solid #a855f7;border-radius:8px;padding:8px">' +
+    ai.slots.map(s => '<div style="margin-bottom:8px"><div style="font-weight:600;font-size:12px">' + esc(s.time) + '</div>' +
+      (s.flow ? '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">' + esc(s.flow) + '</div>' : '') +
+      (s.picks || []).map(pk => '<div style="font-size:12px;padding:2px 0">• ' + esc(pk.name) + (pk.note ? ' — <span style="color:var(--muted)">' + esc(pk.note) + '</span>' : '') + '</div>').join('') +
+      '</div>').join('') +
+    '<button onclick="dismissDayAI(' + n + ')" style="margin-top:4px;font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer">Dismiss plan</button>' +
+    '</div>';
+}
+function dismissDayAI(n){ const p = getDayPlan(n); p.ai = null; saveDayPlan(n, p); }
+async function planDayAI(n){
+  const dy = DAYS.find(d => d.n === n);
+  const p = getDayPlan(n);
+  const seen = {}; const candidates = [];
+  p.slots.forEach(s => {
+    const anchor = findAnchor(dy.c, s.hood);
+    if (!anchor) return;
+    recsForAnchor(dy.c, anchor, 14).forEach(({ d, km }) => {
+      const km1 = Math.round(km * 10) / 10;
+      if (seen[d.name] === undefined) {
+        const obj = { name: d.name, category: d.category, neighborhood: d.neighborhood || '', why: d.why || '', distanceKm: km1 };
+        candidates.push(obj); seen[d.name] = obj;
+      } else if (km1 < seen[d.name].distanceKm) { seen[d.name].distanceKm = km1; }
+    });
+  });
+  if (!candidates.length) { alert('Set a neighborhood focus first so the AI has places to plan from.'); return; }
+  const btn = document.getElementById('plan-btn-' + n);
+  if (btn) { btn.disabled = true; btn.textContent = 'Planning…'; }
+  try {
+    const res = await fetch('/api/plan-day', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ city: dy.c, theme: dy.t, date: dy.d, slots: p.slots, candidates }) });
+    const data = await res.json();
+    if (data.ok) { p.ai = data.plan; saveDayPlan(n, p); }
+    else { alert(data.message || 'Planning failed.'); if (btn) { btn.disabled = false; btn.textContent = '✨ Plan day with AI'; } }
+  } catch(e) { alert('Planning failed — server error.'); if (btn) { btn.disabled = false; btn.textContent = '✨ Plan day with AI'; } }
+}
+
 function renderDays() {
   const container = document.getElementById('day-columns');
   const filtered = getFiltered();
   container.innerHTML = DAYS.map(dy => {
+    const plan = getDayPlan(dy.n);
+    const focusActive = plan.slots.some(s => s.hood);
     const assigned = filtered.filter(d => getAction(d.name).day === dy.n).sort((a,b) => b.priority - a.priority);
-    const possible = filtered.filter(d => {
-      if (getAction(d.name).day === dy.n) return false;
-      const a = getAction(d.name).status;
-      if (a === 'skip') return false;
-      return dayMatchesDayNum(d.days, dy.n);
-    }).sort((a,b) => b.priority - a.priority);
-
     const assignedByHood = groupByNeighborhood(assigned);
-    const possibleByHood = groupByNeighborhood(possible);
+
+    // focus control strip
+    const anchors = cityAnchors(dy.c);
+    let controls = '<div style="margin:8px 0;padding:8px;border:1px dashed var(--border);border-radius:8px">';
+    if (!anchors.length) {
+      controls += '<div style="font-size:11px;color:var(--muted)">No focus areas for ' + dy.c + '</div>';
+    } else {
+      controls += plan.slots.map((s, i) =>
+        '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">' +
+        (plan.slots.length > 1 ? '<span style="font-size:11px;color:var(--muted);width:62px">' + s.time + '</span>' : '') +
+        anchorSelect(dy.n, i, dy.c, s.hood || '') + '</div>'
+      ).join('');
+      controls += '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">' +
+        '<button onclick="toggleDaySplit(' + dy.n + ')" style="font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer">' + (plan.slots.length > 1 ? '– Single focus' : '+ Split AM / PM / Eve') + '</button>' +
+        '<button id="plan-btn-' + dy.n + '" onclick="planDayAI(' + dy.n + ')" style="font-size:11px;background:rgba(168,85,247,0.15);border:1px solid #a855f7;color:#a855f7;border-radius:6px;padding:3px 8px;cursor:pointer">✨ Plan day with AI</button>' +
+        '</div>';
+    }
+    controls += '</div>';
+
+    // body: per-slot recommendations (focus active) OR fallback "could fit"
+    let body = '';
+    if (focusActive) {
+      body = plan.slots.filter(s => s.hood).map(s => {
+        const anchor = findAnchor(dy.c, s.hood);
+        const recs = recsForAnchor(dy.c, anchor, 12).filter(r => getAction(r.d.name).day !== dy.n);
+        const label = (plan.slots.length > 1 ? s.time + ' · ' : '') + s.hood;
+        if (!recs.length) return '<div class="section-label" style="color:var(--muted)">' + label + ' — nothing nearby</div>';
+        return '<div class="section-label" style="color:#3b82f6">' + label + ' (' + recs.length + ')</div>' +
+          '<div class="nh-group">' + recs.map(r =>
+            '<div style="font-size:10px;color:var(--muted);margin:2px 0 -2px 2px">' + distBadge(r.km) + '</div>' + renderDayCard(r.d, '')
+          ).join('') + '</div>';
+      }).join('');
+    } else {
+      const possible = filtered.filter(d => {
+        if (getAction(d.name).day === dy.n) return false;
+        if (getAction(d.name).status === 'skip') return false;
+        return dayMatchesDayNum(d.days, dy.n);
+      }).sort((a,b) => b.priority - a.priority);
+      const possibleByHood = groupByNeighborhood(possible);
+      body = possible.length ? '<div class="section-label" style="color:var(--muted)">Could fit here (' + possible.length + ')</div>' +
+        possibleByHood.map(([hood, items]) =>
+          '<div class="nh-group"><div class="nh-header"><span>' + hood + '</span><span class="nh-count">' + items.length + '</span></div>' +
+          items.map(d => renderDayCard(d, '')).join('') + '</div>'
+        ).join('') : '';
+    }
 
     return '<div class="day-column">' +
       '<h3>Day '+dy.n+' &mdash; '+dy.t+'</h3>' +
       '<div class="day-meta">'+dy.d+' &middot; '+dy.c+'</div>' +
-
+      controls +
+      renderAiPlan(dy.n, plan.ai) +
       (assigned.length ? '<div class="section-label" style="color:var(--green)">&#x2714; Assigned ('+assigned.length+')</div>' +
         assignedByHood.map(([hood, items]) =>
           '<div class="nh-group"><div class="nh-header"><span>'+hood+'</span><span class="nh-count">'+items.length+'</span></div>' +
           items.map(d => renderDayCard(d, 'border-left:3px solid var(--green)')).join('') +
           '</div>'
         ).join('') : '') +
-
-      (possible.length ? '<div class="section-label" style="color:var(--muted)">Could fit here ('+possible.length+')</div>' +
-        possibleByHood.map(([hood, items]) =>
-          '<div class="nh-group"><div class="nh-header"><span>'+hood+'</span><span class="nh-count">'+items.length+'</span></div>' +
-          items.map(d => renderDayCard(d, '')).join('') +
-          '</div>'
-        ).join('') : '') +
-
-      (!assigned.length && !possible.length ? '<div class="day-card"><div class="dc-meta">Travel / rest day</div></div>' : '') +
+      body +
+      (!assigned.length && !body ? '<div class="day-card"><div class="dc-meta">Travel / rest day</div></div>' : '') +
     '</div>';
   }).join('');
 }
