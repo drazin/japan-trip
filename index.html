@@ -374,23 +374,44 @@ let itemActions = {};
 let saveTimer = null;
 
 async function loadActions() {
+  // Seed from this browser's local copy first so nothing already entered is ever dropped.
+  try { itemActions = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { itemActions = {}; }
+  let localManual = [];
+  try { localManual = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]'); } catch(e) { localManual = []; }
+
   try {
     const res = await fetch('/api/state');
     if (res.ok) {
       const data = await res.json();
-      itemActions = data.actions || {};
+      const serverActions = data.actions || {};
+      const serverManual = data.manual || [];
+
+      // Merge: server wins per key, but local-only entries are preserved (never wiped).
+      const beforeKeys = Object.keys(itemActions).length;
+      itemActions = { ...itemActions, ...serverActions };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(itemActions));
-      if (data.manual && data.manual.length) {
-        const existing = new Set(DATA.map(d => d.name.toLowerCase()));
-        data.manual.forEach(item => {
-          if (!existing.has(item.name.toLowerCase())) { DATA.push(item); existing.add(item.name.toLowerCase()); }
-        });
-        localStorage.setItem(MANUAL_KEY, JSON.stringify(data.manual));
-      }
+
+      // Union manual items by name across local + server.
+      const mergedManual = localManual.slice();
+      const mnames = new Set(mergedManual.map(m => m.name.toLowerCase()));
+      serverManual.forEach(item => {
+        if (!mnames.has(item.name.toLowerCase())) { mergedManual.push(item); mnames.add(item.name.toLowerCase()); }
+      });
+      const existing = new Set(DATA.map(d => d.name.toLowerCase()));
+      mergedManual.forEach(item => {
+        if (!existing.has(item.name.toLowerCase())) { DATA.push(item); existing.add(item.name.toLowerCase()); }
+      });
+      localStorage.setItem(MANUAL_KEY, JSON.stringify(mergedManual));
+
+      // If we hold data the server doesn't yet have, push it up so the DB is seeded.
+      const localHasMore = Object.keys(itemActions).length > Object.keys(serverActions).length
+        || mergedManual.length > serverManual.length
+        || beforeKeys > 0 && Object.keys(serverActions).length === 0;
+      if (localHasMore) saveActions();
       return;
     }
   } catch(e) {}
-  try { itemActions = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { itemActions = {}; }
+  // Offline / server error: keep the local copy already loaded above.
 }
 
 function saveActions() {
