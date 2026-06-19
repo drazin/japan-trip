@@ -41,7 +41,9 @@
       "checkin": null,
       "checkout": null,
       "perks": [],
-      "notes": "Breakfast included"
+      "notes": "Breakfast included",
+      "lat": 35.6906,
+      "lng": 139.6928
     },
     {
       "id": "hotel-hakone",
@@ -62,7 +64,9 @@
       "perks": [
         "Private onsen"
       ],
-      "notes": "Confirm dinner/breakfast inclusions and private onsen specifics"
+      "notes": "Confirm dinner/breakfast inclusions and private onsen specifics",
+      "lat": 35.2335,
+      "lng": 139.0512
     },
     {
       "id": "hotel-kyoto",
@@ -90,7 +94,9 @@
         "12 PM check-in if available",
         "Guaranteed 4 PM checkout"
       ],
-      "notes": "Confirm Room 2 can be twin/adjoining. Confirm additional breakfast for children."
+      "notes": "Confirm Room 2 can be twin/adjoining. Confirm additional breakfast for children.",
+      "lat": 34.9925,
+      "lng": 135.756
     },
     {
       "id": "hotel-kanazawa",
@@ -111,7 +117,9 @@
       "perks": [
         "Breakfast included"
       ],
-      "notes": "Accommodation tax extra on site. Child breakfast/lounge fee under 11 may be collected on site."
+      "notes": "Accommodation tax extra on site. Child breakfast/lounge fee under 11 may be collected on site.",
+      "lat": 36.5616,
+      "lng": 136.6553
     },
     {
       "id": "hotel-tokyo-final",
@@ -126,7 +134,9 @@
       "neighborhood": "Chiyoda/Akasaka",
       "room": "Garden Tower Standard Twin — 2 Connecting Rooms, Non-Smoking",
       "cost": "JPY 122,936",
-      "cancellation": "Free cancellation until Aug 26, 2026 at 11:59 PM JST"
+      "cancellation": "Free cancellation until Aug 26, 2026 at 11:59 PM JST",
+      "lat": 35.6797,
+      "lng": 139.7355
     }
   ],
   "days": [

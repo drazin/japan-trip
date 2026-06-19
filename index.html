@@ -487,7 +487,7 @@ let sortField = 'priority'; let sortDir = -1;
 let searchTerm = ''; let map = null; let markers = [];
 let openMenu = null;
 
-async function init() { await loadActions(); renderAll(); setupListeners(); }
+async function init() { await loadTrip(); await loadActions(); renderAll(); setupListeners(); }
 
 function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
@@ -714,6 +714,29 @@ function dcDayPick(btn) {
   setAction(name, newStatus, newDay, current.notes, current.reserveDate);
 }
 
+// --- Trip context (hotels, day->hotel, logistics) from trip.json ----------
+let TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:false };
+async function loadTrip(){
+  try {
+    const res = await fetch('/trip.json');
+    if(!res.ok) return;
+    const t = await res.json();
+    (t.hotels||[]).forEach(h => { TRIP.hotels[h.id] = h; });
+    (t.days||[]).forEach(day => {
+      const n = day.day;
+      if(day.hotel) TRIP.dayHotel[n] = day.hotel;
+      TRIP.planned[n] = day.activities || [];
+      const travels = (day.activities||[]).filter(a => a.type === 'travel').map(a => a.name);
+      TRIP.logistics[n] = { travel: travels, isTravelDay: travels.length > 0 };
+    });
+    if(!TRIP.dayHotel[14]) TRIP.dayHotel[14] = 'hotel-tokyo-final';
+    TRIP.openDecisions = t.open_decisions || [];
+    TRIP.travelers = (t.trip && t.trip.travelers) || null;
+    TRIP.loaded = true;
+  } catch(e){}
+}
+function hotelForDay(n){ const id = TRIP.dayHotel[n]; const h = id ? TRIP.hotels[id] : null; return (h && typeof h.lat === 'number') ? h : null; }
+
 // --- Neighborhood focus & distance ---------------------------------------
 function canonHood(h){
   h = (h || '').trim();
@@ -855,15 +878,18 @@ function renderDays() {
     // body: per-slot recommendations (focus active) OR fallback "could fit"
     let body = '';
     if (focusActive) {
-      body = plan.slots.filter(s => s.hood).map(s => {
+      const hotel = hotelForDay(dy.n);
+      const hotelNote = hotel ? '<div style="font-size:10px;color:var(--muted);margin:4px 0">📍 distances from ' + esc(hotel.name) + (hotel.neighborhood ? ' (' + esc(hotel.neighborhood) + ')' : '') + '</div>' : '';
+      body = hotelNote + plan.slots.filter(s => s.hood).map(s => {
         const anchor = findAnchor(dy.c, s.hood);
         const recs = recsForAnchor(dy.c, anchor, 12).filter(r => getAction(r.d.name).day !== dy.n);
         const label = (plan.slots.length > 1 ? s.time + ' · ' : '') + s.hood;
         if (!recs.length) return '<div class="section-label" style="color:var(--muted)">' + label + ' — nothing nearby</div>';
         return '<div class="section-label" style="color:#3b82f6">' + label + ' (' + recs.length + ')</div>' +
-          '<div class="nh-group">' + recs.map(r =>
-            '<div style="font-size:10px;color:var(--muted);margin:2px 0 -2px 2px">' + distBadge(r.km) + '</div>' + renderDayCard(r.d, '')
-          ).join('') + '</div>';
+          '<div class="nh-group">' + recs.map(r => {
+            const km = hotel ? haversine(hotel.lat, hotel.lng, r.d.lat, r.d.lng) : r.km;
+            return '<div style="font-size:10px;color:var(--muted);margin:2px 0 -2px 2px">' + distBadge(km) + '</div>' + renderDayCard(r.d, '');
+          }).join('') + '</div>';
       }).join('');
     } else {
       const possible = filtered.filter(d => {
