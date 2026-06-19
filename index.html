@@ -247,6 +247,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     <div class="subtitle">Aug 17-30, 2026 · Tokyo → Hakone → Kyoto → Kanazawa → Tokyo · <span id="item-count"></span> places</div>
   </div>
   <div class="header-actions">
+    <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:8px;background:var(--card);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
     <button id="capture-btn" style="color:var(--green)">📥 IG Import <span id="pending-count"></span></button>
     <button onclick="exportActions()">Export Progress</button>
     <button onclick="document.getElementById('import-file').click()">Import Progress</button>
@@ -378,9 +379,14 @@ const ACTIONS = {
 let DAYS = [];  // populated from the active trip (loadActiveTrip)
 
 // Persistence — shared server with localStorage fallback
-const STORAGE_KEY = 'drazin-japan-actions';
-const MANUAL_KEY = 'drazin-japan-manual';
-const DAYPLANS_KEY = 'drazin-japan-dayplans';
+let STORAGE_KEY = 'drazin-japan-actions';
+let MANUAL_KEY = 'drazin-japan-manual';
+let DAYPLANS_KEY = 'drazin-japan-dayplans';
+function setTripKeys(){
+  STORAGE_KEY = 'drazin-actions:' + activeTripId;
+  MANUAL_KEY  = 'drazin-manual:'  + activeTripId;
+  DAYPLANS_KEY= 'drazin-dayplans:'+ activeTripId;
+}
 let itemActions = {};
 let dayPlans = {};
 let saveTimer = null;
@@ -472,7 +478,34 @@ let sortField = 'priority'; let sortDir = -1;
 let searchTerm = ''; let map = null; let markers = [];
 let openMenu = null;
 
-async function init() { await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); }
+async function populateTripSwitcher(){
+  try {
+    const res = await fetch('/api/trips');
+    const data = await res.json();
+    const sel = document.getElementById('trip-switcher');
+    if(!sel) return;
+    const opts = (data.trips||[]).map(t => '<option value="'+t.id+'"'+(t.id===activeTripId?' selected':'')+'>'+ (t.name||t.id) +'</option>').join('');
+    sel.innerHTML = opts + '<option value="__new__">➕ New trip…</option>';
+    sel.onchange = () => {
+      const v = sel.value;
+      if(v === '__new__'){ sel.value = activeTripId; openNewTrip(); return; }
+      if(v !== activeTripId) switchTrip(v);
+    };
+  } catch(e){}
+}
+async function switchTrip(id){
+  activeTripId = id;
+  try { localStorage.setItem('active-trip', id); } catch(e){}
+  setTripKeys();
+  await loadActiveTrip();
+  restoreManual();
+  await loadActions();
+  renderAll();
+  if(typeof loadPending === 'function') loadPending();
+}
+function openNewTrip(){ alert('New trip onboarding coming next.'); } // placeholder; replaced in a later task
+
+async function init() { await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); }
 
 function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
@@ -701,8 +734,10 @@ function dcDayPick(btn) {
 
 // --- Trip context (hotels, day->hotel, logistics) from trip.json ----------
 let activeTripId = (function(){ try { return localStorage.getItem('active-trip') || 'japan-2026'; } catch(e){ return 'japan-2026'; } })();
+setTripKeys();
 let TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:false };
 async function loadActiveTrip(){
+  setTripKeys();
   try {
     const res = await fetch('/api/trips/' + activeTripId);
     if(!res.ok) return;
@@ -820,7 +855,7 @@ async function planDayAI(n){
   if (btn) { btn.disabled = true; btn.textContent = 'Planning…'; }
   try {
     const res = await fetch('/api/plan-day', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ city: dy.c, theme: dy.t, date: dy.d, slots: p.slots, candidates }) });
+      body: JSON.stringify({ city: dy.c, theme: dy.t, date: dy.d, slots: p.slots, candidates, tripId: activeTripId }) });
     const data = await res.json();
     if (data.ok) { p.ai = data.plan; saveDayPlan(n, p); }
     else { alert(data.message || 'Planning failed.'); if (btn) { btn.disabled = false; btn.textContent = '✨ Plan day with AI'; } }
@@ -1432,7 +1467,7 @@ function setCapStatus(msg, ok){
 
 async function loadPending(){
   try {
-    const res = await fetch('/api/pending');
+    const res = await fetch('/api/pending?trip=' + encodeURIComponent(activeTripId));
     if(!res.ok) return;
     const data = await res.json();
     renderPending(data.pending || []);
@@ -1563,7 +1598,7 @@ async function captureSubmit(){
   try {
     const res = await fetch('/api/capture', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ url, caption, category })
+      body: JSON.stringify({ url, caption, category, tripId: activeTripId })
     });
     const data = await res.json();
     setCapStatus(data.message || (data.ok ? 'Captured.' : 'Failed.'), data.ok !== false ? true : false);
