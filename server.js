@@ -355,10 +355,11 @@ app.post('/api/plan-day', async (req, res) => {
   if (!ANTHROPIC_API_KEY) {
     return res.json({ ok: false, code: 'no_api_key', message: 'Add ANTHROPIC_API_KEY to enable AI planning.' });
   }
-  const { city, theme, date, slots, candidates } = req.body || {};
+  const { city, theme, date, slots, candidates, context } = req.body || {};
   if (!Array.isArray(candidates) || !candidates.length) {
     return res.json({ ok: false, message: 'No candidate places to plan from.' });
   }
+  const ctx = context || {};
   try {
     const allowed = new Set(candidates.map(c => c.name));
     const Anthropic = require('@anthropic-ai/sdk');
@@ -398,7 +399,13 @@ app.post('/api/plan-day', async (req, res) => {
       }],
       messages: [{
         role: 'user',
-        content: `Plan ${date || ''} in ${city} (day theme: ${theme || 'n/a'}).\n\nTime slots and their focus neighborhoods:\n${slotList.map(s => `- ${s.time}: ${s.hood || '(no focus set)'}`).join('\n')}\n\nFor each slot pick a realistic, geographically sensible set of 2-4 stops, ordered logically, using ONLY the candidate places below (distances from each slot's focus are listed). Prefer closer places and higher-interest spots; don't overload a slot. Give each pick a short note and each slot a one-line 'flow' note. Candidate places:\n${candText}`,
+        content: `Plan ${date || ''} in ${city} (day theme: ${theme || 'n/a'}).\n`
+          + (ctx.travelers ? `Travelers: ${JSON.stringify(ctx.travelers)} — pace it for the kids and pick kid-friendly options.\n` : '')
+          + (ctx.hotel ? `Home base today: ${ctx.hotel.name}${ctx.hotel.neighborhood ? ' (' + ctx.hotel.neighborhood + ')' : ''} — keep travel from there reasonable and group stops to minimize backtracking.\n` : '')
+          + (ctx.logistics ? `Logistics note: ${ctx.logistics} — keep this day lighter / account for transit time.\n` : '')
+          + (Array.isArray(ctx.alreadyPlanned) && ctx.alreadyPlanned.length ? `Already planned for this day (work AROUND these, don't duplicate): ${ctx.alreadyPlanned.join('; ')}.\n` : '')
+          + (Array.isArray(ctx.alreadyAssigned) && ctx.alreadyAssigned.length ? `Already committed places for this day: ${ctx.alreadyAssigned.join('; ')}.\n` : '')
+          + `\nTime slots and their focus neighborhoods:\n${slotList.map(s => `- ${s.time}: ${s.hood || '(no focus set)'}`).join('\n')}\n\nFor each slot pick a realistic, geographically sensible set of 2-4 stops, ordered logically, using ONLY the candidate places below (distances from each slot's focus are listed). Prefer closer places and higher-interest spots; don't overload a slot. Add a short note per pick, and a one-line 'flow' note per slot that mentions how to get between stops (e.g. walk / quick train). Candidate places:\n${candText}`,
       }],
     });
     const tool = msg.content.find(c => c.type === 'tool_use');

@@ -762,6 +762,13 @@ function renderDayCard(d, borderStyle) {
       ${d.booking ? '<div class="dc-booking">Booking: '+d.booking+'</div>' : ''}
       <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Family: ${d.family_fit || 'N/A'}</div>
       ${igUrl ? '<a class="dc-ig-link" href="'+igUrl+'" target="_blank" onclick="event.stopPropagation()">Open in Instagram</a><br>' : ''}
+      ${typeof d.lat === 'number' ? (function(){
+        const dest = d.lat + ',' + d.lng;
+        const h = hotelForDay(selectedDay);
+        const main = '<a href="https://www.google.com/maps/dir/?api=1&destination=' + dest + '&travelmode=transit" target="_blank" onclick="event.stopPropagation()" style="color:#3b82f6;font-size:11px">🧭 Directions</a>';
+        const hotelLink = h ? ' · <a href="https://www.google.com/maps/dir/?api=1&origin=' + h.lat + ',' + h.lng + '&destination=' + dest + '&travelmode=transit" target="_blank" onclick="event.stopPropagation()" style="color:var(--muted);font-size:11px">from hotel</a>' : '';
+        return '<div style="margin-bottom:4px">' + main + hotelLink + '</div>';
+      })() : ''}
       <div class="dc-action-row" style="margin-top:8px">
         ${Object.entries(ACTIONS).filter(([k])=>k!=='none').map(([k,v]) =>
           '<button class="dc-action-btn'+(a.status===k?' dc-active':'')+'" data-dc-action="'+k+'" data-dc-target="'+eName+'" onclick="event.stopPropagation();dcAction(this)">'+v.icon+' '+v.label+'</button>'
@@ -817,6 +824,15 @@ async function loadActiveTrip(){
     TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:true };
     (trip.hotels || []).forEach(h => { TRIP.hotels[h.id] = h; });
     (trip.segments || []).forEach(s => { if(s.hotelId) TRIP.dayHotel[s.n] = s.hotelId; });
+    // Supplemental context for the Japan trip (planned activities, open decisions, travelers) from trip.json.
+    if (activeTripId === 'japan-2026') {
+      try {
+        const t = await (await fetch('/trip.json')).json();
+        (t.days || []).forEach(day => { TRIP.planned[day.day] = (day.activities || []).map(a => a.name); });
+        TRIP.openDecisions = t.open_decisions || [];
+        TRIP.travelers = (t.trip && t.trip.travelers) || null;
+      } catch(e){}
+    }
   } catch(e){}
 }
 function hotelForDay(n){ const id = TRIP.dayHotel[n]; const h = id ? TRIP.hotels[id] : null; return (h && typeof h.lat === 'number') ? h : null; }
@@ -923,19 +939,26 @@ async function planDayAI(n){
   if (!candidates.length) { alert('Set a neighborhood focus first so the AI has places to plan from.'); return; }
   const btn = document.getElementById('plan-btn-' + n);
   if (btn) { btn.disabled = true; btn.textContent = 'Planning…'; }
+  // Context so the AI plans realistically: who's travelling, where they're based, the logistics, and what's already locked in.
+  const hotel = hotelForDay(n);
+  const ctx = {
+    travelers: TRIP.travelers,
+    hotel: hotel ? { name: hotel.name, neighborhood: hotel.neighborhood || '', lat: hotel.lat, lng: hotel.lng } : null,
+    logistics: travelDayInfo(n),
+    alreadyAssigned: DATA.filter(d => getAction(d.name).day === n).map(d => d.name),
+    alreadyPlanned: TRIP.planned[n] || [],
+  };
   try {
     const res = await fetch('/api/plan-day', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ city: dy.c, theme: dy.t, date: dy.d, slots: p.slots, candidates, tripId: activeTripId }) });
+      body: JSON.stringify({ city: dy.c, theme: dy.t, date: dy.d, slots: p.slots, candidates, tripId: activeTripId, context: ctx }) });
     const data = await res.json();
     if (data.ok) { p.ai = data.plan; saveDayPlan(n, p); }
     else { alert(data.message || 'Planning failed.'); if (btn) { btn.disabled = false; btn.textContent = '✨ Plan day with AI'; } }
   } catch(e) { alert('Planning failed — server error.'); if (btn) { btn.disabled = false; btn.textContent = '✨ Plan day with AI'; } }
 }
 
-function renderDays() {
-  const container = document.getElementById('day-columns');
-  const filtered = getFiltered();
-  container.innerHTML = DAYS.map(dy => {
+let selectedDay = null;
+function renderDayColumn(dy, filtered) {
     const plan = getDayPlan(dy.n);
     const focusActive = plan.slots.some(s => s.hood);
     const assigned = filtered.filter(d => getAction(d.name).day === dy.n).sort((a,b) => b.priority - a.priority);
@@ -1003,7 +1026,77 @@ function renderDays() {
       body +
       (!assigned.length && !body ? '<div class="day-card"><div class="dc-meta">Travel / rest day</div></div>' : '') +
     '</div>';
-  }).join('');
+}
+
+// --- Overview <-> single-day navigation ---
+function travelDayInfo(n){
+  const i = DAYS.findIndex(d => d.n === n);
+  if (i < 0) return null;
+  if (i === 0) return 'Arrival day';
+  if (i === DAYS.length - 1) return 'Departure day';
+  if (DAYS[i-1].c !== DAYS[i].c) return 'Travel: ' + DAYS[i-1].c + ' → ' + DAYS[i].c;
+  return null;
+}
+function dayIsOpen(dy){
+  const p = getDayPlan(dy.n);
+  const assigned = DATA.filter(d => getAction(d.name).day === dy.n).length;
+  const hasAI = !!(p.ai && p.ai.slots && p.ai.slots.length);
+  return assigned === 0 && !p.slots.some(s => s.hood) && !hasAI && !travelDayInfo(dy.n);
+}
+function dayStatusDots(dy){
+  const plan = getDayPlan(dy.n);
+  const assigned = DATA.filter(d => getAction(d.name).day === dy.n).length;
+  const dots = [];
+  if (assigned) dots.push('<span title="'+assigned+' assigned" style="color:var(--green)">✔ '+assigned+'</span>');
+  if (plan.slots.some(s => s.hood)) dots.push('<span title="focus set">🎯</span>');
+  if (plan.ai && plan.ai.slots && plan.ai.slots.length) dots.push('<span title="AI plan ready">✨</span>');
+  if (travelDayInfo(dy.n)) dots.push('<span title="'+travelDayInfo(dy.n)+'">✈️</span>');
+  if (dayIsOpen(dy)) dots.push('<span title="open / needs planning" style="color:#f59e0b">⚠️</span>');
+  return dots.join(' ');
+}
+function renderDayOverview(){
+  const container = document.getElementById('day-columns');
+  container.style.display = 'block';
+  const open = DAYS.filter(dayIsOpen);
+  const banner = open.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ '+open.length+' day(s) still open: '+open.map(d=>'Day '+d.n).join(', ')+'</div>' : '';
+  const decs = (TRIP.openDecisions || []).filter(o => o && (o.priority === 'high' || o.priority === 'medium'));
+  const todos = decs.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px"><div style="font-weight:600;margin-bottom:4px">📌 To book / decide</div>' +
+    decs.map(o => {
+      const m = String((o.item || '') + ' ' + (o.notes || '')).match(/Day (\d+)/i);
+      const dayLink = m ? ' <a onclick="openDay(' + m[1] + ')" style="cursor:pointer;color:#3b82f6">(Day ' + m[1] + ')</a>' : '';
+      return '<div style="padding:2px 0">' + (o.priority === 'high' ? '🔴' : '🟡') + ' ' + esc(o.item || '') + dayLink + '</div>';
+    }).join('') + '</div>' : '';
+  container.innerHTML = banner + todos + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">' +
+    DAYS.map(dy => {
+      const hotel = hotelForDay(dy.n);
+      return '<div onclick="openDay('+dy.n+')" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--card)" onmouseover="this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
+        '<div style="font-weight:700;font-size:13px">Day '+dy.n+' · '+esc(dy.c)+'</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin:2px 0 6px">'+esc(dy.d)+(dy.t?' · '+esc(dy.t):'')+'</div>' +
+        (hotel ? '<div style="font-size:11px;color:var(--muted)">🏨 '+esc(hotel.name)+'</div>' : '') +
+        '<div style="margin-top:8px;font-size:12px;min-height:18px">'+dayStatusDots(dy)+'</div>' +
+      '</div>';
+    }).join('') + '</div>';
+}
+function openDay(n){ selectedDay = n; renderDays(); window.scrollTo(0,0); }
+function backToOverview(){ selectedDay = null; renderDays(); }
+function renderDays(){
+  const container = document.getElementById('day-columns');
+  if (selectedDay == null) { renderDayOverview(); return; }
+  const filtered = getFiltered();
+  const idx = DAYS.findIndex(d => d.n === selectedDay);
+  const dy = DAYS[idx] || DAYS[0];
+  if (!dy) { renderDayOverview(); return; }
+  const btn = 'background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px';
+  const tdi = travelDayInfo(dy.n);
+  const nav = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">' +
+    '<button onclick="backToOverview()" style="'+btn+'">← All days</button>' +
+    (idx>0 ? '<button onclick="openDay('+DAYS[idx-1].n+')" style="'+btn+'">‹ Day '+DAYS[idx-1].n+'</button>' : '') +
+    (idx<DAYS.length-1 ? '<button onclick="openDay('+DAYS[idx+1].n+')" style="'+btn+'">Day '+DAYS[idx+1].n+' ›</button>' : '') +
+    (tdi ? '<span style="font-size:12px;color:#f59e0b">✈️ '+esc(tdi)+'</span>' : '') +
+    '</div>';
+  container.style.display = 'block';
+  const openPrompt = dayIsOpen(dy) ? '<div style="margin-bottom:12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ This day is open — set a neighborhood focus below, or hit ✨ Plan day with AI.</div>' : '';
+  container.innerHTML = nav + openPrompt + '<div style="max-width:720px">' + renderDayColumn(dy, filtered) + '</div>';
 }
 
 function dcAction(btn) {
