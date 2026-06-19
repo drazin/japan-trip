@@ -798,8 +798,19 @@ let TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[],
 async function loadActiveTrip(){
   setTripKeys();
   try {
-    const res = await fetch('/api/trips/' + activeTripId);
-    if(!res.ok) return;
+    let res = await fetch('/api/trips/' + activeTripId);
+    if(!res.ok){
+      // Active trip is missing (e.g. deleted) — recover by falling back to the first available trip.
+      try {
+        const list = await (await fetch('/api/trips')).json();
+        const first = (list.trips && list.trips[0] && list.trips[0].id) || 'japan-2026';
+        activeTripId = first;
+        try { localStorage.setItem('active-trip', first); } catch(e){}
+        setTripKeys();
+        res = await fetch('/api/trips/' + activeTripId);
+      } catch(e){}
+      if(!res.ok) return;
+    }
     const trip = await res.json();
     DATA = (trip.base_places || []).slice();
     DAYS = (trip.segments || []).map(s => ({ n: s.n, d: s.dateLabel || s.date || ('Day ' + s.n), c: s.city || '', t: s.theme || '' }));
