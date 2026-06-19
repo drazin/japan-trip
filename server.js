@@ -262,6 +262,8 @@ app.post('/api/capture', async (req, res) => {
     }
     for (const r of raw) {
       const place = toPlace(r, url, category);
+      const g = await geocodeQuery(place.name + ', ' + place.city);
+      if (g.lat) { place.lat = g.lat; place.lng = g.lng; }
       await pool.query(
         `INSERT INTO captures (source_url, caption, category, place, trip_id) VALUES ($1, $2, $3, $4, $5)`,
         [url, caption, category, JSON.stringify(place), tripId]
@@ -335,6 +337,8 @@ app.post('/api/pending/enrich', async (req, res) => {
     await pool.query(`DELETE FROM captures WHERE id = $1`, [id]);
     for (const r of raw) {
       const place = toPlace(r, source_url, category);
+      const g = await geocodeQuery(place.name + ', ' + place.city);
+      if (g.lat) { place.lat = g.lat; place.lng = g.lng; }
       await pool.query(
         `INSERT INTO captures (source_url, caption, category, place, trip_id) VALUES ($1, $2, $3, $4, $5)`,
         [source_url, caption, category, JSON.stringify(place), trip_id]
@@ -496,21 +500,22 @@ app.put('/api/trips/:id', async (req, res) => {
 // --- Geocoding proxy (free OpenStreetMap Nominatim) ---------------------
 
 const geoCache = new Map();
-app.get('/api/geocode', async (req, res) => {
-  const q = (req.query.q || '').trim();
-  if (!q) return res.json({});
-  if (geoCache.has(q)) return res.json(geoCache.get(q));
+async function geocodeQuery(q) {
+  q = (q || '').trim();
+  if (!q) return {};
+  if (geoCache.has(q)) return geoCache.get(q);
   try {
     const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q),
       { headers: { 'User-Agent': 'DrazinFamilyTripPlanner/1.0 (personal trip planner)' } });
-    if (!r.ok) return res.json({});
+    if (!r.ok) return {};
     const arr = await r.json();
-    const out = (Array.isArray(arr) && arr.length)
-      ? { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon), display_name: arr[0].display_name }
-      : {};
+    const out = (Array.isArray(arr) && arr.length) ? { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon), display_name: arr[0].display_name } : {};
     if (out.lat) geoCache.set(q, out);
-    res.json(out);
-  } catch (e) { res.json({}); }
+    return out;
+  } catch (e) { return {}; }
+}
+app.get('/api/geocode', async (req, res) => {
+  res.json(await geocodeQuery(req.query.q));
 });
 
 initDb()

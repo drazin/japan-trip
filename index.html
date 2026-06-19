@@ -1466,7 +1466,7 @@ function setupListeners() {
   document.getElementById('ap-cancel').addEventListener('click', () => {
     document.getElementById('add-place-form').style.display = 'none';
   });
-  document.getElementById('ap-submit').addEventListener('click', () => {
+  document.getElementById('ap-submit').addEventListener('click', async () => {
     const name = document.getElementById('ap-name').value.trim();
     if (!name) { document.getElementById('ap-name').style.borderColor = 'var(--red)'; return; }
     const city = document.getElementById('ap-city').value;
@@ -1474,14 +1474,24 @@ function setupListeners() {
     const cat = document.getElementById('ap-cat').value;
     const days = document.getElementById('ap-days').value.trim();
     const why = document.getElementById('ap-why').value.trim();
-    const cityCoords = {Tokyo:[35.68,139.77],Kyoto:[35.01,135.77],Osaka:[34.69,135.50],Kanazawa:[36.56,136.66],Hakone:[35.23,139.06]};
-    const coords = cityCoords[city] || [35.68,139.77];
+    let lat, lng;
+    try {
+      const gr = await fetch('/api/geocode?q=' + encodeURIComponent(name + ', ' + city));
+      const g = await gr.json();
+      if (g.lat) { lat = g.lat; lng = g.lng; }
+    } catch(e) {}
+    if (lat == null) {
+      // fallback: existing city table, else the active trip's first hotel, else Tokyo
+      const cityCoords = {Tokyo:[35.68,139.77],Kyoto:[35.01,135.77],Osaka:[34.69,135.50],Kanazawa:[36.56,136.66],Hakone:[35.23,139.06]};
+      const base = cityCoords[city] || (Object.values(TRIP.hotels)[0] ? [Object.values(TRIP.hotels)[0].lat, Object.values(TRIP.hotels)[0].lng] : [35.68,139.77]);
+      lat = base[0] + (Math.random()-0.5)*0.02; lng = base[1] + (Math.random()-0.5)*0.02;
+    }
     DATA.push({
       name: name, city: city, neighborhood: hood, category: cat,
       why: why, family_fit: '', booking: '', priority: 3,
       heat: 'Indoor', days: days, source: 'Manual',
-      lat: coords[0] + (Math.random()-0.5)*0.02,
-      lng: coords[1] + (Math.random()-0.5)*0.02,
+      lat: lat,
+      lng: lng,
       url: ''
     });
     // Save manual additions to localStorage so they persist
