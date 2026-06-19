@@ -943,18 +943,55 @@ function anchorSelect(n, slotIdx, city, current){
   ).join('');
   return '<select class="search-input" style="padding:4px 8px;font-size:12px;min-width:150px" onchange="setDayFocus(' + n + ',' + slotIdx + ',this.value)">' + opts + '</select>';
 }
+function slotToBlock(t){
+  t = (t || '').toLowerCase();
+  if (t.includes('morning')) return 'morning';
+  if (t.includes('evening') || t.includes('night')) return 'evening';
+  if (t.includes('afternoon') || t.includes('midday') || t.includes('lunch') || t.includes('noon')) return 'afternoon';
+  return 'unscheduled';
+}
 function renderAiPlan(n, ai){
   if (!ai || !ai.slots || !ai.slots.length) return '';
+  const miniBtn = 'font-size:11px;border-radius:6px;padding:2px 7px;cursor:pointer';
   return '<div class="section-label" style="color:#a855f7">✨ AI plan</div>' +
     '<div class="nh-group" style="border:1px solid #a855f7;border-radius:8px;padding:8px">' +
-    ai.slots.map(s => '<div style="margin-bottom:8px"><div style="font-weight:600;font-size:12px">' + esc(s.time) + '</div>' +
-      (s.flow ? '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">' + esc(s.flow) + '</div>' : '') +
-      (s.picks || []).map(pk => '<div style="font-size:12px;padding:2px 0">• ' + esc(pk.name) + (pk.note ? ' — <span style="color:var(--muted)">' + esc(pk.note) + '</span>' : '') + '</div>').join('') +
-      '</div>').join('') +
-    '<button onclick="dismissDayAI(' + n + ')" style="margin-top:4px;font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer">Dismiss plan</button>' +
+    '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">' +
+      '<button onclick="applyAiPlan(' + n + ')" style="' + miniBtn + ';background:rgba(168,85,247,0.15);border:1px solid #a855f7;color:#a855f7">⤵ Apply all to timeslots</button>' +
+      '<button onclick="dismissDayAI(' + n + ')" style="' + miniBtn + ';background:transparent;border:1px solid var(--border);color:var(--muted)">Dismiss plan</button>' +
+    '</div>' +
+    ai.slots.map(s => {
+      const blk = slotToBlock(s.time);
+      const blkIcon = (DAY_BLOCKS.find(b => b[0] === blk) || ['', '🕐 Unscheduled'])[1].split(' ')[0];
+      return '<div style="margin-bottom:8px"><div style="font-weight:600;font-size:12px">' + esc(s.time) + '</div>' +
+        (s.flow ? '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">' + esc(s.flow) + '</div>' : '') +
+        (s.picks || []).map(pk => {
+          const added = getAction(pk.name).day === n;
+          const eName = esc(pk.name);
+          const acts = added
+            ? '<span style="color:var(--green);font-size:11px">✓ added</span>'
+            : '<button data-name="' + eName + '" data-block="' + blk + '" onclick="setBlockBtn(this)" title="Add to this timeslot" style="' + miniBtn + ';background:transparent;border:1px solid #3b82f6;color:#3b82f6">➕ ' + blkIcon + '</button>' +
+              '<button data-name="' + eName + '" data-block="unscheduled" onclick="setBlockBtn(this)" title="Add to day backlog" style="' + miniBtn + ';background:transparent;border:1px solid var(--border);color:var(--muted)">➕ backlog</button>';
+          return '<div style="font-size:12px;padding:3px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
+            '<span>• ' + eName + (pk.note ? ' — <span style="color:var(--muted)">' + esc(pk.note) + '</span>' : '') + '</span>' + acts +
+          '</div>';
+        }).join('') +
+        '</div>';
+    }).join('') +
     '</div>';
 }
 function dismissDayAI(n){ const p = getDayPlan(n); p.ai = null; saveDayPlan(n, p); }
+function applyAiPlan(n){
+  const p = getDayPlan(n);
+  if (!p.ai || !p.ai.slots) return;
+  p.ai.slots.forEach(s => {
+    const blk = slotToBlock(s.time);
+    (s.picks || []).forEach(pk => {
+      const a = getAction(pk.name);
+      itemActions[pk.name] = { ...a, status: a.status === 'none' ? 'assigned' : a.status, day: n, block: blk };
+    });
+  });
+  saveActions(); renderDays();
+}
 async function planDayAI(n){
   const dy = DAYS.find(d => d.n === n);
   const p = getDayPlan(n);
