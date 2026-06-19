@@ -535,6 +535,7 @@ async function switchTrip(id){
   await loadActions();
   renderAll();
   if(typeof loadPending === 'function') loadPending();
+  if(typeof updateURL === 'function') updateURL();
 }
 function openNewTrip(){ document.getElementById('nt-error').textContent=''; document.getElementById('newtrip-modal').style.display='flex'; }
 function closeNewTrip(){ document.getElementById('newtrip-modal').style.display='none'; }
@@ -597,7 +598,7 @@ function setupNewTrip(){
   const cr=document.getElementById('nt-create'); if(cr) cr.addEventListener('click', ntCreate);
 }
 
-async function init() { await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); }
+async function init() { await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState(); }
 
 function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
@@ -832,7 +833,7 @@ function dcDayPick(btn) {
 }
 
 // --- Trip context (hotels, day->hotel, logistics) from trip.json ----------
-let activeTripId = (function(){ try { return localStorage.getItem('active-trip') || 'japan-2026'; } catch(e){ return 'japan-2026'; } })();
+let activeTripId = (function(){ try { return new URLSearchParams(location.search).get('trip') || localStorage.getItem('active-trip') || 'japan-2026'; } catch(e){ return 'japan-2026'; } })();
 setTripKeys();
 let TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:false };
 async function loadActiveTrip(){
@@ -1138,8 +1139,43 @@ function renderDayOverview(){
       '</div>';
     }).join('') + '</div>';
 }
-function openDay(n){ selectedDay = n; renderDays(); window.scrollTo(0,0); }
-function backToOverview(){ selectedDay = null; renderDays(); }
+function openDay(n){ selectedDay = n; renderDays(); window.scrollTo(0,0); updateURL(true); }
+function backToOverview(){ selectedDay = null; renderDays(); updateURL(true); }
+
+// --- Deep-linkable URLs (trip + view + open day) ---
+let currentView = 'table';
+function setView(v, push){
+  currentView = v;
+  document.querySelectorAll('.tab[data-view]').forEach(t => t.classList.toggle('active', t.dataset.view === v));
+  document.getElementById('table-view').style.display = v==='table'?'block':'none';
+  document.getElementById('map-view').style.display = v==='map'?'block':'none';
+  document.getElementById('day-view').style.display = v==='days'?'block':'none';
+  document.getElementById('calendar-view').style.display = v==='calendar'?'block':'none';
+  document.getElementById('itin-view').style.display = v==='itinerary'?'block':'none';
+  document.getElementById('controls').style.display = v==='itinerary'?'none':'flex';
+  if (v==='map') setTimeout(()=>{if(!map)renderMap();else{map.invalidateSize();renderMap();}},100);
+  if (v==='days') renderDays();
+  if (v==='calendar') renderCalendar();
+  if (v==='itinerary') renderItinerary();
+  updateURL(push);
+}
+function updateURL(push){
+  const p = new URLSearchParams();
+  if (activeTripId) p.set('trip', activeTripId);
+  p.set('view', currentView);
+  if (currentView === 'days' && selectedDay != null) p.set('day', String(selectedDay));
+  const url = location.pathname + '?' + p.toString();
+  try { history[push ? 'pushState' : 'replaceState']({}, '', url); } catch(e){}
+}
+async function applyUrlState(){
+  const p = new URLSearchParams(location.search);
+  const t = p.get('trip');
+  if (t && t !== activeTripId) { await switchTrip(t); }
+  const d = p.get('day');
+  selectedDay = (d != null && d !== '') ? Number(d) : null;
+  setView(p.get('view') || 'table', false);
+}
+window.addEventListener('popstate', () => { applyUrlState(); });
 function renderDays(){
   const container = document.getElementById('day-columns');
   if (selectedDay == null) { renderDayOverview(); return; }
@@ -1568,19 +1604,7 @@ function setupListeners() {
 
     // Tabs
     if (e.target.classList.contains('tab') && e.target.dataset.view) {
-      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-      e.target.classList.add('active');
-      const v = e.target.dataset.view;
-      document.getElementById('table-view').style.display = v==='table'?'block':'none';
-      document.getElementById('map-view').style.display = v==='map'?'block':'none';
-      document.getElementById('day-view').style.display = v==='days'?'block':'none';
-      document.getElementById('calendar-view').style.display = v==='calendar'?'block':'none';
-      document.getElementById('itin-view').style.display = v==='itinerary'?'block':'none';
-      document.getElementById('controls').style.display = v==='itinerary'?'none':'flex';
-      if (v==='map') setTimeout(()=>{if(!map)renderMap();else{map.invalidateSize();renderMap();}},100);
-      if (v==='days') renderDays();
-      if (v==='calendar') renderCalendar();
-      if (v==='itinerary') renderItinerary();
+      setView(e.target.dataset.view, true);
     }
   });
 
