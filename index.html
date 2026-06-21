@@ -20,7 +20,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .header { padding: 28px 40px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
   .header h1 { font-size: 28px; font-weight: 700; }
   .header .subtitle { color: var(--muted); font-size: 15px; }
-  .header-actions { display: flex; gap: 10px; }
+  .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
   .header-actions button { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-size: 14px; cursor: pointer; transition: all 0.15s; }
   .header-actions button:hover { border-color: var(--accent); color: var(--text); }
 
@@ -247,6 +247,12 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 
   @media (max-width: 768px) {
     .header, .stats-bar, .controls, .content { padding-left: 12px; padding-right: 12px; }
+    .header { padding-top: 16px; padding-bottom: 16px; }
+    .header h1 { font-size: 22px; }
+    .header-actions { gap: 6px; }
+    .header-actions button { padding: 6px 12px; font-size: 13px; }
+    .stats-bar { gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+    .stat { min-width: 0; flex: 1 1 27%; padding: 9px 10px; }
     .day-columns { grid-template-columns: 1fr; }
   }
 </style>
@@ -530,8 +536,15 @@ async function switchTrip(id){
   if(typeof loadPending === 'function') loadPending();
   if(typeof updateURL === 'function') updateURL();
 }
-function openNewTrip(){ document.getElementById('nt-error').textContent=''; document.getElementById('newtrip-modal').style.display='flex'; }
-function closeNewTrip(){ document.getElementById('newtrip-modal').style.display='none'; }
+function openNewTrip(){ document.getElementById('nt-error').textContent=''; document.getElementById('newtrip-modal').classList.add('open'); }
+function closeNewTrip(){ document.getElementById('newtrip-modal').classList.remove('open'); }
+// Escape or backdrop-click closes any open modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+});
+document.addEventListener('click', e => {
+  if (e.target.classList && e.target.classList.contains('modal-overlay')) e.target.classList.remove('open');
+});
 
 async function ntGeocode(){
   const name = document.getElementById('nt-hotel').value.trim();
@@ -941,6 +954,16 @@ function slotToBlock(t){
   if (t.includes('morning')) return 'morning';
   if (t.includes('evening') || t.includes('night')) return 'evening';
   if (t.includes('afternoon') || t.includes('midday') || t.includes('lunch') || t.includes('noon')) return 'afternoon';
+  // Fall back to parsing a clock time the AI sometimes uses, e.g. "15:00-16:30", "8 am".
+  const m = t.match(/(\d{1,2})\s*:?\s*\d{0,2}\s*(am|pm)?/);
+  if (m) {
+    let h = parseInt(m[1], 10);
+    if (m[2] === 'pm' && h < 12) h += 12;
+    if (m[2] === 'am' && h === 12) h = 0;
+    if (h < 12) return 'morning';
+    if (h < 17) return 'afternoon';
+    return 'evening';
+  }
   return 'unscheduled';
 }
 function renderAiPlan(n, ai){
@@ -1937,9 +1960,9 @@ setupCapture();
 // The newtrip modal markup follows this script, so bind its buttons once the DOM is parsed.
 if (document.getElementById('nt-create')) setupNewTrip(); else document.addEventListener('DOMContentLoaded', setupNewTrip);
 </script>
-<div id="newtrip-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;align-items:flex-start;justify-content:center">
-  <div style="background:var(--card);margin-top:8vh;padding:24px;border-radius:12px;width:min(520px,92vw);border:1px solid var(--border)">
-    <div style="font-weight:700;font-size:18px;margin-bottom:14px">New Trip</div>
+<div id="newtrip-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">🧳 New Trip</div>
     <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--muted)">
       <label>Trip name<br><input id="nt-name" class="search-input" style="width:100%" placeholder="Portland Maine — Jul 2026"></label>
       <div style="display:flex;gap:10px">
