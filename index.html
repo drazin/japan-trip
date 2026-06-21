@@ -505,7 +505,7 @@ function clearActions() {
 }
 
 // State
-let activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All' };
+let activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All' };
 let sortField = 'priority'; let sortDir = -1;
 let searchTerm = ''; let map = null; let markers = [];
 let openMenu = null;
@@ -642,9 +642,13 @@ function renderFilters() {
   hoodSource.forEach(d => { const h = d.neighborhood || ''; if (h && !h.includes('Various') && h.length > 0) { hoodCounts[h] = (hoodCounts[h]||0) + 1; } });
   const hoods = ['All', ...Object.entries(hoodCounts).sort((a,b) => b[1]-a[1]).map(([h]) => h)];
 
+  const hasBrandon = DATA.some(d => d.source === "Brandon's List");
+  const brandonChip = hasBrandon
+    ? `<button class="filter-btn ${activeFilters.source==="Brandon's List"?'active':''}" data-filter="source" data-value="${activeFilters.source==="Brandon's List"?'All':"Brandon's List"}" style="margin-left:8px;border-color:#f59e0b;color:#f59e0b">★ Brandon's List</button>`
+    : '';
   document.getElementById('city-filters').innerHTML = cities.map(c =>
     `<button class="filter-btn ${activeFilters.city===c?'active':''}" data-filter="city" data-value="${c}">${c}</button>`
-  ).join('');
+  ).join('') + brandonChip;
   const hoodSelect = document.getElementById('hood-filters');
   hoodSelect.innerHTML = hoods.map(h =>
     `<option value="${h}" ${activeFilters.neighborhood===h?'selected':''}>${h === 'All' ? 'All Areas' : h + ' (' + hoodCounts[h] + ')'}</option>`
@@ -662,6 +666,7 @@ function renderFilters() {
 function getFiltered() {
   return DATA.filter(d => {
     if (activeFilters.city !== 'All' && d.city !== activeFilters.city) return false;
+    if (activeFilters.source !== 'All' && d.source !== activeFilters.source) return false;
     if (activeFilters.neighborhood !== 'All' && (d.neighborhood||'') !== activeFilters.neighborhood) return false;
     if (activeFilters.category !== 'All' && d.category !== activeFilters.category) return false;
     if (activeFilters.action !== 'All') {
