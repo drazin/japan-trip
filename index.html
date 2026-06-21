@@ -688,6 +688,11 @@ function getHeatCls(h) { const l=h.toLowerCase(); return l.includes('indoor')?'i
 function getCityCls(c) { return c.includes('Tokyo')?'city-tokyo':c.includes('Kyoto')?'city-kyoto':c.includes('Osaka')?'city-osaka':c.includes('Kanazawa')?'city-kanazawa':c.includes('Hakone')?'city-hakone':''; }
 function dots(p) { const pc=p>=5?'p5':p>=4?'p4':p>=3?'p3':'p2'; return Array.from({length:5},(_,i)=>`<div class="dot ${i<p?'filled '+pc:''}"></div>`).join(''); }
 
+function sourceBadge(d){
+  if (d && d.source === "Brandon's List")
+    return ' <span title="From Brandon\'s list" style="font-size:10px;background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid #f59e0b;border-radius:6px;padding:1px 6px;white-space:nowrap;vertical-align:1px">★ Brandon</span>';
+  return '';
+}
 function renderTable() {
   const filtered = getFiltered();
   const tbody = document.getElementById('table-body');
@@ -699,7 +704,7 @@ function renderTable() {
     return `
     <tr class="data-row ${rowCls}" data-name="${esc(d.name)}">
       <td><div class="priority-dots">${dots(d.priority)}</div></td>
-      <td><strong>${d.name}</strong></td>
+      <td><strong>${d.name}</strong>${sourceBadge(d)}</td>
       <td><span class="city-tag ${getCityCls(d.city)}">${d.city}</span></td>
       <td style="color:var(--cyan);font-size:13px">${d.neighborhood||''}</td>
       <td><span class="badge badge-${getCls(d.category)}">${d.category}</span></td>
@@ -795,7 +800,7 @@ function renderDayCard(d, borderStyle) {
   const igUrl = d.ig_url || '';
   const eName = esc(d.name);
   return `<div class="day-card" data-dc-name="${eName}" style="${borderStyle}">
-    <div class="dc-name">${icon} ${'★'.repeat(d.priority)} ${d.name}</div>
+    <div class="dc-name">${icon} ${'★'.repeat(d.priority)} ${d.name}${sourceBadge(d)}</div>
     <div class="dc-meta">${d.category} · ${d.heat}${statusLabel ? ' · '+statusLabel : ''}${a.notes ? ' · <em>'+esc(a.notes)+'</em>' : ''}</div>
     <div class="dc-details">
       <div class="dc-why">${d.why}</div>
@@ -1073,7 +1078,7 @@ function renderBuiltCard(d){
   const dest = (typeof d.lat === 'number') ? (d.lat + ',' + d.lng) : null;
   const dir = dest ? '<a href="https://www.google.com/maps/dir/?api=1&destination=' + dest + '&travelmode=transit" target="_blank" style="color:#3b82f6;font-size:11px">🧭 Directions</a>' + (hotel ? ' · <a href="https://www.google.com/maps/dir/?api=1&origin=' + hotel.lat + ',' + hotel.lng + '&destination=' + dest + '&travelmode=transit" target="_blank" style="color:var(--muted);font-size:11px">from hotel</a>' : '') : '';
   return '<div class="built-card" draggable="true" data-name="' + eName + '" ondragstart="dayDragStart(event)" style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;background:var(--card);cursor:grab">' +
-    '<div style="font-size:13px;font-weight:600">' + '★'.repeat(d.priority) + ' ' + esc(d.name) + '</div>' +
+    '<div style="font-size:13px;font-weight:600">' + '★'.repeat(d.priority) + ' ' + esc(d.name) + sourceBadge(d) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">' + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
     '<div style="margin-top:4px;font-size:11px">⏰ <span data-name="' + eName + '" onclick="editTime(this)" style="cursor:pointer;color:#3b82f6">' + (a.time ? esc(a.time) : 'set time') + '</span></div>' +
     (dir ? '<div style="margin-top:4px">' + dir + '</div>' : '') +
@@ -1100,7 +1105,7 @@ function renderOptionCard(d, km){
   const eName = esc(d.name);
   const badge = (km != null) ? '<span style="font-size:10px;color:var(--muted)">' + distBadge(km) + '</span> ' : '';
   return '<div class="opt-card" draggable="true" data-name="' + eName + '" ondragstart="dayDragStart(event)" style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;background:var(--card);cursor:grab">' +
-    '<div style="font-size:13px">' + '★'.repeat(d.priority) + ' ' + esc(d.name) + '</div>' +
+    '<div style="font-size:13px">' + '★'.repeat(d.priority) + ' ' + esc(d.name) + sourceBadge(d) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">' + badge + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
     '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">' + blockBtns(d.name) + '</div>' +
   '</div>';
