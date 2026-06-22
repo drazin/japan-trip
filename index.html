@@ -266,6 +266,9 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     { display: none; }
     table th, table td { padding-left: 6px; padding-right: 6px; }
     table th:nth-child(8), table td:nth-child(8) { width: auto; }
+    /* Assigned/booked/etc badges shrink to icon-only on mobile; "Set action" keeps its label. */
+    .action-badge.has-action .ab-label { display: none; }
+    .action-badge.has-action { padding: 5px 9px; }
     /* Modals: fit small screens */
     .modal-box { margin: 3vh auto; padding: 18px 16px; width: 94vw; max-height: 92vh; overflow-y: auto; border-radius: 12px; }
     .modal-overlay { align-items: flex-start; }
@@ -731,7 +734,7 @@ function renderTable() {
       <td><span class="heat-tag heat-${getHeatCls(d.heat)}">${d.heat}</span></td>
       <td style="color:var(--muted);font-size:11px">${String(d.days||'')}</td>
       <td class="action-cell">
-        <div class="action-badge ${info.cls}" data-action-for="${esc(d.name)}">${info.icon} ${a.status==='none'?'Set action':info.label}</div>
+        <div class="action-badge ${info.cls} ${a.status==='none'?'':'has-action'}" data-action-for="${esc(d.name)}">${info.icon} <span class="ab-label">${a.status==='none'?'Set action':info.label}</span></div>
         <div class="action-menu" id="menu-${i}">
           ${Object.entries(ACTIONS).map(([k,v]) =>
             `<div class="action-menu-item" data-set-action="${k}" data-target="${esc(d.name)}">${v.icon} ${v.label}</div>`
