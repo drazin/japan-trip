@@ -281,6 +281,9 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     /* Modals: fit small screens */
     .modal-box { margin: 3vh auto; padding: 18px 16px; width: 94vw; max-height: 92vh; overflow-y: auto; border-radius: 12px; }
     .modal-overlay { align-items: flex-start; }
+    /* Action sheet docks to the bottom on phones */
+    #action-sheet { align-items: flex-end; }
+    #action-sheet .modal-box { margin: 0; width: 100%; max-width: 100%; max-height: 88vh; border-radius: 16px 16px 0 0; }
   }
 </style>
 </head>
@@ -516,6 +519,66 @@ function blockBtns(name){
     '<button data-name="' + eName + '" data-block="' + k + '" onclick="setBlockBtn(this)" title="Move to ' + lbl + '" style="font-size:12px;background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 6px;cursor:pointer">' + lbl.split(' ')[0] + '</button>'
   ).join('');
 }
+// --- Action sheet: a body-level bottom sheet (works reliably on iOS, never clipped) ---
+let sheetName = null;
+function openActionSheet(el){
+  sheetName = el.dataset.actionFor;   // dataset decodes HTML entities, so apostrophes are intact
+  buildActionSheet();
+  document.getElementById('action-sheet').classList.add('open');
+}
+function closeActionSheet(){ const s=document.getElementById('action-sheet'); if(s) s.classList.remove('open'); }
+function buildActionSheet(){
+  const name = sheetName, a = getAction(name);
+  let ov = document.getElementById('action-sheet');
+  if(!ov){
+    ov = document.createElement('div'); ov.id='action-sheet'; ov.className='modal-overlay';
+    ov.addEventListener('click', e=>{ if(e.target===ov) closeActionSheet(); });
+    document.body.appendChild(ov);
+  }
+  const btn = 'text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;gap:8px';
+  const acts = Object.entries(ACTIONS).filter(([k])=>k!=='none').map(([k,v]) =>
+    `<button onclick="asStatus('${k}')" style="${btn};${a.status===k?'border-color:var(--green);background:rgba(34,197,94,0.12)':''}">${v.icon} ${v.label}${a.status===k?' ✓':''}</button>`
+  ).join('');
+  const days = DAYS.map(dy =>
+    `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:8px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer">${dy.n}</button>`
+  ).join('');
+  ov.innerHTML =
+    `<div class="modal-box action-sheet-box">
+       <div class="modal-title" style="font-size:16px">${esc(name)}</div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${acts}</div>
+       <div class="field-label" style="margin-top:14px">Assign to day</div>
+       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">${days}</div>
+       <div class="field-label" style="margin-top:14px">Reserve by (when to book)</div>
+       <input type="date" id="as-res" class="search-input" style="width:100%" value="${a.reserveDate||''}">
+       <div class="field-label" style="margin-top:10px">Notes</div>
+       <textarea id="as-notes" class="search-input" style="width:100%;height:60px;resize:vertical;font-family:inherit;border-radius:12px">${esc(a.notes||'')}</textarea>
+       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+         <button onclick="asSaveClose()" style="padding:9px 20px;border-radius:8px;border:1px solid var(--green);background:rgba(34,197,94,0.15);color:var(--green);font-weight:600;cursor:pointer">Done</button>
+       </div>
+     </div>`;
+}
+function asReadInputs(){
+  const r=document.getElementById('as-res'), n=document.getElementById('as-notes');
+  return { reserveDate: r?r.value:'', notes: n?n.value:'' };
+}
+function asStatus(k){
+  const a=getAction(sheetName); const inp=asReadInputs();
+  setAction(sheetName, k, a.day, inp.notes, inp.reserveDate);
+  closeActionSheet();
+}
+function asDay(d){
+  const a=getAction(sheetName); const inp=asReadInputs();
+  const newDay = a.day===d ? null : d;
+  const newStatus = newDay && a.status==='none' ? 'assigned' : a.status;
+  setAction(sheetName, newStatus, newDay, inp.notes, inp.reserveDate);
+  buildActionSheet();  // keep open, refresh highlights
+}
+function asSaveClose(){
+  const a=getAction(sheetName); const inp=asReadInputs();
+  setAction(sheetName, a.status, a.day, inp.notes, inp.reserveDate);
+  closeActionSheet();
+}
+
 function exportActions() {
   const blob = new Blob([JSON.stringify(itemActions, null, 2)], {type: 'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -743,26 +806,7 @@ function renderTable() {
       <td><span class="heat-tag heat-${getHeatCls(d.heat)}">${d.heat}</span></td>
       <td style="color:var(--muted);font-size:11px">${String(d.days||'')}</td>
       <td class="action-cell">
-        <div class="action-badge ${info.cls} ${a.status==='none'?'':'has-action'}" data-action-for="${esc(d.name)}">${info.icon} <span class="ab-label">${a.status==='none'?'Set action':info.label}</span></div>
-        <div class="action-menu" id="menu-${i}">
-          ${Object.entries(ACTIONS).map(([k,v]) =>
-            `<div class="action-menu-item" data-set-action="${k}" data-target="${esc(d.name)}">${v.icon} ${v.label}</div>`
-          ).join('')}
-          <div class="action-menu-sep"></div>
-          <div class="action-day-picker">
-            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Assign to day</div>
-            <div class="day-grid">
-              ${DAYS.map(dy => `<button class="day-pick-btn ${a.day===dy.n?'selected':''}" data-pick-day="${dy.n}" data-target="${esc(d.name)}" title="Day ${dy.n}: ${dy.t}">${dy.n}</button>`).join('')}
-            </div>
-          </div>
-          <div style="padding:8px;border-top:1px solid var(--border)">
-            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Reservation date (when to book by)</div>
-            <input type="date" class="notes-input reserve-date-input" data-resdate-for="${esc(d.name)}" value="${a.reserveDate||''}" style="margin-top:0" onclick="event.stopPropagation()">
-          </div>
-          <div style="padding:4px 8px">
-            <textarea class="notes-input" rows="2" placeholder="Notes..." data-notes-for="${esc(d.name)}">${a.notes||''}</textarea>
-          </div>
-        </div>
+        <div class="action-badge ${info.cls} ${a.status==='none'?'':'has-action'}" data-action-for="${esc(d.name)}" onclick="event.stopPropagation();openActionSheet(this)">${info.icon} <span class="ab-label">${a.status==='none'?'Set action':info.label}</span></div>
       </td>
       <td style="font-size:11px;color:var(--accent);font-weight:600">${dayLabel}</td>
       <td style="cursor:pointer;color:var(--muted)" class="expand-toggle" data-expand-idx="${i}">▸</td>
@@ -1654,35 +1698,6 @@ function setupListeners() {
       activeFilters[filter] = e.target.dataset.value;
       if (filter === 'city') activeFilters.neighborhood = 'All';
       renderAll();
-    }
-
-    // Action badge click -> open menu
-    if (e.target.closest('.action-badge')) {
-      e.stopPropagation();
-      const cell = e.target.closest('.action-cell');
-      const menu = cell.querySelector('.action-menu');
-      const wasOpen = menu.classList.contains('open');
-      document.querySelectorAll('.action-menu.open').forEach(m=>m.classList.remove('open'));
-      if (!wasOpen) menu.classList.add('open');
-    }
-
-    // Menu item click
-    if (e.target.closest('.action-menu-item')) {
-      const el = e.target.closest('.action-menu-item');
-      const name = el.dataset.target;
-      const status = el.dataset.setAction;
-      const current = getAction(name);
-      setAction(name, status, current.day, current.notes);
-    }
-
-    // Day pick
-    if (e.target.classList.contains('day-pick-btn')) {
-      const name = e.target.dataset.target;
-      const day = parseInt(e.target.dataset.pickDay);
-      const current = getAction(name);
-      const newDay = current.day === day ? null : day;
-      const newStatus = newDay && current.status === 'none' ? 'assigned' : current.status;
-      setAction(name, newStatus, newDay, current.notes);
     }
 
     // Expand toggle — click anywhere on the row except action cell
