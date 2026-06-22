@@ -252,8 +252,14 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     .header h1 { font-size: 22px; }
     .header-actions { gap: 6px; }
     .header-actions button { padding: 6px 12px; font-size: 13px; }
-    .stats-bar { gap: 8px; padding-top: 10px; padding-bottom: 10px; }
-    .stat { min-width: 0; flex: 1 1 27%; padding: 9px 10px; }
+    .stats-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+    .stat { min-width: 0; padding: 10px 12px; }
+    /* Tabs scroll horizontally instead of overflowing/clipping */
+    .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 4px; padding: 0 12px; flex-wrap: nowrap; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { padding: 12px 14px; font-size: 15px; white-space: nowrap; flex: 0 0 auto; }
+    /* Action menu becomes a bottom sheet so it's never off-screen */
+    .action-menu { position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; min-width: 0; max-height: 72vh; overflow-y: auto; box-shadow: 0 -8px 40px rgba(0,0,0,0.7); }
     .day-columns { grid-template-columns: 1fr; }
     /* All Places table: drop low-value columns so it fits without sideways scroll.
        Keep Name(2), City(3), Action(8), expand(10). */
