@@ -1123,6 +1123,13 @@ function slotToBlock(t){
   }
   return 'unscheduled';
 }
+// Which time block an assigned item belongs in: an explicit block wins; otherwise
+// derive it from the entered time (e.g. "7:00pm" -> evening).
+function effectiveBlock(a){
+  if (a.block && a.block !== 'unscheduled') return a.block;
+  if (a.time) { const b = slotToBlock(a.time); if (b !== 'unscheduled') return b; }
+  return 'unscheduled';
+}
 function renderAiPlan(n, ai){
   if (!ai || !ai.slots || !ai.slots.length) return '';
   const miniBtn = 'font-size:11px;border-radius:6px;padding:2px 7px;cursor:pointer';
@@ -1230,11 +1237,12 @@ function renderBuiltCard(d){
   const dest = (typeof d.lat === 'number') ? (d.lat + ',' + d.lng) : null;
   const dir = dest ? '<a href="https://www.google.com/maps/dir/?api=1&destination=' + dest + '&travelmode=transit" target="_blank" style="color:#3b82f6;font-size:11px">🧭 Directions</a>' + (hotel ? ' · <a href="https://www.google.com/maps/dir/?api=1&origin=' + hotel.lat + ',' + hotel.lng + '&destination=' + dest + '&travelmode=transit" target="_blank" style="color:var(--muted);font-size:11px">from hotel</a>' : '') : '';
   return '<div class="built-card" draggable="true" data-name="' + eName + '" ondragstart="dayDragStart(event)" style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;background:var(--card);cursor:grab">' +
-    '<div style="font-size:13px;font-weight:600">' + '★'.repeat(d.priority) + ' ' + esc(d.name) + sourceBadge(d) + '</div>' +
+    '<div style="font-size:13px;font-weight:600">' + statusChip(a.status) + '★'.repeat(d.priority) + ' ' + esc(d.name) + sourceBadge(d) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">' + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
     '<div style="margin-top:4px;font-size:11px">⏰ <span data-name="' + eName + '" onclick="editTime(this)" style="cursor:pointer;color:#3b82f6">' + (a.time ? esc(a.time) : 'set time') + '</span></div>' +
     (dir ? '<div style="margin-top:4px">' + dir + '</div>' : '') +
     '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">' +
+      '<button data-action-for="' + eName + '" onclick="event.stopPropagation();openActionSheet(this)" title="Change status / details" style="font-size:11px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:2px 8px;cursor:pointer">✎ Edit</button>' +
       blockBtns(d.name) +
       '<button data-name="' + eName + '" onclick="unassignFromDay(this)" title="Remove from day" style="font-size:11px;background:transparent;border:1px solid var(--border);color:var(--red);border-radius:6px;padding:2px 6px;cursor:pointer;margin-left:auto">✕</button>' +
     '</div>' +
@@ -1245,7 +1253,7 @@ function renderDayBuilt(dy){
   const assigned = DATA.filter(d => getAction(d.name).day === dy.n);
   return '<div style="font-weight:700;margin-bottom:8px">📋 Your Day</div>' +
     DAY_BLOCKS.map(([key, label]) => {
-      const items = assigned.filter(d => (getAction(d.name).block || 'unscheduled') === key).sort((a,b) => b.priority - a.priority);
+      const items = assigned.filter(d => effectiveBlock(getAction(d.name)) === key).sort((a,b) => b.priority - a.priority);
       return '<div data-block="' + key + '" ondragover="dayDragOver(event)" ondrop="dayDrop(event,\'' + key + '\')" style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px;min-height:54px;background:var(--bg)">' +
         '<div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">' + label + ' (' + items.length + ')</div>' +
         (items.length ? items.map(renderBuiltCard).join('') : '<div style="font-size:11px;color:var(--muted)">drop a place here</div>') +
@@ -1343,7 +1351,7 @@ function renderDayOverview(){
       const hotel = hotelForDay(dy.n);
       // Assigned/booked items on this day, ordered by time block
       const items = DATA.filter(d => getAction(d.name).day === dy.n)
-        .sort((a,b) => (blockOrder[getAction(a.name).block||'unscheduled'] - blockOrder[getAction(b.name).block||'unscheduled']) || (b.priority - a.priority));
+        .sort((a,b) => (blockOrder[effectiveBlock(getAction(a.name))] - blockOrder[effectiveBlock(getAction(b.name))]) || (b.priority - a.priority));
       const itemList = items.length
         ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">' + items.map(d => {
             const a = getAction(d.name);
