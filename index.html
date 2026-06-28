@@ -404,7 +404,7 @@ const ACTIONS = {
   research: { label: 'Needs Research', icon: '🔍', cls: 'action-research' },
   reserve: { label: 'Make Reservation', icon: '🎫', cls: 'action-reserve' },
   booked: { label: 'Booked / Confirmed', icon: '✅', cls: 'action-booked' },
-  assigned: { label: 'Assigned to Day', icon: '📅', cls: 'action-assigned' },
+  assigned: { label: 'Planned (no booking)', icon: '📌', cls: 'action-assigned' },
   skip: { label: 'Skip / Not this trip', icon: '✕', cls: 'action-skip' },
 };
 
@@ -547,6 +547,7 @@ function buildActionSheet(){
     `<div class="modal-box action-sheet-box">
        <div class="modal-title" style="font-size:16px">${esc(name)}</div>
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${acts}</div>
+       <div style="font-size:11px;color:var(--muted);margin-top:6px">✅ <b>Booked</b> = reservation confirmed · 📌 <b>Planned</b> = on the itinerary, nothing to book. Set a day & time below for any of these.</div>
        <div class="field-label" style="margin-top:14px">Assign to day</div>
        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">${days}</div>
        <div class="field-label" style="margin-top:14px">Reservation / arrival time</div>
@@ -793,6 +794,20 @@ function cityColor(c) {
 }
 function dots(p) { const pc=p>=5?'p5':p>=4?'p4':p>=3?'p3':'p2'; return Array.from({length:5},(_,i)=>`<div class="dot ${i<p?'filled '+pc:''}"></div>`).join(''); }
 
+// Compact colored status chip so Booked vs Planned vs Reserve etc. are unmistakable.
+const STATUS_CHIP = {
+  booked:   ['Booked',   'var(--green)', 'rgba(34,197,94,0.15)'],
+  reserve:  ['To book',  '#fca5a5',      'rgba(239,68,68,0.15)'],
+  assigned: ['Planned',  '#60a5fa',      'rgba(59,130,246,0.15)'],
+  want:     ['Want',     '#f472b6',      'rgba(244,114,182,0.15)'],
+  research: ['Research', '#a78bfa',      'rgba(168,85,247,0.15)'],
+  flag:     ['Decide',   '#fb923c',      'rgba(251,146,60,0.15)'],
+};
+function statusChip(status){
+  const m = STATUS_CHIP[status];
+  if (!m) return '';
+  return '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:'+m[1]+';background:'+m[2]+';border-radius:4px;padding:1px 6px;margin-right:6px">'+m[0]+'</span>';
+}
 function sourceBadge(d){
   if (d && d.source === "Brandon's List")
     return ' <span title="From Brandon\'s list" style="font-size:10px;background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid #f59e0b;border-radius:6px;padding:1px 6px;white-space:nowrap;vertical-align:1px">★ Brandon</span>';
@@ -1330,11 +1345,10 @@ function renderDayOverview(){
       const items = DATA.filter(d => getAction(d.name).day === dy.n)
         .sort((a,b) => (blockOrder[getAction(a.name).block||'unscheduled'] - blockOrder[getAction(b.name).block||'unscheduled']) || (b.priority - a.priority));
       const itemList = items.length
-        ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">' + items.map(d => {
+        ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">' + items.map(d => {
             const a = getAction(d.name);
-            const icon = a.status === 'booked' ? '✅' : '📍';
             const t = a.time ? '<span style="color:var(--muted)"> · ' + esc(a.time) + '</span>' : '';
-            return '<div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + icon + ' ' + esc(d.name) + t + '</div>';
+            return '<div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + statusChip(a.status) + esc(d.name) + t + '</div>';
           }).join('') + '</div>'
         : '<div style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic">' + (travelDayInfo(dy.n) ? '✈️ ' + esc(travelDayInfo(dy.n)) : 'Nothing planned yet') + '</div>';
       return '<div onclick="openDay('+dy.n+')" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--card)" onmouseover="this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
