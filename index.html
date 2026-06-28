@@ -549,7 +549,9 @@ function buildActionSheet(){
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${acts}</div>
        <div class="field-label" style="margin-top:14px">Assign to day</div>
        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">${days}</div>
-       <div class="field-label" style="margin-top:14px">Reserve by (when to book)</div>
+       <div class="field-label" style="margin-top:14px">Reservation / arrival time</div>
+       <input type="text" id="as-time" class="search-input" style="width:100%" placeholder="e.g. 8:45 PM" value="${esc(a.time||'')}">
+       <div class="field-label" style="margin-top:10px">Reserve by (deadline to book)</div>
        <input type="date" id="as-res" class="search-input" style="width:100%" value="${a.reserveDate||''}">
        <div class="field-label" style="margin-top:10px">Notes</div>
        <textarea id="as-notes" class="search-input" style="width:100%;height:60px;resize:vertical;font-family:inherit;border-radius:12px">${esc(a.notes||'')}</textarea>
@@ -559,23 +561,25 @@ function buildActionSheet(){
      </div>`;
 }
 function asReadInputs(){
-  const r=document.getElementById('as-res'), n=document.getElementById('as-notes');
-  return { reserveDate: r?r.value:'', notes: n?n.value:'' };
+  const r=document.getElementById('as-res'), n=document.getElementById('as-notes'), t=document.getElementById('as-time');
+  return { reserveDate: r?r.value:'', notes: n?n.value:'', time: t?t.value.trim():'' };
 }
+// setAction preserves prev.time, so stash the new time into itemActions before calling it.
+function asPersistTime(t){ const cur=getAction(sheetName); itemActions[sheetName]={...cur, time:t}; }
 function asStatus(k){
-  const a=getAction(sheetName); const inp=asReadInputs();
+  const inp=asReadInputs(); asPersistTime(inp.time); const a=getAction(sheetName);
   setAction(sheetName, k, a.day, inp.notes, inp.reserveDate);
   closeActionSheet();
 }
 function asDay(d){
-  const a=getAction(sheetName); const inp=asReadInputs();
+  const inp=asReadInputs(); asPersistTime(inp.time); const a=getAction(sheetName);
   const newDay = a.day===d ? null : d;
   const newStatus = newDay && a.status==='none' ? 'assigned' : a.status;
   setAction(sheetName, newStatus, newDay, inp.notes, inp.reserveDate);
   buildActionSheet();  // keep open, refresh highlights
 }
 function asSaveClose(){
-  const a=getAction(sheetName); const inp=asReadInputs();
+  const inp=asReadInputs(); asPersistTime(inp.time); const a=getAction(sheetName);
   setAction(sheetName, a.status, a.day, inp.notes, inp.reserveDate);
   closeActionSheet();
 }
