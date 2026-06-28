@@ -784,7 +784,13 @@ function getFiltered() {
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function getCls(cat) { return cat==='Food'?'food':cat==='Attraction'?'attraction':cat==='Experience'?'experience':cat.includes('Temple')?'temple':cat==='Shopping'?'shopping':'attraction'; }
 function getHeatCls(h) { const l=h.toLowerCase(); return l.includes('indoor')?'indoor':l.includes('evening')?'evening':l.includes('early')?'early':l.includes('cool')?'cool':l.includes('hot')||l.includes('⚠')?'hot':'indoor'; }
-function getCityCls(c) { return c.includes('Tokyo')?'city-tokyo':c.includes('Kyoto')?'city-kyoto':c.includes('Osaka')?'city-osaka':c.includes('Kanazawa')?'city-kanazawa':c.includes('Hakone')?'city-hakone':''; }
+// Deterministic per-city tag color (works for any trip, not just Japan cities).
+const CITY_PALETTE = ['#60a5fa','#f472b6','#fb923c','#a78bfa','#34d399','#f87171','#fbbf24','#22d3ee','#c084fc','#4ade80'];
+function cityColor(c) {
+  c = c || '';
+  let h = 0; for (let i = 0; i < c.length; i++) h = (h * 31 + c.charCodeAt(i)) >>> 0;
+  return CITY_PALETTE[h % CITY_PALETTE.length];
+}
 function dots(p) { const pc=p>=5?'p5':p>=4?'p4':p>=3?'p3':'p2'; return Array.from({length:5},(_,i)=>`<div class="dot ${i<p?'filled '+pc:''}"></div>`).join(''); }
 
 function sourceBadge(d){
@@ -804,7 +810,7 @@ function renderTable() {
     <tr class="data-row ${rowCls}" data-name="${esc(d.name)}">
       <td><div class="priority-dots">${dots(d.priority)}</div></td>
       <td><strong>${d.name}</strong>${sourceBadge(d)}</td>
-      <td><span class="city-tag ${getCityCls(d.city)}">${d.city}</span></td>
+      <td><span class="city-tag" style="color:${cityColor(d.city)}">${d.city}</span></td>
       <td style="color:var(--cyan);font-size:13px">${d.neighborhood||''}</td>
       <td><span class="badge badge-${getCls(d.category)}">${d.category}</span></td>
       <td><span class="heat-tag heat-${getHeatCls(d.heat)}">${d.heat}</span></td>
@@ -1942,8 +1948,9 @@ function restoreManual() {
   });
 }
 // --- Instagram capture -------------------------------------------------
-const CAP_CITIES = ['Tokyo','Kyoto','Osaka','Kanazawa','Hakone','Nara','Hiroshima','Nikko','Yokohama'];
 const CAP_CATS = ['Food','Experience','Attraction','Shopping','Temple/Shrine'];
+// City options for a pending capture: the active trip's cities + the place's own city (so it's never dropped).
+function capCityList(current){ const set = new Set(tripCities()); if (current) set.add(current); return [...set]; }
 
 function capEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function capOptions(list, sel){ return list.map(o=>`<option${o===sel?' selected':''}>${capEsc(o)}</option>`).join(''); }
@@ -1994,7 +2001,7 @@ function renderPending(rows){
       html += `<div class="pend-card" data-id="${r.id}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px;border-top:1px solid var(--border)">
         <input type="checkbox" class="pe-keep" checked title="keep">
         <input class="pe-name search-input" style="width:200px" value="${capEsc(p.name)}">
-        <select class="pe-city search-input" style="width:120px">${capOptions(CAP_CITIES, p.city)}</select>
+        <select class="pe-city search-input" style="width:120px">${capOptions(capCityList(p.city), p.city)}</select>
         <select class="pe-cat search-input" style="width:140px">${capOptions(CAP_CATS, p.category)}</select>
         <input class="pe-days search-input" style="width:80px" value="${capEsc(p.days)}" placeholder="days">
         <input class="pe-why search-input" style="width:260px" value="${capEsc(p.why)}" placeholder="why">
