@@ -1302,9 +1302,8 @@ function dayIsOpen(dy){
 }
 function dayStatusDots(dy){
   const plan = getDayPlan(dy.n);
-  const assigned = DATA.filter(d => getAction(d.name).day === dy.n).length;
   const dots = [];
-  if (assigned) dots.push('<span title="'+assigned+' assigned" style="color:var(--green)">✔ '+assigned+'</span>');
+  // (assigned/booked items are listed on the card itself now)
   if (plan.slots.some(s => s.hood)) dots.push('<span title="focus set">🎯</span>');
   if (plan.ai && plan.ai.slots && plan.ai.slots.length) dots.push('<span title="AI plan ready">✨</span>');
   if (travelDayInfo(dy.n)) dots.push('<span title="'+travelDayInfo(dy.n)+'">✈️</span>');
@@ -1323,14 +1322,27 @@ function renderDayOverview(){
       const dayLink = m ? ' <a onclick="openDay(' + m[1] + ')" style="cursor:pointer;color:#3b82f6">(Day ' + m[1] + ')</a>' : '';
       return '<div style="padding:2px 0">' + (o.priority === 'high' ? '🔴' : '🟡') + ' ' + esc(o.item || '') + dayLink + '</div>';
     }).join('') + '</div>' : '';
-  container.innerHTML = banner + todos + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">' +
+  const blockOrder = { morning:0, afternoon:1, evening:2, unscheduled:3 };
+  container.innerHTML = banner + todos + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' +
     DAYS.map(dy => {
       const hotel = hotelForDay(dy.n);
+      // Assigned/booked items on this day, ordered by time block
+      const items = DATA.filter(d => getAction(d.name).day === dy.n)
+        .sort((a,b) => (blockOrder[getAction(a.name).block||'unscheduled'] - blockOrder[getAction(b.name).block||'unscheduled']) || (b.priority - a.priority));
+      const itemList = items.length
+        ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">' + items.map(d => {
+            const a = getAction(d.name);
+            const icon = a.status === 'booked' ? '✅' : '📍';
+            const t = a.time ? '<span style="color:var(--muted)"> · ' + esc(a.time) + '</span>' : '';
+            return '<div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + icon + ' ' + esc(d.name) + t + '</div>';
+          }).join('') + '</div>'
+        : '<div style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic">' + (travelDayInfo(dy.n) ? '✈️ ' + esc(travelDayInfo(dy.n)) : 'Nothing planned yet') + '</div>';
       return '<div onclick="openDay('+dy.n+')" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--card)" onmouseover="this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
         '<div style="font-weight:700;font-size:13px">Day '+dy.n+' · '+esc(dy.c)+'</div>' +
         '<div style="font-size:11px;color:var(--muted);margin:2px 0 6px">'+esc(dy.d)+(dy.t?' · '+esc(dy.t):'')+'</div>' +
         (hotel ? '<div style="font-size:11px;color:var(--muted)">🏨 '+esc(hotel.name)+'</div>' : '') +
-        '<div style="margin-top:8px;font-size:12px;min-height:18px">'+dayStatusDots(dy)+'</div>' +
+        itemList +
+        '<div style="margin-top:8px;font-size:12px;min-height:0">'+dayStatusDots(dy)+'</div>' +
       '</div>';
     }).join('') + '</div>';
 }
