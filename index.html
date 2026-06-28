@@ -292,8 +292,8 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 
 <div class="header">
   <div>
-    <h1>Drazin Family Japan Journey</h1>
-    <div class="subtitle">Aug 17-30, 2026 · Tokyo → Hakone → Kyoto → Kanazawa → Tokyo · <span id="item-count"></span> places</div>
+    <h1 id="trip-title">Trip</h1>
+    <div class="subtitle"><span id="trip-subtitle"></span><span id="item-count"></span> places</div>
   </div>
   <div class="header-actions">
     <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:8px;background:var(--card);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
@@ -323,12 +323,12 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
       <div><div class="field-label">Name *</div><input type="text" id="ap-name" class="search-input" style="width:100%" placeholder="e.g. Eventide Oyster Co"></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         <div style="flex:1;min-width:140px"><div class="field-label">City *</div>
-          <select id="ap-city" class="search-input" style="width:100%"><option>Tokyo</option><option>Kyoto</option><option>Osaka</option><option>Kanazawa</option><option>Hakone</option></select></div>
+          <select id="ap-city" class="search-input" style="width:100%"></select></div>
         <div style="flex:1;min-width:140px"><div class="field-label">Type</div>
           <select id="ap-cat" class="search-input" style="width:100%"><option>Food</option><option>Attraction</option><option>Experience</option><option>Shopping</option><option>Temple/Shrine</option></select></div>
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <div style="flex:2;min-width:160px"><div class="field-label">Area / neighborhood</div><input type="text" id="ap-hood" class="search-input" style="width:100%" placeholder="e.g. Shibuya"></div>
+        <div style="flex:2;min-width:160px"><div class="field-label">Area / neighborhood</div><input type="text" id="ap-hood" class="search-input" style="width:100%" placeholder="neighborhood"></div>
         <div style="flex:1;min-width:90px"><div class="field-label">Days</div><input type="text" id="ap-days" class="search-input" style="width:100%" placeholder="e.g. 1-5"></div>
       </div>
       <div><div class="field-label">Notes</div><input type="text" id="ap-why" class="search-input" style="width:100%" placeholder="why you want to go"></div>
@@ -703,6 +703,7 @@ async function init() { await loadActiveTrip(); restoreManual(); await loadActio
 
 function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
+  updateHeader();
   renderStats(); renderFilters(); renderTable();
   if (document.getElementById('map-view').style.display !== 'none' && map) renderMap();
   if (document.getElementById('day-view').style.display !== 'none') renderDays();
@@ -841,7 +842,7 @@ function renderTable() {
 }
 
 function renderMap() {
-  if (!map) { map = L.map('map').setView([35.5,136.5],7); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map); }
+  if (!map) { map = L.map('map').setView(tripDefaultCoord(), 7); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map); }
   markers.forEach(m => map.removeLayer(m)); markers = [];
   const colors = {Food:'#ef4444',Attraction:'#3b82f6',Experience:'#a855f7','Temple/Shrine':'#22c55e',Shopping:'#ec4899'};
   getFiltered().forEach(d => {
@@ -947,9 +948,13 @@ async function loadActiveTrip(){
     const trip = await res.json();
     DATA = (trip.base_places || []).slice();
     DAYS = (trip.segments || []).map(s => ({ n: s.n, d: s.dateLabel || s.date || ('Day ' + s.n), c: s.city || '', t: s.theme || '' }));
-    TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:true };
+    TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:true,
+             name: trip.name || 'Trip', startDate: trip.start_date || null, endDate: trip.end_date || null };
     (trip.hotels || []).forEach(h => { TRIP.hotels[h.id] = h; });
     (trip.segments || []).forEach(s => { if(s.hotelId) TRIP.dayHotel[s.n] = s.hotelId; });
+    // Route = distinct cities in segment order (e.g. Tokyo → Hakone → Kyoto)
+    const routeCities = []; (trip.segments || []).forEach(s => { if (s.city && routeCities[routeCities.length-1] !== s.city) routeCities.push(s.city); });
+    TRIP.route = routeCities;
     // Supplemental context for the Japan trip (planned activities, open decisions, travelers) from trip.json.
     if (activeTripId === 'japan-2026') {
       try {
@@ -963,10 +968,47 @@ async function loadActiveTrip(){
 }
 function hotelForDay(n){ const id = TRIP.dayHotel[n]; const h = id ? TRIP.hotels[id] : null; return (h && typeof h.lat === 'number') ? h : null; }
 
+// --- Shared trip helpers (replace hardcoded Japan assumptions) ---
+function tripCities(){
+  const set = new Set();
+  (TRIP.route || []).forEach(c => set.add(c));
+  DAYS.forEach(d => { if (d.c) set.add(d.c); });
+  DATA.forEach(d => { if (d.city) set.add(d.city); });
+  Object.values(TRIP.hotels || {}).forEach(h => { if (h.city) set.add(h.city); });
+  return [...set];
+}
+function tripDefaultCoord(){
+  const h = Object.values(TRIP.hotels || {}).find(x => typeof x.lat === 'number');
+  if (h) return [h.lat, h.lng];
+  const withCoord = DATA.filter(d => typeof d.lat === 'number');
+  if (withCoord.length) return [withCoord.reduce((s,d)=>s+d.lat,0)/withCoord.length, withCoord.reduce((s,d)=>s+d.lng,0)/withCoord.length];
+  return [35.68, 139.77];
+}
+function fmtDateRange(){
+  if (!TRIP.startDate) return '';
+  const s = new Date(TRIP.startDate), e = TRIP.endDate ? new Date(TRIP.endDate) : null;
+  const opt = { month:'short', day:'numeric' };
+  const sl = s.toLocaleDateString('en-US', { ...opt, timeZone:'UTC' });
+  if (!e) return sl + ', ' + s.getUTCFullYear();
+  return sl + ' – ' + e.toLocaleDateString('en-US', { ...opt, timeZone:'UTC' }) + ', ' + e.getUTCFullYear();
+}
+function updateHeader(){
+  const t = document.getElementById('trip-title'); if (t) t.textContent = TRIP.name || 'Trip';
+  const sub = document.getElementById('trip-subtitle');
+  if (sub) {
+    const parts = [];
+    const dr = fmtDateRange(); if (dr) parts.push(dr);
+    if (TRIP.route && TRIP.route.length) parts.push(TRIP.route.join(' → '));
+    sub.textContent = parts.length ? parts.join(' · ') + ' · ' : '';
+  }
+}
+
 // --- Neighborhood focus & distance ---------------------------------------
 function canonHood(h){
   h = (h || '').trim();
-  h = h.replace(/\s*(Kyoto|Tokyo|Kanazawa|Osaka)\b/gi, '').trim();
+  // Strip the active trip's own city names out of neighborhood labels (e.g. "Central Kyoto" -> "Central").
+  const cityNames = tripCities().filter(Boolean).map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (cityNames.length) h = h.replace(new RegExp('\\s*(' + cityNames.join('|') + ')\\b', 'gi'), '').trim();
   if (/^central$/i.test(h)) return 'Central';
   return h || 'Other';
 }
@@ -1387,6 +1429,51 @@ const ITIN_DAYS = [
 ];
 
 function renderItinerary() {
+  if (activeTripId === 'japan-2026') return renderItineraryJapan();
+  return renderItineraryGeneric();
+}
+function renderItineraryGeneric() {
+  const container = document.getElementById('itin-content');
+  let html = '<div class="itin">';
+  html += '<div class="itin-cover">';
+  html += '<h1>' + esc(TRIP.name || 'Trip') + '</h1>';
+  const dr = fmtDateRange(); if (dr) html += '<div class="itin-dates">' + esc(dr) + '</div>';
+  if (TRIP.route && TRIP.route.length) html += '<div class="itin-route">' + TRIP.route.map(esc).join(' · ') + '</div>';
+  html += '</div>';
+
+  DAYS.forEach(day => {
+    const hotel = hotelForDay(day.n);
+    const assigned = DATA.filter(d => getAction(d.name).day === day.n).sort((a,b)=>b.priority-a.priority);
+    html += '<div class="itin-day">';
+    html += '<div class="itin-day-header"><div class="itin-day-num">Day ' + day.n + '</div>' +
+      '<div class="itin-day-title">' + esc(day.t || day.c || '') + '</div>' +
+      '<div class="itin-day-date">' + esc(day.d || '') + '</div></div>';
+    if (hotel) html += '<div class="itin-hotel"><div class="itin-hotel-name">🏨 ' + esc(hotel.name) + '</div>' +
+      (hotel.address ? '<div class="itin-hotel-detail">' + esc(hotel.address) + '</div>' : '') + '</div>';
+    if (assigned.length) {
+      html += '<div class="itin-section-label">Planned</div>';
+      assigned.forEach(d => {
+        const a = getAction(d.name);
+        html += '<div class="itin-activity"><div class="itin-time">' + esc(a.time || '') + '</div><div class="itin-act-body">';
+        html += '<div class="itin-act-name">' + (a.status==='booked'?'✅ ':'') + esc(d.name) + '</div>';
+        if (d.neighborhood) html += '<div class="itin-act-hood">' + esc(d.neighborhood) + (d.city?' · '+esc(d.city):'') + '</div>';
+        if (d.why) html += '<div class="itin-act-why">' + esc(d.why) + '</div>';
+        html += '<div class="itin-act-tags"><span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + esc(d.category) + '</span>';
+        if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(34,197,94,0.15);color:var(--green)">Confirmed</span>';
+        if (a.status==='reserve') html += '<span class="itin-act-tag" style="background:rgba(239,68,68,0.15);color:#fca5a5">Needs booking</span>';
+        html += '</div>';
+        if (a.notes) html += '<div style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic">' + esc(a.notes) + '</div>';
+        html += '</div></div>';
+      });
+    } else {
+      html += '<div class="itin-empty">' + (hotel ? 'Day at ' + esc(hotel.name) : 'Nothing planned yet') + (day.t ? ' — ' + esc(day.t) : '') + '</div>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+function renderItineraryJapan() {
   const container = document.getElementById('itin-content');
   const hotelForDay = d => d<=5?HOTELS[1]:d===6?HOTELS[6]:d>=7&&d<=10?HOTELS[7]:d<=12?HOTELS[11]:HOTELS[13];
   const prevHotel = d => d<=1?null:d<=5?HOTELS[1]:d===6?HOTELS[1]:d===7?HOTELS[6]:d<=10?HOTELS[7]:d===11?HOTELS[7]:d<=12?HOTELS[11]:HOTELS[11];
@@ -1551,12 +1638,15 @@ function renderCalendar() {
   }
 
   // Booking windows from spreadsheet
-  BOOKING_WINDOWS.forEach(bw => {
-    addEvent(bw.opens, {type:'opens', name:bw.name, note:bw.note});
-    if (bw.deadline !== bw.opens) addEvent(bw.deadline, {type:'deadline', name:bw.name, note:'Last chance to book'});
-  });
+  // Curated Japan booking windows (only for the Japan trip)
+  if (activeTripId === 'japan-2026') {
+    BOOKING_WINDOWS.forEach(bw => {
+      addEvent(bw.opens, {type:'opens', name:bw.name, note:bw.note});
+      if (bw.deadline !== bw.opens) addEvent(bw.deadline, {type:'deadline', name:bw.name, note:'Last chance to book'});
+    });
+  }
 
-  // User-set reservation dates
+  // User-set reservation dates (all trips)
   DATA.forEach(d => {
     const a = getAction(d.name);
     if (a.reserveDate) {
@@ -1565,17 +1655,25 @@ function renderCalendar() {
     }
   });
 
-  // Trip days
-  const tripDates = {
-    '2026-08-17':'Day 1: Arrive Tokyo','2026-08-18':'Day 2: East Tokyo','2026-08-19':'Day 3: Harajuku/Shibuya',
-    '2026-08-20':'Day 4: Art/Ginza','2026-08-21':'Day 5: Flex Day','2026-08-22':'Day 6: Hakone',
-    '2026-08-23':'Day 7: Arrive Kyoto','2026-08-24':'Day 8: Arashiyama','2026-08-25':'Day 9: Osaka',
-    '2026-08-26':'Day 10: East Kyoto','2026-08-27':'Day 11: Kanazawa','2026-08-28':'Day 12: Kanazawa',
-    '2026-08-29':'Day 13: Back to Tokyo','2026-08-30':'Day 14: Departure'
-  };
+  // Trip days, derived from the active trip's start date + segments
+  const tripDates = {};
+  if (TRIP.startDate) {
+    const start = new Date(TRIP.startDate);
+    DAYS.forEach((dy, i) => {
+      const dt = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + i));
+      tripDates[dt.toISOString().slice(0,10)] = 'Day ' + dy.n + (dy.c ? ': ' + dy.c : '');
+    });
+  }
 
-  // Render months from May 2026 through Aug 2026
-  const months = [[2026,4],[2026,5],[2026,6],[2026,7]]; // 0-indexed months
+  // Months: from ~2 months before the trip through the trip's end month
+  const months = [];
+  if (TRIP.startDate) {
+    const s = new Date(TRIP.startDate), e = TRIP.endDate ? new Date(TRIP.endDate) : s;
+    let y = s.getUTCFullYear(), m = s.getUTCMonth() - 2;
+    while (m < 0) { m += 12; y -= 1; }
+    const endY = e.getUTCFullYear(), endM = e.getUTCMonth();
+    while (y < endY || (y === endY && m <= endM)) { months.push([y, m]); m++; if (m > 11) { m = 0; y++; } }
+  }
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
   let html = '<div class="cal-legend">';
@@ -1646,10 +1744,12 @@ function renderCalendar() {
 
   // Summary: upcoming actions
   const upcoming = [];
-  BOOKING_WINDOWS.forEach(bw => {
-    if (bw.opens >= todayStr) upcoming.push({date:bw.opens, type:'opens', name:bw.name, note:bw.note});
-    if (bw.deadline >= todayStr && bw.deadline !== bw.opens) upcoming.push({date:bw.deadline, type:'deadline', name:bw.name, note:'Deadline'});
-  });
+  if (activeTripId === 'japan-2026') {
+    BOOKING_WINDOWS.forEach(bw => {
+      if (bw.opens >= todayStr) upcoming.push({date:bw.opens, type:'opens', name:bw.name, note:bw.note});
+      if (bw.deadline >= todayStr && bw.deadline !== bw.opens) upcoming.push({date:bw.deadline, type:'deadline', name:bw.name, note:'Deadline'});
+    });
+  }
   DATA.forEach(d => {
     const a = getAction(d.name);
     if (a.reserveDate && a.reserveDate >= todayStr && a.status !== 'booked') {
@@ -1767,6 +1867,10 @@ function setupListeners() {
   // Add place (modal)
   document.getElementById('add-place-tab').addEventListener('click', e => {
     e.stopPropagation();
+    // Populate the city dropdown from the active trip's cities (not hardcoded Japan).
+    const sel = document.getElementById('ap-city');
+    const cities = tripCities();
+    sel.innerHTML = (cities.length ? cities : ['']).map(c => '<option>' + esc(c) + '</option>').join('');
     document.getElementById('add-place-form').classList.add('open');
     document.getElementById('ap-name').focus();
   });
@@ -1791,9 +1895,8 @@ function setupListeners() {
       if (g.lat) { lat = g.lat; lng = g.lng; }
     } catch(e) {}
     if (lat == null) {
-      // fallback: existing city table, else the active trip's first hotel, else Tokyo
-      const cityCoords = {Tokyo:[35.68,139.77],Kyoto:[35.01,135.77],Osaka:[34.69,135.50],Kanazawa:[36.56,136.66],Hakone:[35.23,139.06]};
-      const base = cityCoords[city] || (Object.values(TRIP.hotels)[0] ? [Object.values(TRIP.hotels)[0].lat, Object.values(TRIP.hotels)[0].lng] : [35.68,139.77]);
+      // fallback: the active trip's default coord (hotel or data centroid)
+      const base = tripDefaultCoord();
       lat = base[0] + (Math.random()-0.5)*0.02; lng = base[1] + (Math.random()-0.5)*0.02;
     }
     DATA.push({
