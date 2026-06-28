@@ -126,11 +126,27 @@ const CAPTION_MAX = 12000;
 
 // Deterministic jitter so map pins don't stack exactly. Avoids Math.random for testability.
 let jitterSeed = 1;
-function cityLatLng(city) {
-  const base = CITY_COORDS[city] || CITY_COORDS.Tokyo;
+function jitterAround(base) {
   jitterSeed = (jitterSeed * 9301 + 49297) % 233280;
   const r = jitterSeed / 233280;
   return [base[0] + (r - 0.5) * 0.02, base[1] + (r - 0.5) * 0.02];
+}
+function cityLatLng(city) {
+  return jitterAround(CITY_COORDS[city] || CITY_COORDS.Tokyo);
+}
+
+// Trip location context (cities + a fallback coordinate) so capture/enrich isn't Japan-specific.
+async function tripContext(tripId) {
+  const empty = { cities: [], region: '', fallback: null };
+  if (!pool || !tripId) return empty;
+  try {
+    const { rows } = await pool.query('SELECT segments, hotels FROM trips WHERE id = $1', [tripId]);
+    if (!rows.length) return empty;
+    const segs = rows[0].segments || [], hotels = rows[0].hotels || [];
+    const cities = [...new Set(segs.map(s => s && s.city).filter(Boolean))];
+    const h = hotels.find(x => typeof x.lat === 'number');
+    return { cities, region: cities.join(', '), fallback: h ? [h.lat, h.lng] : null };
+  } catch (e) { return empty; }
 }
 
 // Simple in-memory per-IP rate limit: max N requests per window.
@@ -160,9 +176,10 @@ async function fetchCaption(url) {
   }
 }
 
-function toPlace(raw, sourceUrl, categoryOverride) {
-  const city = (raw.city || 'Tokyo').trim();
-  const [lat, lng] = cityLatLng(city);
+function toPlace(raw, sourceUrl, categoryOverride, ctx) {
+  const defaultCity = (ctx && ctx.cities && ctx.cities[0]) || 'Tokyo';
+  const city = (raw.city || defaultCity).trim();
+  const [lat, lng] = (ctx && ctx.fallback) ? jitterAround(ctx.fallback) : cityLatLng(city);
   let category = categoryOverride || raw.category || 'Experience';
   if (!CATEGORIES.includes(category)) category = 'Experience';
   return {
@@ -182,7 +199,9 @@ function toPlace(raw, sourceUrl, categoryOverride) {
   };
 }
 
-async function enrich(caption) {
+async function enrich(caption, ctx) {
+  const region = (ctx && ctx.region) ? ctx.region : '';
+  const cities = (ctx && ctx.cities && ctx.cities.length) ? ctx.cities.join(', ') : '';
   const Anthropic = require('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
   const msg = await client.messages.create({
@@ -191,7 +210,7 @@ async function enrich(caption) {
     tool_choice: { type: 'tool', name: 'record_places' },
     tools: [{
       name: 'record_places',
-      description: 'Record every distinct real-world place (restaurant, shop, attraction, temple, experience) mentioned in an Instagram caption about Japan travel.',
+      description: 'Record every distinct real-world place (restaurant, bar, cafe, shop, attraction, experience) mentioned in an Instagram caption about a trip' + (region ? ' to the ' + region + ' area' : '') + '.',
       input_schema: {
         type: 'object',
         properties: {
@@ -201,7 +220,7 @@ async function enrich(caption) {
               type: 'object',
               properties: {
                 name: { type: 'string', description: 'Place name' },
-                city: { type: 'string', description: 'Japanese city, e.g. Tokyo, Kyoto, Osaka. Best guess.' },
+                city: { type: 'string', description: 'City/town the place is in.' + (cities ? ' Likely one of: ' + cities + '.' : '') + ' Best guess.' },
                 neighborhood: { type: 'string' },
                 category: { type: 'string', enum: CATEGORIES },
                 why: { type: 'string', description: 'One short sentence on why it is worth visiting.' },
@@ -219,7 +238,7 @@ async function enrich(caption) {
     }],
     messages: [{
       role: 'user',
-      content: `Extract every distinct place from this Instagram caption. If it mentions no real place, return an empty list. Caption:\n\n${caption}`,
+      content: `Extract every distinct place from this Instagram caption.` + (region ? ` This is for a trip to the ${region} area, so place the spots in that region.` : '') + ` If it mentions no real place, return an empty list. Caption:\n\n${caption}`,
     }],
   });
   const tool = msg.content.find(c => c.type === 'tool_use');
@@ -256,12 +275,13 @@ app.post('/api/capture', async (req, res) => {
       );
       return res.json({ ok: true, code: 'needs_caption', count: 0, message: "Couldn't read the caption — paste it in the Pending panel to finish." });
     }
-    const raw = await enrich(caption);
+    const ctx = await tripContext(tripId);
+    const raw = await enrich(caption, ctx);
     if (!raw.length) {
       return res.json({ ok: true, code: 'no_places', count: 0, message: 'No places found in that post.' });
     }
     for (const r of raw) {
-      const place = toPlace(r, url, category);
+      const place = toPlace(r, url, category, ctx);
       const g = await geocodeQuery(place.name + ', ' + place.city);
       if (g.lat) { place.lat = g.lat; place.lng = g.lng; }
       await pool.query(
@@ -333,10 +353,11 @@ app.post('/api/pending/enrich', async (req, res) => {
     const { rows } = await pool.query(`SELECT source_url, category, trip_id FROM captures WHERE id = $1`, [id]);
     if (!rows.length) return res.status(404).json({ ok: false, message: 'Capture not found' });
     const { source_url, category, trip_id } = rows[0];
-    const raw = await enrich(caption);
+    const ctx = await tripContext(trip_id);
+    const raw = await enrich(caption, ctx);
     await pool.query(`DELETE FROM captures WHERE id = $1`, [id]);
     for (const r of raw) {
-      const place = toPlace(r, source_url, category);
+      const place = toPlace(r, source_url, category, ctx);
       const g = await geocodeQuery(place.name + ', ' + place.city);
       if (g.lat) { place.lat = g.lat; place.lng = g.lng; }
       await pool.query(
