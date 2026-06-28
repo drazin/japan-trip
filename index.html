@@ -633,7 +633,20 @@ function exportActions() {
 function importActions(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => { itemActions = JSON.parse(ev.target.result); saveActions(); renderAll(); };
+  reader.onload = ev => {
+    let parsed;
+    try { parsed = JSON.parse(ev.target.result); }
+    catch(err) { alert('That file is not valid JSON.'); return; }
+    // Validate it's a progress export (a {placeName: {status,...}} map), not e.g. an Instagram export.
+    const isProgress = parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+      Object.values(parsed).every(v => v && typeof v === 'object' && !Array.isArray(v) && 'status' in v);
+    if (!isProgress) {
+      alert('This doesn’t look like an exported Progress file.\n\nImport Progress only restores a file you made with "Export Progress". To import Instagram saves, use the 📥 IG Import button instead.');
+      return;
+    }
+    itemActions = parsed; saveActions(); renderAll();
+    e.target.value = '';
+  };
   reader.readAsText(file);
 }
 function clearActions() {
