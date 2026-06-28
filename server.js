@@ -372,6 +372,42 @@ app.post('/api/pending/enrich', async (req, res) => {
   }
 });
 
+app.post('/api/place-info', async (req, res) => {
+  if (!ANTHROPIC_API_KEY) return res.json({ ok: false, code: 'no_api_key', message: 'Add ANTHROPIC_API_KEY to enable AI lookup.' });
+  const name = ((req.body && req.body.name) || '').trim();
+  const city = ((req.body && req.body.city) || '').trim();
+  if (!name) return res.status(400).json({ ok: false, message: 'name required' });
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 400,
+      tool_choice: { type: 'tool', name: 'place_info' },
+      tools: [{
+        name: 'place_info',
+        description: 'Best-guess typical visitor details for a real place. These are ESTIMATES from general knowledge, not live data — the user will verify. If unsure of a field, leave it empty rather than guessing wildly.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            hours: { type: 'string', description: 'Typical opening hours, concise, e.g. "11am–9pm, closed Mon". Empty if unknown.' },
+            cost: { type: 'string', description: 'Rough price level / ticket cost, e.g. "$$ ~$30pp", "Free", "¥2000". Empty if unknown.' },
+            lead: { type: 'string', description: 'Reservation lead time / how to book, e.g. "Reserve 2–4 weeks ahead", "Walk-in only". Empty if unknown.' },
+          },
+          required: [],
+        },
+      }],
+      messages: [{ role: 'user', content: `Give typical visitor details for: ${name}${city ? ', ' + city : ''}.` }],
+    });
+    const tool = msg.content.find(c => c.type === 'tool_use');
+    const info = (tool && tool.input) || {};
+    res.json({ ok: true, info: { hours: info.hours || '', cost: info.cost || '', lead: info.lead || '' } });
+  } catch (err) {
+    console.error('place-info failed', err);
+    res.status(500).json({ ok: false, message: 'Lookup failed: ' + (err.message || 'error') });
+  }
+});
+
 app.post('/api/plan-day', async (req, res) => {
   if (!ANTHROPIC_API_KEY) {
     return res.json({ ok: false, code: 'no_api_key', message: 'Add ANTHROPIC_API_KEY to enable AI planning.' });
@@ -388,7 +424,7 @@ app.post('/api/plan-day', async (req, res) => {
     const slotList = (slots && slots.length) ? slots : [{ time: 'All day', hood: '' }];
     const anyFocus = slotList.some(s => s.hood);
     const candText = candidates.slice(0, 60).map(c =>
-      `- ${c.name} | ${c.category || '?'} | ${c.neighborhood || '?'} | ~${c.distanceKm}km from focus | ${(c.why || '').slice(0, 80)}`
+      `- ${c.name} | ${c.category || '?'} | ${c.neighborhood || '?'} | ~${c.distanceKm}km${c.hours ? ' | hours: ' + c.hours : ''}${c.cost ? ' | ' + c.cost : ''} | ${(c.why || '').slice(0, 70)}`
     ).join('\n');
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5',
@@ -431,7 +467,7 @@ app.post('/api/plan-day', async (req, res) => {
           + (Array.isArray(ctx.alreadyPlanned) && ctx.alreadyPlanned.length ? `Also already planned (don't duplicate): ${ctx.alreadyPlanned.join('; ')}.\n` : '')
           + `\nTime slots${anyFocus ? ' and their focus neighborhoods' : ''}:\n${slotList.map(s => `- ${s.time}${s.hood ? ': ' + s.hood : ''}`).join('\n')}\n\n`
           + (anyFocus ? '' : 'No specific focus area was set, so plan a sensible full day starting from the home base using the nearest candidates. ')
-          + `For each slot pick a realistic, geographically sensible set of 2-4 stops, ordered logically, using ONLY the candidate places below. Prefer closer places and higher-interest spots; don't overload a slot. Add a short note per pick, and a one-line 'flow' note per slot that mentions how to get between stops (e.g. walk / quick drive). Candidate places (distance from home base in km):\n${candText}`,
+          + `For each slot pick a realistic, geographically sensible set of 2-4 stops, ordered logically, using ONLY the candidate places below. Prefer closer places and higher-interest spots; don't overload a slot. Where hours are listed, don't schedule a place at a time it's closed. Add a short note per pick, and a one-line 'flow' note per slot that mentions how to get between stops (e.g. walk / quick drive). Candidate places (distance from home base in km):\n${candText}`,
       }],
     });
     const tool = msg.content.find(c => c.type === 'tool_use');

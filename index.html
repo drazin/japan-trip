@@ -483,11 +483,16 @@ function saveActions() {
   }, 500);
 }
 
-function getAction(name) { return itemActions[name] || { status: 'none', day: null, notes: '', reserveDate: '', block: '', time: '' }; }
+function getAction(name) { return itemActions[name] || { status: 'none', day: null, notes: '', reserveDate: '', block: '', time: '', hours: '', cost: '', lead: '', infoEstimated: false }; }
 function setAction(name, status, day, notes, reserveDate, time) {
   const prev = itemActions[name] || {};
-  itemActions[name] = { status, day: day || null, notes: notes || '', reserveDate: reserveDate !== undefined ? reserveDate : (prev.reserveDate || ''), block: prev.block || '', time: time !== undefined ? time : (prev.time || '') };
+  itemActions[name] = { ...prev, status, day: day || null, notes: notes || '', reserveDate: reserveDate !== undefined ? reserveDate : (prev.reserveDate || ''), block: prev.block || '', time: time !== undefined ? time : (prev.time || '') };
   saveActions(); renderAll();
+}
+// Merge place-detail fields (hours/cost/lead/infoEstimated) into an item's state.
+function setPlaceInfo(name, fields, save){
+  itemActions[name] = { ...getAction(name), ...fields };
+  if (save !== false) { saveActions(); renderAll(); }
 }
 // --- Day builder: blocks (time-of-day) + time notes ---
 const DAY_BLOCKS = [['morning','🌅 Morning'],['afternoon','☀️ Afternoon'],['evening','🌙 Evening'],['unscheduled','🕐 Unscheduled']];
@@ -554,6 +559,17 @@ function buildActionSheet(){
        <input type="text" id="as-time" class="search-input" style="width:100%" placeholder="e.g. 8:45 PM" value="${esc(a.time||'')}">
        <div class="field-label" style="margin-top:10px">Reserve by (deadline to book)</div>
        <input type="date" id="as-res" class="search-input" style="width:100%" value="${a.reserveDate||''}">
+       <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
+         <div class="field-label" style="margin:0">Details</div>
+         <button id="as-lookup" onclick="asLookup()" style="font-size:11px;background:rgba(168,85,247,0.15);border:1px solid #a855f7;color:#a855f7;border-radius:6px;padding:3px 8px;cursor:pointer">✨ Look up details</button>
+         ${a.infoEstimated ? '<span style="font-size:10px;color:#f59e0b">⚠ AI estimate — verify</span>' : ''}
+       </div>
+       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+         <div style="flex:1;min-width:140px"><div class="field-label">🕐 Hours</div><input type="text" id="as-hours" class="search-input" style="width:100%" placeholder="e.g. 11am–9pm, closed Mon" value="${esc(a.hours||'')}"></div>
+         <div style="flex:1;min-width:100px"><div class="field-label">💵 Cost</div><input type="text" id="as-cost" class="search-input" style="width:100%" placeholder="e.g. $$ ~$30pp" value="${esc(a.cost||'')}"></div>
+       </div>
+       <div class="field-label" style="margin-top:8px">📅 Reservation lead time</div>
+       <input type="text" id="as-lead" class="search-input" style="width:100%" placeholder="e.g. reserve 2–4 weeks ahead" value="${esc(a.lead||'')}">
        <div class="field-label" style="margin-top:10px">Notes</div>
        <textarea id="as-notes" class="search-input" style="width:100%;height:60px;resize:vertical;font-family:inherit;border-radius:12px">${esc(a.notes||'')}</textarea>
        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
@@ -562,11 +578,36 @@ function buildActionSheet(){
      </div>`;
 }
 function asReadInputs(){
-  const r=document.getElementById('as-res'), n=document.getElementById('as-notes'), t=document.getElementById('as-time');
-  return { reserveDate: r?r.value:'', notes: n?n.value:'', time: t?t.value.trim():'' };
+  const g=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
+  return { reserveDate: (document.getElementById('as-res')||{}).value||'', notes: (document.getElementById('as-notes')||{}).value||'', time: g('as-time'), hours: g('as-hours'), cost: g('as-cost'), lead: g('as-lead') };
+}
+// Persist the place-detail fields (hours/cost/lead) from the sheet inputs. clearEstimate=true marks them user-confirmed.
+function asPersistInfo(inp, clearEstimate){
+  const fields = { hours: inp.hours, cost: inp.cost, lead: inp.lead };
+  if (clearEstimate) fields.infoEstimated = false;
+  setPlaceInfo(sheetName, fields, false);
+}
+async function asLookup(){
+  const a = getAction(sheetName);
+  const place = DATA.find(d => d.name === sheetName) || {};
+  const btn = document.getElementById('as-lookup');
+  if (btn) { btn.disabled = true; btn.textContent = '✨ Looking up…'; }
+  // keep any edits the user already typed
+  asPersistInfo(asReadInputs(), false);
+  try {
+    const res = await fetch('/api/place-info', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name: sheetName, city: place.city || '' }) });
+    const data = await res.json();
+    if (data.ok && data.info) {
+      const cur = getAction(sheetName);
+      // only fill blanks; don't clobber what the user already entered
+      setPlaceInfo(sheetName, { hours: cur.hours || data.info.hours, cost: cur.cost || data.info.cost, lead: cur.lead || data.info.lead, infoEstimated: true }, false);
+      saveActions(); buildActionSheet();
+    } else { alert(data.message || 'Lookup failed.'); if (btn){ btn.disabled=false; btn.textContent='✨ Look up details'; } }
+  } catch(e){ alert('Lookup failed — server error.'); if (btn){ btn.disabled=false; btn.textContent='✨ Look up details'; } }
 }
 function asStatus(k){
-  const inp=asReadInputs(); const a=getAction(sheetName);
+  const inp=asReadInputs(); asPersistInfo(inp, false); const a=getAction(sheetName);
   setAction(sheetName, k, a.day, inp.notes, inp.reserveDate, inp.time);
   closeActionSheet();
 }
@@ -574,11 +615,12 @@ function asDay(d){
   const inp=asReadInputs(); const a=getAction(sheetName);
   const newDay = a.day===d ? null : d;
   const newStatus = newDay && a.status==='none' ? 'assigned' : a.status;
+  asPersistInfo(inp, false);
   setAction(sheetName, newStatus, newDay, inp.notes, inp.reserveDate, inp.time);
   buildActionSheet();  // keep open, refresh highlights
 }
 function asSaveClose(){
-  const inp=asReadInputs(); const a=getAction(sheetName);
+  const inp=asReadInputs(); asPersistInfo(inp, true); const a=getAction(sheetName);
   setAction(sheetName, a.status, a.day, inp.notes, inp.reserveDate, inp.time);
   closeActionSheet();
 }
@@ -807,6 +849,17 @@ function statusChip(status){
   const m = STATUS_CHIP[status];
   if (!m) return '';
   return '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:'+m[1]+';background:'+m[2]+';border-radius:4px;padding:1px 6px;margin-right:6px">'+m[0]+'</span>';
+}
+// Renders the hours/cost/lead details line for an item (a = its action state). Empty if none set.
+function placeDetailsLine(a){
+  if (!a) return '';
+  const parts = [];
+  if (a.hours) parts.push('🕐 ' + esc(a.hours));
+  if (a.cost) parts.push('💵 ' + esc(a.cost));
+  if (a.lead) parts.push('📅 ' + esc(a.lead));
+  if (!parts.length) return '';
+  const flag = a.infoEstimated ? ' <span style="color:#f59e0b">⚠</span>' : '';
+  return '<div style="font-size:11px;color:var(--muted);margin-top:3px">' + parts.join(' · ') + flag + '</div>';
 }
 function sourceBadge(d){
   if (d && d.source === "Brandon's List")
@@ -1186,7 +1239,8 @@ async function planDayAI(n){
     if (assignedNames.has(d.name)) return;
     const km1 = Math.round(km * 10) / 10;
     if (seen[d.name] === undefined) {
-      const obj = { name: d.name, category: d.category, neighborhood: d.neighborhood || '', why: d.why || '', distanceKm: km1 };
+      const ai = getAction(d.name);
+      const obj = { name: d.name, category: d.category, neighborhood: d.neighborhood || '', why: d.why || '', distanceKm: km1, hours: ai.hours || '', cost: ai.cost || '' };
       candidates.push(obj); seen[d.name] = obj;
     } else if (km1 < seen[d.name].distanceKm) { seen[d.name].distanceKm = km1; }
   }
@@ -1251,6 +1305,7 @@ function renderBuiltCard(d){
   return '<div class="built-card" draggable="true" data-name="' + eName + '" ondragstart="dayDragStart(event)" style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;background:var(--card);cursor:grab">' +
     '<div style="font-size:13px;font-weight:600">' + statusChip(a.status) + '★'.repeat(d.priority) + ' ' + esc(d.name) + sourceBadge(d) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">' + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
+    placeDetailsLine(a) +
     '<div style="margin-top:4px;font-size:11px">⏰ <span data-name="' + eName + '" onclick="editTime(this)" style="cursor:pointer;color:#3b82f6">' + (a.time ? esc(a.time) : 'set time') + '</span></div>' +
     (dir ? '<div style="margin-top:4px">' + dir + '</div>' : '') +
     '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">' +
@@ -1518,6 +1573,7 @@ function renderItineraryGeneric() {
         html += '<div class="itin-act-name">' + (a.status==='booked'?'✅ ':'') + esc(d.name) + '</div>';
         if (d.neighborhood) html += '<div class="itin-act-hood">' + esc(d.neighborhood) + (d.city?' · '+esc(d.city):'') + '</div>';
         if (d.why) html += '<div class="itin-act-why">' + esc(d.why) + '</div>';
+        html += placeDetailsLine(a);
         html += '<div class="itin-act-tags"><span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + esc(d.category) + '</span>';
         if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(34,197,94,0.15);color:var(--green)">Confirmed</span>';
         if (a.status==='reserve') html += '<span class="itin-act-tag" style="background:rgba(239,68,68,0.15);color:#fca5a5">Needs booking</span>';
@@ -1606,6 +1662,7 @@ function renderItineraryJapan() {
         html += '<div class="itin-act-name">' + (a.status === 'booked' ? '✅ ' : '') + d.name + '</div>';
         if (d.neighborhood) html += '<div class="itin-act-hood">' + d.neighborhood + '</div>';
         if (d.why) html += '<div class="itin-act-why">' + d.why + '</div>';
+        html += placeDetailsLine(a);
         html += '<div class="itin-act-tags">';
         html += '<span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + d.category + '</span>';
         html += '<span class="itin-act-tag heat-tag heat-' + getHeatCls(d.heat) + '">' + d.heat + '</span>';
