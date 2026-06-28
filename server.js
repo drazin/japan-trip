@@ -386,6 +386,7 @@ app.post('/api/plan-day', async (req, res) => {
     const Anthropic = require('@anthropic-ai/sdk');
     const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
     const slotList = (slots && slots.length) ? slots : [{ time: 'All day', hood: '' }];
+    const anyFocus = slotList.some(s => s.hood);
     const candText = candidates.slice(0, 60).map(c =>
       `- ${c.name} | ${c.category || '?'} | ${c.neighborhood || '?'} | ~${c.distanceKm}km from focus | ${(c.why || '').slice(0, 80)}`
     ).join('\n');
@@ -422,11 +423,15 @@ app.post('/api/plan-day', async (req, res) => {
         role: 'user',
         content: `Plan ${date || ''} in ${city} (day theme: ${theme || 'n/a'}).\n`
           + (ctx.travelers ? `Travelers: ${JSON.stringify(ctx.travelers)} — pace it for the kids and pick kid-friendly options.\n` : '')
-          + (ctx.hotel ? `Home base today: ${ctx.hotel.name}${ctx.hotel.neighborhood ? ' (' + ctx.hotel.neighborhood + ')' : ''} — keep travel from there reasonable and group stops to minimize backtracking.\n` : '')
+          + (ctx.hotel ? `Home base today: ${ctx.hotel.name}${ctx.hotel.neighborhood ? ' (' + ctx.hotel.neighborhood + ')' : ''}. Start the day from here, keep travel reasonable, and group stops to minimize backtracking. Candidate distances below are from this home base.\n` : '')
           + (ctx.logistics ? `Logistics note: ${ctx.logistics} — keep this day lighter / account for transit time.\n` : '')
-          + (Array.isArray(ctx.alreadyPlanned) && ctx.alreadyPlanned.length ? `Already planned for this day (work AROUND these, don't duplicate): ${ctx.alreadyPlanned.join('; ')}.\n` : '')
-          + (Array.isArray(ctx.alreadyAssigned) && ctx.alreadyAssigned.length ? `Already committed places for this day: ${ctx.alreadyAssigned.join('; ')}.\n` : '')
-          + `\nTime slots and their focus neighborhoods:\n${slotList.map(s => `- ${s.time}: ${s.hood || '(no focus set)'}`).join('\n')}\n\nFor each slot pick a realistic, geographically sensible set of 2-4 stops, ordered logically, using ONLY the candidate places below (distances from each slot's focus are listed). Prefer closer places and higher-interest spots; don't overload a slot. Add a short note per pick, and a one-line 'flow' note per slot that mentions how to get between stops (e.g. walk / quick train). Candidate places:\n${candText}`,
+          + (Array.isArray(ctx.booked) && ctx.booked.length
+              ? `FIXED for this day — build the day AROUND these, do NOT move, change, or duplicate them; schedule other stops before/after at sensible times:\n${ctx.booked.map(b => `- ${b.name}${b.time ? ' @ ' + b.time : ''}${b.status === 'booked' ? ' (BOOKED)' : ''}${b.neighborhood ? ' — ' + b.neighborhood : ''}`).join('\n')}\nThis is a FILL-THE-GAPS task: keep the fixed items exactly as-is and add complementary nearby stops around them.\n`
+              : '')
+          + (Array.isArray(ctx.alreadyPlanned) && ctx.alreadyPlanned.length ? `Also already planned (don't duplicate): ${ctx.alreadyPlanned.join('; ')}.\n` : '')
+          + `\nTime slots${anyFocus ? ' and their focus neighborhoods' : ''}:\n${slotList.map(s => `- ${s.time}${s.hood ? ': ' + s.hood : ''}`).join('\n')}\n\n`
+          + (anyFocus ? '' : 'No specific focus area was set, so plan a sensible full day starting from the home base using the nearest candidates. ')
+          + `For each slot pick a realistic, geographically sensible set of 2-4 stops, ordered logically, using ONLY the candidate places below. Prefer closer places and higher-interest spots; don't overload a slot. Add a short note per pick, and a one-line 'flow' note per slot that mentions how to get between stops (e.g. walk / quick drive). Candidate places (distance from home base in km):\n${candText}`,
       }],
     });
     const tool = msg.content.find(c => c.type === 'tool_use');
