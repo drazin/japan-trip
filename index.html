@@ -484,9 +484,9 @@ function saveActions() {
 }
 
 function getAction(name) { return itemActions[name] || { status: 'none', day: null, notes: '', reserveDate: '', block: '', time: '' }; }
-function setAction(name, status, day, notes, reserveDate) {
+function setAction(name, status, day, notes, reserveDate, time) {
   const prev = itemActions[name] || {};
-  itemActions[name] = { status, day: day || null, notes: notes || '', reserveDate: reserveDate !== undefined ? reserveDate : (prev.reserveDate || ''), block: prev.block || '', time: prev.time || '' };
+  itemActions[name] = { status, day: day || null, notes: notes || '', reserveDate: reserveDate !== undefined ? reserveDate : (prev.reserveDate || ''), block: prev.block || '', time: time !== undefined ? time : (prev.time || '') };
   saveActions(); renderAll();
 }
 // --- Day builder: blocks (time-of-day) + time notes ---
@@ -564,23 +564,21 @@ function asReadInputs(){
   const r=document.getElementById('as-res'), n=document.getElementById('as-notes'), t=document.getElementById('as-time');
   return { reserveDate: r?r.value:'', notes: n?n.value:'', time: t?t.value.trim():'' };
 }
-// setAction preserves prev.time, so stash the new time into itemActions before calling it.
-function asPersistTime(t){ const cur=getAction(sheetName); itemActions[sheetName]={...cur, time:t}; }
 function asStatus(k){
-  const inp=asReadInputs(); asPersistTime(inp.time); const a=getAction(sheetName);
-  setAction(sheetName, k, a.day, inp.notes, inp.reserveDate);
+  const inp=asReadInputs(); const a=getAction(sheetName);
+  setAction(sheetName, k, a.day, inp.notes, inp.reserveDate, inp.time);
   closeActionSheet();
 }
 function asDay(d){
-  const inp=asReadInputs(); asPersistTime(inp.time); const a=getAction(sheetName);
+  const inp=asReadInputs(); const a=getAction(sheetName);
   const newDay = a.day===d ? null : d;
   const newStatus = newDay && a.status==='none' ? 'assigned' : a.status;
-  setAction(sheetName, newStatus, newDay, inp.notes, inp.reserveDate);
+  setAction(sheetName, newStatus, newDay, inp.notes, inp.reserveDate, inp.time);
   buildActionSheet();  // keep open, refresh highlights
 }
 function asSaveClose(){
-  const inp=asReadInputs(); asPersistTime(inp.time); const a=getAction(sheetName);
-  setAction(sheetName, a.status, a.day, inp.notes, inp.reserveDate);
+  const inp=asReadInputs(); const a=getAction(sheetName);
+  setAction(sheetName, a.status, a.day, inp.notes, inp.reserveDate, inp.time);
   closeActionSheet();
 }
 
@@ -926,7 +924,11 @@ function dcDayPick(btn) {
 }
 
 // --- Trip context (hotels, day->hotel, logistics) from trip.json ----------
-let activeTripId = (function(){ try { return new URLSearchParams(location.search).get('trip') || localStorage.getItem('active-trip') || 'japan-2026'; } catch(e){ return 'japan-2026'; } })();
+const DEFAULT_TRIP_ID = 'japan-2026';
+// The Japan trip ships with curated extras (trip.json context, a hand-written
+// itinerary, booking windows) that other trips don't have.
+function hasCuratedContent(){ return activeTripId === DEFAULT_TRIP_ID; }
+let activeTripId = (function(){ try { return new URLSearchParams(location.search).get('trip') || localStorage.getItem('active-trip') || DEFAULT_TRIP_ID; } catch(e){ return DEFAULT_TRIP_ID; } })();
 setTripKeys();
 let TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:false };
 async function loadActiveTrip(){
@@ -937,7 +939,7 @@ async function loadActiveTrip(){
       // Active trip is missing (e.g. deleted) — recover by falling back to the first available trip.
       try {
         const list = await (await fetch('/api/trips')).json();
-        const first = (list.trips && list.trips[0] && list.trips[0].id) || 'japan-2026';
+        const first = (list.trips && list.trips[0] && list.trips[0].id) || DEFAULT_TRIP_ID;
         activeTripId = first;
         try { localStorage.setItem('active-trip', first); } catch(e){}
         setTripKeys();
@@ -947,7 +949,7 @@ async function loadActiveTrip(){
     }
     const trip = await res.json();
     DATA = (trip.base_places || []).slice();
-    DAYS = (trip.segments || []).map(s => ({ n: s.n, d: s.dateLabel || s.date || ('Day ' + s.n), c: s.city || '', t: s.theme || '' }));
+    DAYS = (trip.segments || []).map(s => ({ n: s.n, d: s.dateLabel || s.date || ('Day ' + s.n), date: s.date || null, c: s.city || '', t: s.theme || '' }));
     TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:true,
              name: trip.name || 'Trip', startDate: trip.start_date || null, endDate: trip.end_date || null };
     (trip.hotels || []).forEach(h => { TRIP.hotels[h.id] = h; });
@@ -956,7 +958,7 @@ async function loadActiveTrip(){
     const routeCities = []; (trip.segments || []).forEach(s => { if (s.city && routeCities[routeCities.length-1] !== s.city) routeCities.push(s.city); });
     TRIP.route = routeCities;
     // Supplemental context for the Japan trip (planned activities, open decisions, travelers) from trip.json.
-    if (activeTripId === 'japan-2026') {
+    if (hasCuratedContent()) {
       try {
         const t = await (await fetch('/trip.json')).json();
         (t.days || []).forEach(day => { TRIP.planned[day.day] = (day.activities || []).map(a => a.name); });
@@ -1004,20 +1006,26 @@ function updateHeader(){
 }
 
 // --- Neighborhood focus & distance ---------------------------------------
-function canonHood(h){
+// Build a regex that strips the active trip's own city names from neighborhood
+// labels (e.g. "Central Kyoto" -> "Central"). Built once per buildAnchors run.
+function cityStripRegex(){
+  const names = tripCities().filter(Boolean).map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return names.length ? new RegExp('\\s*(' + names.join('|') + ')\\b', 'gi') : null;
+}
+function canonHood(h, stripRe){
   h = (h || '').trim();
-  // Strip the active trip's own city names out of neighborhood labels (e.g. "Central Kyoto" -> "Central").
-  const cityNames = tripCities().filter(Boolean).map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  if (cityNames.length) h = h.replace(new RegExp('\\s*(' + cityNames.join('|') + ')\\b', 'gi'), '').trim();
+  const re = stripRe !== undefined ? stripRe : cityStripRegex();
+  if (re) h = h.replace(re, '').trim();
   if (/^central$/i.test(h)) return 'Central';
   return h || 'Other';
 }
 let ANCHORS = null; // { city: [ {name, lat, lng, count} ] }
 function buildAnchors(){
   const groups = {};
+  const stripRe = cityStripRegex();
   DATA.forEach(d => {
     if (typeof d.lat !== 'number' || typeof d.lng !== 'number') return;
-    const hood = canonHood(d.neighborhood);
+    const hood = canonHood(d.neighborhood, stripRe);
     if (hood === 'Other') return;
     const key = d.city + '||' + hood;
     const g = groups[key] || (groups[key] = { city: d.city, name: hood, lat: 0, lng: 0, count: 0 });
@@ -1429,7 +1437,7 @@ const ITIN_DAYS = [
 ];
 
 function renderItinerary() {
-  if (activeTripId === 'japan-2026') return renderItineraryJapan();
+  if (hasCuratedContent()) return renderItineraryJapan();
   return renderItineraryGeneric();
 }
 function renderItineraryGeneric() {
@@ -1639,7 +1647,7 @@ function renderCalendar() {
 
   // Booking windows from spreadsheet
   // Curated Japan booking windows (only for the Japan trip)
-  if (activeTripId === 'japan-2026') {
+  if (hasCuratedContent()) {
     BOOKING_WINDOWS.forEach(bw => {
       addEvent(bw.opens, {type:'opens', name:bw.name, note:bw.note});
       if (bw.deadline !== bw.opens) addEvent(bw.deadline, {type:'deadline', name:bw.name, note:'Last chance to book'});
@@ -1655,15 +1663,14 @@ function renderCalendar() {
     }
   });
 
-  // Trip days, derived from the active trip's start date + segments
+  // Trip days: use each segment's stored ISO date; fall back to start + index.
   const tripDates = {};
-  if (TRIP.startDate) {
-    const start = new Date(TRIP.startDate);
-    DAYS.forEach((dy, i) => {
-      const dt = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + i));
-      tripDates[dt.toISOString().slice(0,10)] = 'Day ' + dy.n + (dy.c ? ': ' + dy.c : '');
-    });
-  }
+  const start = TRIP.startDate ? new Date(TRIP.startDate) : null;
+  DAYS.forEach((dy, i) => {
+    let ds = dy.date;
+    if (!ds && start) ds = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + i)).toISOString().slice(0,10);
+    if (ds) tripDates[ds] = 'Day ' + dy.n + (dy.c ? ': ' + dy.c : '');
+  });
 
   // Months: from ~2 months before the trip through the trip's end month
   const months = [];
@@ -1744,7 +1751,7 @@ function renderCalendar() {
 
   // Summary: upcoming actions
   const upcoming = [];
-  if (activeTripId === 'japan-2026') {
+  if (hasCuratedContent()) {
     BOOKING_WINDOWS.forEach(bw => {
       if (bw.opens >= todayStr) upcoming.push({date:bw.opens, type:'opens', name:bw.name, note:bw.note});
       if (bw.deadline >= todayStr && bw.deadline !== bw.opens) upcoming.push({date:bw.deadline, type:'deadline', name:bw.name, note:'Deadline'});
