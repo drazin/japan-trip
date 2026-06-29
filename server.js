@@ -459,7 +459,7 @@ app.post('/api/plan-day', async (req, res) => {
         role: 'user',
         content: `Plan ${date || ''} in ${city} (day theme: ${theme || 'n/a'}).\n`
           + (ctx.travelers ? `Travelers: ${JSON.stringify(ctx.travelers)} — pace it for the kids and pick kid-friendly options.\n` : '')
-          + (ctx.hotel ? `Home base today: ${ctx.hotel.name}${ctx.hotel.neighborhood ? ' (' + ctx.hotel.neighborhood + ')' : ''}. Start the day from here, keep travel reasonable, and group stops to minimize backtracking. Candidate distances below are from this home base.\n` : '')
+          + (ctx.hotel ? `Home base today: ${ctx.hotel.name}${ctx.hotel.neighborhood ? ' (' + ctx.hotel.neighborhood + ')' : ''}. Start the day from here, keep travel reasonable, and group stops to minimize backtracking. Candidate distances below are from this home base.${ctx.hotel.checkin ? ' Hotel check-in is ' + ctx.hotel.checkin + ' — on an arrival/transfer day, plan light before then.' : ''}${ctx.hotel.checkout ? ' Check-out is ' + ctx.hotel.checkout + ' — on a departure day, keep the morning easy.' : ''}\n` : '')
           + (ctx.logistics ? `Logistics note: ${ctx.logistics} — keep this day lighter / account for transit time.\n` : '')
           + (Array.isArray(ctx.booked) && ctx.booked.length
               ? `FIXED for this day — build the day AROUND these, do NOT move, change, or duplicate them; schedule other stops before/after at sensible times:\n${ctx.booked.map(b => `- ${b.name}${b.time ? ' @ ' + b.time : ''}${b.status === 'booked' ? ' (BOOKED)' : ''}${b.neighborhood ? ' — ' + b.neighborhood : ''}`).join('\n')}\nThis is a FILL-THE-GAPS task: keep the fixed items exactly as-is and add complementary nearby stops around them.\n`

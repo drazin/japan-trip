@@ -1056,6 +1056,32 @@ async function loadActiveTrip(){
   } catch(e){}
 }
 function hotelForDay(n){ const id = TRIP.dayHotel[n]; const h = id ? TRIP.hotels[id] : null; return (h && typeof h.lat === 'number') ? h : null; }
+function hotelById(id){ return id ? TRIP.hotels[id] : null; }
+function hotelIdForDay(n){ return TRIP.dayHotel[n] || null; }
+// Persist hotel edits to the trip record.
+async function saveTripHotels(){
+  try {
+    await fetch('/api/trips/' + activeTripId, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hotels: Object.values(TRIP.hotels) }) });
+  } catch(e){}
+}
+function hotelTimesStr(h){
+  if (!h) return '';
+  const parts = [];
+  if (h.checkin) parts.push('check-in ' + h.checkin);
+  if (h.checkout) parts.push('check-out ' + h.checkout);
+  return parts.join(' · ');
+}
+async function editHotelTimes(id){
+  const h = hotelById(id); if (!h) return;
+  const ci = prompt('Check-in time for ' + h.name + ' (e.g. 3:00 PM):', h.checkin || '');
+  if (ci === null) return;
+  const co = prompt('Check-out time for ' + h.name + ' (e.g. 11:00 AM):', h.checkout || '');
+  if (co === null) return;
+  h.checkin = ci.trim(); h.checkout = co.trim();
+  await saveTripHotels();
+  renderDays();
+}
 
 // --- Shared trip helpers (replace hardcoded Japan assumptions) ---
 function tripCities(){
@@ -1273,7 +1299,7 @@ async function planDayAI(n){
   // Context so the AI plans realistically and fills gaps around what's booked.
   const ctx = {
     travelers: TRIP.travelers,
-    hotel: hotel ? { name: hotel.name, neighborhood: hotel.neighborhood || '', lat: hotel.lat, lng: hotel.lng } : null,
+    hotel: hotel ? { name: hotel.name, neighborhood: hotel.neighborhood || '', lat: hotel.lat, lng: hotel.lng, checkin: hotel.checkin || '', checkout: hotel.checkout || '' } : null,
     logistics: travelDayInfo(n),
     booked: assignedItems.map(d => { const a = getAction(d.name); return { name: d.name, status: a.status, time: a.time || '', neighborhood: d.neighborhood || '' }; }),
     alreadyPlanned: TRIP.planned[n] || [],
@@ -1503,8 +1529,15 @@ function renderDays(){
   container.style.display = 'block';
   const openPrompt = dayIsOpen(dy) ? '<div style="margin-bottom:12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ This day is open — set a focus area, drag options into the time blocks, or hit ✨ Plan day with AI.</div>' : '';
   const hotel = hotelForDay(dy.n);
+  const hid = hotelIdForDay(dy.n);
+  const times = hotelTimesStr(hotel);
+  const hotelLine = hotel
+    ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">🏨 ' + esc(hotel.name) +
+        (times ? ' · ' + esc(times) : '') +
+        ' <span onclick="editHotelTimes(\'' + esc(hid) + '\')" style="cursor:pointer;color:#3b82f6;font-size:11px">✎ ' + (times ? 'edit times' : 'add check-in/out') + '</span></div>'
+    : '';
   const header = '<h3 style="margin:0 0 2px">Day ' + dy.n + ' — ' + esc(dy.t || '') + '</h3>' +
-    '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">' + esc(dy.d) + ' · ' + esc(dy.c) + (hotel ? ' · 🏨 ' + esc(hotel.name) : '') + '</div>';
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">' + esc(dy.d) + ' · ' + esc(dy.c) + '</div>' + hotelLine;
   const plan = getDayPlan(dy.n);
   container.innerHTML = nav + openPrompt + header + renderDayControls(dy) + renderAiPlan(dy.n, plan.ai) +
     '<div class="day-builder">' +
@@ -1577,7 +1610,8 @@ function renderItineraryGeneric() {
       '<div class="itin-day-title">' + esc(day.t || day.c || '') + '</div>' +
       '<div class="itin-day-date">' + esc(day.d || '') + '</div></div>';
     if (hotel) html += '<div class="itin-hotel"><div class="itin-hotel-name">🏨 ' + esc(hotel.name) + '</div>' +
-      (hotel.address ? '<div class="itin-hotel-detail">' + esc(hotel.address) + '</div>' : '') + '</div>';
+      (hotel.address ? '<div class="itin-hotel-detail">' + esc(hotel.address) + '</div>' : '') +
+      (hotelTimesStr(hotel) ? '<div class="itin-hotel-detail" style="color:var(--green)">' + esc(hotelTimesStr(hotel)) + '</div>' : '') + '</div>';
     if (assigned.length) {
       html += '<div class="itin-section-label">Planned</div>';
       assigned.forEach(d => {
