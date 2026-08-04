@@ -535,6 +535,7 @@ function openActionSheet(el){
 function closeActionSheet(){ const s=document.getElementById('action-sheet'); if(s) s.classList.remove('open'); }
 function buildActionSheet(){
   const name = sheetName, a = getAction(name);
+  const place = DATA.find(d => d.name === name) || {};
   let ov = document.getElementById('action-sheet');
   if(!ov){
     ov = document.createElement('div'); ov.id='action-sheet'; ov.className='modal-overlay';
@@ -548,9 +549,20 @@ function buildActionSheet(){
   const days = DAYS.map(dy =>
     `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:8px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer">${dy.n}</button>`
   ).join('');
+  const ctx = [place.category, place.neighborhood, place.city].filter(Boolean).join(' · ');
+  const linkStyle = 'font-size:11px;background:rgba(34,211,238,0.12);border:1px solid #22d3ee;color:#22d3ee;border-radius:6px;padding:3px 8px;cursor:pointer;text-decoration:none;display:inline-block';
+  const placeInfo =
+    (ctx ? `<div style="font-size:12px;color:var(--muted);margin-top:-6px">${esc(ctx)}${sourceBadge(place)}</div>` : '') +
+    (place.why ? `<div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(place.why)}</div>` : '') +
+    (place.address ? `<div style="font-size:12px;color:var(--muted);margin-top:3px">📍 ${esc(place.address)}${place.addressApprox ? ' <span style="font-size:10px;color:#f59e0b">approx</span>' : ''}</div>` : '') +
+    (place.name ? `<div style="display:flex;gap:8px;margin:8px 0 10px">
+       ${typeof place.lat === 'number' ? `<button onclick="viewOnMap()" style="${linkStyle}">🗺 View on map</button>` : ''}
+       <a href="${gmapsUrl(place)}" target="_blank" rel="noopener" style="${linkStyle}">Google Maps ↗</a>
+     </div>` : '');
   ov.innerHTML =
     `<div class="modal-box action-sheet-box">
        <div class="modal-title" style="font-size:16px">${esc(name)}</div>
+       ${placeInfo}
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${acts}</div>
        <div style="font-size:11px;color:var(--muted);margin-top:6px">✅ <b>Booked</b> = reservation confirmed · 📌 <b>Planned</b> = on the itinerary, nothing to book. Set a day & time below for any of these.</div>
        <div class="field-label" style="margin-top:14px">Assign to day</div>
@@ -930,6 +942,29 @@ function renderTable() {
   if (!filtered.length) tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No places match filters</td></tr>';
 }
 
+function gmapsUrl(d){
+  const q = d.address ? `${d.name}, ${d.address}` : `${d.name}, ${d.city || ''}`;
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+}
+function mapPopupHtml(d){
+  const a = getAction(d.name);
+  const aLabel = a.status!=='none'?`<br><b>${ACTIONS[a.status].icon} ${ACTIONS[a.status].label}</b>${a.day?' · Day '+a.day:''}`:'';
+  const addr = d.address?`<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}</span>`:'';
+  return `<strong>${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.city} · ${d.neighborhood}</span>${addr}<br>${'★'.repeat(d.priority)}${'☆'.repeat(5-d.priority)}<br>${d.why}${aLabel}<br><a href="${gmapsUrl(d)}" target="_blank" rel="noopener" style="color:#22d3ee;font-size:11px">Open in Google Maps ↗</a>`;
+}
+// From the action sheet: jump to the Map tab centered on the place, popup open.
+function viewOnMap(){
+  const place = DATA.find(d => d.name === sheetName);
+  if (!place || typeof place.lat !== 'number') return;
+  closeActionSheet();
+  setView('map', true);
+  setTimeout(() => {
+    map.setView([place.lat, place.lng], 16);
+    const m = markers.find(mk => mk._placeName === place.name);
+    if (m) m.openPopup();
+    else L.popup({maxWidth:280}).setLatLng([place.lat, place.lng]).setContent(mapPopupHtml(place)).openOn(map);
+  }, 250);
+}
 function renderMap() {
   if (!map) { map = L.map('map').setView(tripDefaultCoord(), 7); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map); }
   markers.forEach(m => map.removeLayer(m)); markers = [];
@@ -939,8 +974,8 @@ function renderMap() {
     const a = getAction(d.name);
     const color = a.status==='skip'?'#444':a.status==='booked'?'#22c55e':a.status==='want'?'#ec4899':colors[d.category]||'#f59e0b';
     const m = L.circleMarker([d.lat,d.lng],{radius:4+d.priority*1.5,fillColor:color,color:'#fff',weight:1,opacity:0.8,fillOpacity:0.7}).addTo(map);
-    const aLabel = a.status!=='none'?`<br><b>${ACTIONS[a.status].icon} ${ACTIONS[a.status].label}</b>${a.day?' · Day '+a.day:''}`:''
-    m.bindPopup(`<strong>${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.city} · ${d.neighborhood}</span><br>${'★'.repeat(d.priority)}${'☆'.repeat(5-d.priority)}<br>${d.why}${aLabel}`,{maxWidth:280});
+    m.bindPopup(mapPopupHtml(d),{maxWidth:280});
+    m._placeName = d.name;
     markers.push(m);
   });
   if (markers.length) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
@@ -2055,11 +2090,11 @@ function setupListeners() {
     const cat = document.getElementById('ap-cat').value;
     const days = document.getElementById('ap-days').value.trim();
     const why = document.getElementById('ap-why').value.trim();
-    let lat, lng;
+    let lat, lng, address = '';
     try {
       const gr = await fetch('/api/geocode?q=' + encodeURIComponent(name + ', ' + city));
       const g = await gr.json();
-      if (g.lat) { lat = g.lat; lng = g.lng; }
+      if (g.lat) { lat = g.lat; lng = g.lng; address = (g.display_name || '').replace(/, Japan$/, ''); }
     } catch(e) {}
     if (lat == null) {
       // fallback: the active trip's default coord (hotel or data centroid)
@@ -2067,7 +2102,7 @@ function setupListeners() {
       lat = base[0] + (Math.random()-0.5)*0.02; lng = base[1] + (Math.random()-0.5)*0.02;
     }
     DATA.push({
-      name: name, city: city, neighborhood: hood, category: cat,
+      name: name, city: city, neighborhood: hood, category: cat, address: address,
       why: why, family_fit: '', booking: '', priority: 3,
       heat: 'Indoor', days: days, source: 'Manual',
       lat: lat,
