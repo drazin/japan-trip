@@ -792,13 +792,12 @@ function renderFilters() {
   hoodSource.forEach(d => { const h = d.neighborhood || ''; if (h && !h.includes('Various') && h.length > 0) { hoodCounts[h] = (hoodCounts[h]||0) + 1; } });
   const hoods = ['All', ...Object.entries(hoodCounts).sort((a,b) => b[1]-a[1]).map(([h]) => h)];
 
-  const hasBrandon = DATA.some(d => d.source === "Brandon's List");
-  const brandonChip = hasBrandon
-    ? `<button class="filter-btn ${activeFilters.source==="Brandon's List"?'active':''}" data-filter="source" data-value="${activeFilters.source==="Brandon's List"?'All':"Brandon's List"}" style="margin-left:8px;border-color:#f59e0b;color:#f59e0b">★ Brandon's List</button>`
-    : '';
+  const sourceChips = SOURCE_CHIPS.filter(s => DATA.some(d => d.source === s.source)).map(s =>
+    `<button class="filter-btn ${activeFilters.source===s.source?'active':''}" data-filter="source" data-value="${activeFilters.source===s.source?'All':s.source}" style="margin-left:8px;border-color:${s.color};color:${s.color}">${s.icon} ${s.label}</button>`
+  ).join('');
   document.getElementById('city-filters').innerHTML = cities.map(c =>
     `<button class="filter-btn ${activeFilters.city===c?'active':''}" data-filter="city" data-value="${c}">${c}</button>`
-  ).join('') + brandonChip;
+  ).join('') + sourceChips;
   const hoodSelect = document.getElementById('hood-filters');
   hoodSelect.innerHTML = hoods.map(h =>
     `<option value="${h}" ${activeFilters.neighborhood===h?'selected':''}>${h === 'All' ? 'All Areas' : h + ' (' + hoodCounts[h] + ')'}</option>`
@@ -874,10 +873,15 @@ function placeDetailsLine(a){
   const flag = a.infoEstimated ? ' <span style="color:#f59e0b">⚠</span>' : '';
   return '<div style="font-size:11px;color:var(--muted);margin-top:3px">' + parts.join(' · ') + flag + '</div>';
 }
+// Sources that get a colored provenance badge + filter chip (others stay unlabeled)
+const SOURCE_CHIPS = [
+  { source: "Brandon's List", label: "Brandon's List", short: 'Brandon', icon: '★', color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
+  { source: 'FarEast', label: 'FarEast', short: 'FarEast', icon: '◆', color: '#22d3ee', bg: 'rgba(34,211,238,0.15)' },
+];
 function sourceBadge(d){
-  if (d && d.source === "Brandon's List")
-    return ' <span title="From Brandon\'s list" style="font-size:10px;background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid #f59e0b;border-radius:6px;padding:1px 6px;white-space:nowrap;vertical-align:1px">★ Brandon</span>';
-  return '';
+  const s = d && SOURCE_CHIPS.find(s => s.source === d.source);
+  if (!s) return '';
+  return ` <span title="From ${s.label}" style="font-size:10px;background:${s.bg};color:${s.color};border:1px solid ${s.color};border-radius:6px;padding:1px 6px;white-space:nowrap;vertical-align:1px">${s.icon} ${s.short}</span>`;
 }
 function renderTable() {
   const filtered = getFiltered();
