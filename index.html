@@ -501,7 +501,8 @@ let optionsTab = 'recommended';
 let dragName = null;
 function addToDayBlock(name, block){
   const a = getAction(name);
-  const status = (a.status === 'none') ? 'assigned' : a.status;
+  // Committing to a time block means it's planned; Considering leaves the decision open.
+  const status = (a.status === 'none' && block !== 'unscheduled') ? 'assigned' : a.status;
   itemActions[name] = { ...a, status, day: selectedDay, block: block };
   saveActions(); renderDays();
 }
@@ -627,9 +628,8 @@ function asStatus(k){
 function asDay(d){
   const inp=asReadInputs(); const a=getAction(sheetName);
   const newDay = a.day===d ? null : d;
-  const newStatus = newDay && a.status==='none' ? 'assigned' : a.status;
   asPersistInfo(inp, false);
-  setAction(sheetName, newStatus, newDay, inp.notes, inp.reserveDate, inp.time);
+  setAction(sheetName, a.status, newDay, inp.notes, inp.reserveDate, inp.time);
   buildActionSheet();  // keep open, refresh highlights
 }
 function asSaveClose(){
@@ -949,7 +949,10 @@ function gmapsUrl(d){
 }
 function mapPopupHtml(d){
   const a = getAction(d.name);
-  const aLabel = a.status!=='none'?`<br><b>${ACTIONS[a.status].icon} ${ACTIONS[a.status].label}</b>${a.day?' · Day '+a.day+(dayDate(a.day)?' ('+dayDate(a.day)+')':''):''}`:'';
+  const dayTag = a.day ? ' · Day '+a.day+(dayDate(a.day)?' ('+dayDate(a.day)+')':'') : '';
+  const aLabel = (a.status!=='none' || a.day)
+    ? `<br><b>${a.status!=='none' ? ACTIONS[a.status].icon+' '+ACTIONS[a.status].label : '🤔 Considering'}</b>${dayTag}`
+    : '';
   const addr = d.address?`<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}</span>`:'';
   return `<strong>${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.city} · ${d.neighborhood}</span>${addr}<br>${'★'.repeat(d.priority)}${'☆'.repeat(5-d.priority)}<br>${d.why}${aLabel}<br><a href="${gmapsUrl(d)}" target="_blank" rel="noopener" style="color:#22d3ee;font-size:11px">Open in Google Maps ↗</a>`;
 }
@@ -1048,8 +1051,7 @@ function dcDayPick(btn) {
   const day = parseInt(btn.dataset.pickDay);
   const current = getAction(name);
   const newDay = current.day === day ? null : day;
-  const newStatus = newDay && current.status === 'none' ? 'assigned' : current.status;
-  setAction(name, newStatus, newDay, current.notes, current.reserveDate);
+  setAction(name, current.status, newDay, current.notes, current.reserveDate);
 }
 
 // --- Trip context (hotels, day->hotel, logistics) from trip.json ----------
@@ -2158,8 +2160,8 @@ function setupListeners() {
     manualItems.push(DATA[DATA.length-1]);
     localStorage.setItem(MANUAL_KEY, JSON.stringify(manualItems));
     saveActions();
-    // Chosen day = drop straight into that day's pool (Unscheduled block)
-    if (dayN) setAction(name, 'assigned', dayN);
+    // Chosen day = drop into that day's Considering pool; status stays undecided
+    if (dayN) setAction(name, getAction(name).status, dayN);
     // Reset form
     document.getElementById('ap-name').value = '';
     document.getElementById('ap-hood').value = '';
