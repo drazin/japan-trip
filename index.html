@@ -548,7 +548,7 @@ function buildActionSheet(){
     `<button onclick="asStatus('${k}')" style="${btn};${a.status===k?'border-color:var(--green);background:rgba(34,197,94,0.12)':''}">${v.icon} ${v.label}${a.status===k?' ✓':''}</button>`
   ).join('');
   const days = DAYS.map(dy =>
-    `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:8px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer">${dy.n}</button>`
+    `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:5px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer;line-height:1.2">${dy.n}<br><span style="font-size:9px;opacity:0.7">${esc((dy.d||'').split(' ').pop())}</span></button>`
   ).join('');
   const ctx = [place.category, place.neighborhood, place.city].filter(Boolean).join(' · ');
   const linkStyle = 'font-size:11px;background:rgba(34,211,238,0.12);border:1px solid #22d3ee;color:#22d3ee;border-radius:6px;padding:3px 8px;cursor:pointer;text-decoration:none;display:inline-block';
@@ -949,7 +949,7 @@ function gmapsUrl(d){
 }
 function mapPopupHtml(d){
   const a = getAction(d.name);
-  const aLabel = a.status!=='none'?`<br><b>${ACTIONS[a.status].icon} ${ACTIONS[a.status].label}</b>${a.day?' · Day '+a.day:''}`:'';
+  const aLabel = a.status!=='none'?`<br><b>${ACTIONS[a.status].icon} ${ACTIONS[a.status].label}</b>${a.day?' · Day '+a.day+(dayDate(a.day)?' ('+dayDate(a.day)+')':''):''}`:'';
   const addr = d.address?`<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}</span>`:'';
   return `<strong>${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.city} · ${d.neighborhood}</span>${addr}<br>${'★'.repeat(d.priority)}${'☆'.repeat(5-d.priority)}<br>${d.why}${aLabel}<br><a href="${gmapsUrl(d)}" target="_blank" rel="noopener" style="color:#22d3ee;font-size:11px">Open in Google Maps ↗</a>`;
 }
@@ -982,6 +982,8 @@ function renderMap() {
   if (markers.length) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
 }
 
+// Short date ("Mon 8/17") for a day number — shown wherever we say "Day N".
+function dayDate(n){ const dy = DAYS.find(d => d.n === Number(n)); return (dy && dy.d) || ''; }
 function dayMatchesDayNum(daysStr, n) {
   return String(daysStr||'').split(',').some(r => { r=r.trim(); if(!r) return false; if(r.includes('-')){const[a,b]=r.split('-').map(Number);return n>=a&&n<=b;} return r==n; });
 }
@@ -1029,7 +1031,7 @@ function renderDayCard(d, borderStyle) {
       <div style="margin-top:8px" onclick="event.stopPropagation()">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
           <div style="font-size:11px;color:var(--muted)">Assign to day:</div>
-          ${DAYS.map(dy => '<button class="day-pick-btn'+(a.day===dy.n?' selected':'')+'" data-pick-day="'+dy.n+'" data-target="'+eName+'" onclick="event.stopPropagation();dcDayPick(this)" title="Day '+dy.n+': '+dy.t+'" style="padding:3px 5px;font-size:10px">'+dy.n+'</button>').join('')}
+          ${DAYS.map(dy => '<button class="day-pick-btn'+(a.day===dy.n?' selected':'')+'" data-pick-day="'+dy.n+'" data-target="'+eName+'" onclick="event.stopPropagation();dcDayPick(this)" title="Day '+dy.n+' ('+dy.d+'): '+dy.t+'" style="padding:2px 4px;font-size:10px;line-height:1.15">'+dy.n+'<br><span style="font-size:8px;opacity:0.7">'+esc((dy.d||'').split(' ').pop())+'</span></button>').join('')}
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
           <div style="font-size:11px;color:var(--muted);white-space:nowrap">Reserve by:</div>
@@ -1127,7 +1129,7 @@ async function saveDayTitle(n, title){
 }
 function editDayTitle(n){
   const dy = DAYS.find(d => d.n === n); if (!dy) return;
-  const t = prompt('Title for Day ' + n + ':', dy.t || '');
+  const t = prompt('Title for Day ' + n + (dy.d ? ' (' + dy.d + ')' : '') + ':', dy.t || '');
   if (t === null) return;
   saveDayTitle(n, t.trim());
 }
@@ -1518,12 +1520,12 @@ function renderDayOverview(){
   const container = document.getElementById('day-columns');
   container.style.display = 'block';
   const open = DAYS.filter(dayIsOpen);
-  const banner = open.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ '+open.length+' day(s) still open: '+open.map(d=>'Day '+d.n).join(', ')+'</div>' : '';
+  const banner = open.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ '+open.length+' day(s) still open: '+open.map(d=>'Day '+d.n+' ('+esc(d.d||'')+')').join(', ')+'</div>' : '';
   const decs = (TRIP.openDecisions || []).filter(o => o && (o.priority === 'high' || o.priority === 'medium'));
   const todos = decs.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px"><div style="font-weight:600;margin-bottom:4px">📌 To book / decide</div>' +
     decs.map(o => {
       const m = String((o.item || '') + ' ' + (o.notes || '')).match(/Day (\d+)/i);
-      const dayLink = m ? ' <a onclick="openDay(' + m[1] + ')" style="cursor:pointer;color:#3b82f6">(Day ' + m[1] + ')</a>' : '';
+      const dayLink = m ? ' <a onclick="openDay(' + m[1] + ')" style="cursor:pointer;color:#3b82f6">(Day ' + m[1] + (dayDate(m[1]) ? ' · ' + esc(dayDate(m[1])) : '') + ')</a>' : '';
       return '<div style="padding:2px 0">' + (o.priority === 'high' ? '🔴' : '🟡') + ' ' + esc(o.item || '') + dayLink + '</div>';
     }).join('') + '</div>' : '';
   const blockOrder = { morning:0, afternoon:1, evening:2, unscheduled:3 };
@@ -1597,8 +1599,8 @@ function renderDays(){
   const tdi = travelDayInfo(dy.n);
   const nav = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">' +
     '<button onclick="backToOverview()" style="'+btn+'">← All days</button>' +
-    (idx>0 ? '<button onclick="openDay('+DAYS[idx-1].n+')" style="'+btn+'">‹ Day '+DAYS[idx-1].n+'</button>' : '') +
-    (idx<DAYS.length-1 ? '<button onclick="openDay('+DAYS[idx+1].n+')" style="'+btn+'">Day '+DAYS[idx+1].n+' ›</button>' : '') +
+    (idx>0 ? '<button onclick="openDay('+DAYS[idx-1].n+')" style="'+btn+'">‹ Day '+DAYS[idx-1].n+' ('+esc(DAYS[idx-1].d||'')+')</button>' : '') +
+    (idx<DAYS.length-1 ? '<button onclick="openDay('+DAYS[idx+1].n+')" style="'+btn+'">Day '+DAYS[idx+1].n+' ('+esc(DAYS[idx+1].d||'')+') ›</button>' : '') +
     (tdi ? '<span style="font-size:12px;color:#f59e0b">✈️ '+esc(tdi)+'</span>' : '') +
     '</div>';
   container.style.display = 'block';
@@ -1611,10 +1613,10 @@ function renderDays(){
         (times ? ' · ' + esc(times) : '') +
         ' <span onclick="editHotelTimes(\'' + esc(hid) + '\')" style="cursor:pointer;color:#3b82f6;font-size:11px">✎ ' + (times ? 'edit times' : 'add check-in/out') + '</span></div>'
     : '';
-  const header = '<h3 style="margin:0 0 2px">Day ' + dy.n + ' — ' + esc(dy.t || '') +
+  const header = '<h3 style="margin:0 0 2px">Day ' + dy.n + ' · ' + esc(dy.d || '') + (dy.t ? ' — ' + esc(dy.t) : '') +
     ' <span onclick="editDayTitle(' + dy.n + ')" title="Edit title" style="cursor:pointer;color:#3b82f6;font-size:13px;vertical-align:2px">✎</span>' +
     ' <span id="ai-title-btn" onclick="aiDayTitle(' + dy.n + ')" title="AI title from this day\'s pool" style="cursor:pointer;color:#a855f7;font-size:13px;vertical-align:2px">✨</span></h3>' +
-    '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">' + esc(dy.d) + ' · ' + esc(dy.c) + '</div>' + hotelLine;
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">' + esc(dy.c) + '</div>' + hotelLine;
   const plan = getDayPlan(dy.n);
   container.innerHTML = nav + openPrompt + header + renderDayControls(dy) + renderAiPlan(dy.n, plan.ai) +
     '<div class="day-builder">' +
