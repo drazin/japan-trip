@@ -496,7 +496,7 @@ function setPlaceInfo(name, fields, save){
   if (save !== false) { saveActions(); renderAll(); }
 }
 // --- Day builder: blocks (time-of-day) + time notes ---
-const DAY_BLOCKS = [['morning','🌅 Morning'],['afternoon','☀️ Afternoon'],['evening','🌙 Evening'],['unscheduled','🕐 Unscheduled']];
+const DAY_BLOCKS = [['morning','🌅 Morning'],['afternoon','☀️ Afternoon'],['evening','🌙 Evening'],['unscheduled','🤔 Considering']];
 let optionsTab = 'recommended';
 let dragName = null;
 function addToDayBlock(name, block){
@@ -1308,7 +1308,7 @@ function renderAiPlan(n, ai){
     '</div>' +
     ai.slots.map(s => {
       const blk = slotToBlock(s.time);
-      const blkIcon = (DAY_BLOCKS.find(b => b[0] === blk) || ['', '🕐 Unscheduled'])[1].split(' ')[0];
+      const blkIcon = (DAY_BLOCKS.find(b => b[0] === blk) || ['', '🤔 Considering'])[1].split(' ')[0];
       return '<div style="margin-bottom:8px"><div style="font-weight:600;font-size:12px">' + esc(s.time) + '</div>' +
         (s.flow ? '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">' + esc(s.flow) + '</div>' : '') +
         (s.picks || []).map(pk => {
@@ -1317,7 +1317,7 @@ function renderAiPlan(n, ai){
           const acts = added
             ? '<span style="color:var(--green);font-size:11px">✓ added</span>'
             : '<button data-name="' + eName + '" data-block="' + blk + '" onclick="setBlockBtn(this)" title="Add to this timeslot" style="' + miniBtn + ';background:transparent;border:1px solid #3b82f6;color:#3b82f6">➕ ' + blkIcon + '</button>' +
-              '<button data-name="' + eName + '" data-block="unscheduled" onclick="setBlockBtn(this)" title="Add to day backlog" style="' + miniBtn + ';background:transparent;border:1px solid var(--border);color:var(--muted)">➕ backlog</button>';
+              '<button data-name="' + eName + '" data-block="unscheduled" onclick="setBlockBtn(this)" title="Add to Considering" style="' + miniBtn + ';background:transparent;border:1px solid var(--border);color:var(--muted)">➕ considering</button>';
           return '<div style="font-size:12px;padding:3px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
             '<span>• ' + eName + (pk.note ? ' — <span style="color:var(--muted)">' + esc(pk.note) + '</span>' : '') + '</span>' + acts +
           '</div>';
