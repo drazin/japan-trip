@@ -329,7 +329,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         <div style="flex:2;min-width:160px"><div class="field-label">Area / neighborhood</div><input type="text" id="ap-hood" class="search-input" style="width:100%" placeholder="neighborhood"></div>
-        <div style="flex:1;min-width:90px"><div class="field-label">Days</div><input type="text" id="ap-days" class="search-input" style="width:100%" placeholder="e.g. 1-5"></div>
+        <div style="flex:1;min-width:120px"><div class="field-label">Add to day</div><select id="ap-day" class="search-input" style="width:100%"></select></div>
       </div>
       <div><div class="field-label">Notes</div><input type="text" id="ap-why" class="search-input" style="width:100%" placeholder="why you want to go"></div>
     </div>
@@ -409,6 +409,7 @@ const ACTIONS = {
 };
 
 let DAYS = [];  // populated from the active trip (loadActiveTrip)
+let SEGMENTS = [];  // raw trip segments — kept so day-title edits can PUT back
 
 // Persistence — shared server with localStorage fallback
 let STORAGE_KEY = 'drazin-japan-actions';
@@ -1075,7 +1076,8 @@ async function loadActiveTrip(){
     }
     const trip = await res.json();
     DATA = (trip.base_places || []).slice();
-    DAYS = (trip.segments || []).map(s => ({ n: s.n, d: s.dateLabel || s.date || ('Day ' + s.n), date: s.date || null, c: s.city || '', t: s.theme || '' }));
+    SEGMENTS = trip.segments || [];
+    DAYS = SEGMENTS.map(s => ({ n: s.n, d: s.dateLabel || s.date || ('Day ' + s.n), date: s.date || null, c: s.city || '', t: s.theme || '' }));
     TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:true,
              name: trip.name || 'Trip', startDate: trip.start_date || null, endDate: trip.end_date || null };
     (trip.hotels || []).forEach(h => { TRIP.hotels[h.id] = h; });
@@ -1111,6 +1113,40 @@ function hotelTimesStr(h){
   if (h.checkout) parts.push('check-out ' + h.checkout);
   return parts.join(' · ');
 }
+// --- Day titles: manual edit or AI-generated from the day's pooled/scheduled places ---
+async function saveDayTitle(n, title){
+  const dy = DAYS.find(d => d.n === n); if (!dy) return;
+  dy.t = title;
+  const seg = SEGMENTS.find(s => s.n === n);
+  if (seg) seg.theme = title;
+  try {
+    await fetch('/api/trips/' + activeTripId, { method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ segments: SEGMENTS }) });
+  } catch(e){}
+  renderDays();
+}
+function editDayTitle(n){
+  const dy = DAYS.find(d => d.n === n); if (!dy) return;
+  const t = prompt('Title for Day ' + n + ':', dy.t || '');
+  if (t === null) return;
+  saveDayTitle(n, t.trim());
+}
+async function aiDayTitle(n){
+  const dy = DAYS.find(d => d.n === n); if (!dy) return;
+  const pooled = DATA.filter(d => getAction(d.name).day === n).map(d => d.name);
+  const curated = (TRIP.planned && TRIP.planned[n]) || [];
+  const items = [...new Set([...pooled, ...curated])];
+  const btn = document.getElementById('ai-title-btn');
+  if (btn) btn.textContent = '…';
+  try {
+    const res = await fetch('/api/day-title', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ city: dy.c, date: dy.d, items, current: dy.t || '' }) });
+    const data = await res.json();
+    if (data.ok && data.title) saveDayTitle(n, data.title);
+    else { alert(data.message || 'Could not generate a title.'); if (btn) btn.textContent = '✨'; }
+  } catch(e){ alert('Title generation failed — server error.'); if (btn) btn.textContent = '✨'; }
+}
+
 async function editHotelTimes(id){
   const h = hotelById(id); if (!h) return;
   const ci = prompt('Check-in time for ' + h.name + ' (e.g. 3:00 PM):', h.checkin || '');
@@ -1575,7 +1611,9 @@ function renderDays(){
         (times ? ' · ' + esc(times) : '') +
         ' <span onclick="editHotelTimes(\'' + esc(hid) + '\')" style="cursor:pointer;color:#3b82f6;font-size:11px">✎ ' + (times ? 'edit times' : 'add check-in/out') + '</span></div>'
     : '';
-  const header = '<h3 style="margin:0 0 2px">Day ' + dy.n + ' — ' + esc(dy.t || '') + '</h3>' +
+  const header = '<h3 style="margin:0 0 2px">Day ' + dy.n + ' — ' + esc(dy.t || '') +
+    ' <span onclick="editDayTitle(' + dy.n + ')" title="Edit title" style="cursor:pointer;color:#3b82f6;font-size:13px;vertical-align:2px">✎</span>' +
+    ' <span id="ai-title-btn" onclick="aiDayTitle(' + dy.n + ')" title="AI title from this day\'s pool" style="cursor:pointer;color:#a855f7;font-size:13px;vertical-align:2px">✨</span></h3>' +
     '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">' + esc(dy.d) + ' · ' + esc(dy.c) + '</div>' + hotelLine;
   const plan = getDayPlan(dy.n);
   container.innerHTML = nav + openPrompt + header + renderDayControls(dy) + renderAiPlan(dy.n, plan.ai) +
@@ -2073,6 +2111,10 @@ function setupListeners() {
     const sel = document.getElementById('ap-city');
     const cities = tripCities();
     sel.innerHTML = (cities.length ? cities : ['']).map(c => '<option>' + esc(c) + '</option>').join('');
+    // Day pool: picking a day drops the place into that day's Unscheduled block.
+    const dsel = document.getElementById('ap-day');
+    dsel.innerHTML = '<option value="">Unassigned (decide later)</option>' + DAYS.map(dy =>
+      `<option value="${dy.n}">Day ${dy.n} — ${esc(dy.d)}${dy.c ? ' · ' + esc(dy.c) : ''}</option>`).join('');
     document.getElementById('add-place-form').classList.add('open');
     document.getElementById('ap-name').focus();
   });
@@ -2088,7 +2130,7 @@ function setupListeners() {
     const city = document.getElementById('ap-city').value;
     const hood = document.getElementById('ap-hood').value.trim();
     const cat = document.getElementById('ap-cat').value;
-    const days = document.getElementById('ap-days').value.trim();
+    const dayN = Number(document.getElementById('ap-day').value) || null;
     const why = document.getElementById('ap-why').value.trim();
     let lat, lng, address = '';
     try {
@@ -2104,7 +2146,7 @@ function setupListeners() {
     DATA.push({
       name: name, city: city, neighborhood: hood, category: cat, address: address,
       why: why, family_fit: '', booking: '', priority: 3,
-      heat: 'Indoor', days: days, source: 'Manual',
+      heat: 'Indoor', days: '', source: 'Manual',
       lat: lat,
       lng: lng,
       url: ''
@@ -2114,10 +2156,11 @@ function setupListeners() {
     manualItems.push(DATA[DATA.length-1]);
     localStorage.setItem(MANUAL_KEY, JSON.stringify(manualItems));
     saveActions();
+    // Chosen day = drop straight into that day's pool (Unscheduled block)
+    if (dayN) setAction(name, 'assigned', dayN);
     // Reset form
     document.getElementById('ap-name').value = '';
     document.getElementById('ap-hood').value = '';
-    document.getElementById('ap-days').value = '';
     document.getElementById('ap-why').value = '';
     document.getElementById('ap-name').style.borderColor = '';
     document.getElementById('add-place-form').classList.remove('open');

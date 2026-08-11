@@ -408,6 +408,37 @@ app.post('/api/place-info', async (req, res) => {
   }
 });
 
+app.post('/api/day-title', async (req, res) => {
+  if (!ANTHROPIC_API_KEY) return res.json({ ok: false, code: 'no_api_key', message: 'Add ANTHROPIC_API_KEY to enable AI titles.' });
+  const { city = '', date = '', items = [], current = '' } = req.body || {};
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 100,
+      tool_choice: { type: 'tool', name: 'day_title' },
+      tools: [{
+        name: 'day_title',
+        description: 'A short evocative title for one day of a family trip, based on the places pooled/scheduled for it.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: '2-6 words capturing the dominant neighborhood/vibe of the listed places, e.g. "Asakusa Temples & Street Food". No day number, no date.' },
+          },
+          required: ['title'],
+        },
+      }],
+      messages: [{ role: 'user', content: `One day of a family trip in ${city}${date ? ' (' + date + ')' : ''}. Places pooled/scheduled for this day: ${(Array.isArray(items) && items.length) ? items.join('; ') : 'none yet'}.${current ? ' Current title: ' + current + '.' : ''} Give a short title for the day.` }],
+    });
+    const tool = msg.content.find(c => c.type === 'tool_use');
+    res.json({ ok: true, title: ((tool && tool.input && tool.input.title) || '').trim() });
+  } catch (err) {
+    console.error('day-title failed', err);
+    res.status(500).json({ ok: false, message: 'Title generation failed: ' + (err.message || 'error') });
+  }
+});
+
 app.post('/api/plan-day', async (req, res) => {
   if (!ANTHROPIC_API_KEY) {
     return res.json({ ok: false, code: 'no_api_key', message: 'Add ANTHROPIC_API_KEY to enable AI planning.' });
