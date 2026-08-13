@@ -514,8 +514,15 @@ function unassignFromDay(el){
 }
 function editTime(el){
   const name = el.dataset.name; const a = getAction(name);
-  const t = prompt('Time for ' + name + ' (e.g. "after 7pm", "8:00 light show"):', a.time || '');
-  if (t !== null) { itemActions[name] = { ...a, time: t.trim() }; saveActions(); renderDays(); }
+  const inp = document.createElement('input');
+  inp.type = 'time'; inp.value = parseTimeTo24(a.time);
+  inp.style.cssText = 'font-size:11px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:1px 4px';
+  el.replaceWith(inp);
+  inp.focus();
+  let done = false;
+  const save = () => { if (done) return; done = true; const cur = getAction(name); itemActions[name] = { ...cur, time: inp.value }; saveActions(); renderDays(); };
+  inp.addEventListener('change', save);
+  inp.addEventListener('blur', save);
 }
 function setOptionsTab(t){ optionsTab = t; renderDays(); }
 function dayDragStart(ev){ dragName = ev.currentTarget.dataset.name || null; if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move'; }
@@ -570,7 +577,8 @@ function buildActionSheet(){
        <div class="field-label" style="margin-top:14px">Assign to day</div>
        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">${days}</div>
        <div class="field-label" style="margin-top:14px">Reservation / arrival time</div>
-       <input type="text" id="as-time" class="search-input" style="width:100%" placeholder="e.g. 8:45 PM" value="${esc(a.time||'')}">
+       <input type="time" id="as-time" class="search-input" style="width:100%" value="${parseTimeTo24(a.time)}">
+       ${a.time && !parseTimeTo24(a.time) ? '<div style="font-size:10px;color:#f59e0b;margin-top:2px">Current note: "' + esc(a.time) + '" — picking a time replaces it</div>' : ''}
        <div class="field-label" style="margin-top:10px">Reserve by (deadline to book)</div>
        <input type="date" id="as-res" class="search-input" style="width:100%" value="${a.reserveDate||''}">
        <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
@@ -769,7 +777,11 @@ function setupNewTrip(){
   const cr=document.getElementById('nt-create'); if(cr) cr.addEventListener('click', ntCreate);
 }
 
-async function init() { await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState(); }
+async function init() {
+  await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
+  if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  if (shareMode) document.querySelectorAll('.header-actions, .tabs').forEach(el => { el.style.display = 'none'; });
+}
 
 function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
@@ -991,6 +1003,25 @@ function renderMap() {
   if (markers.length) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.1));
 }
 
+// --- Time normalization: stored canonical 24h "HH:MM", displayed "8:45 PM" ---
+function parseTimeTo24(s){
+  if (!s) return '';
+  const m = String(s).trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!m) return '';
+  let h = parseInt(m[1], 10); const min = m[2] || '00';
+  if (m[3] === 'pm' && h < 12) h += 12;
+  if (m[3] === 'am' && h === 12) h = 0;
+  if (h > 23) return '';
+  return String(h).padStart(2, '0') + ':' + min;
+}
+function fmtTime(t){
+  const c = parseTimeTo24(t);
+  if (!c) return t || '';   // legacy freeform notes fall through unchanged
+  let [h, mn] = c.split(':').map(Number);
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + ':' + String(mn).padStart(2, '0') + ' ' + ap;
+}
 // Short date ("Mon 8/17") for a day number — shown wherever we say "Day N".
 function dayDate(n){ const dy = DAYS.find(d => d.n === Number(n)); return (dy && dy.d) || ''; }
 function dayMatchesDayNum(daysStr, n) {
@@ -1066,6 +1097,8 @@ const DEFAULT_TRIP_ID = 'japan-2026';
 // itinerary, booking windows) that other trips don't have.
 function hasCuratedContent(){ return activeTripId === DEFAULT_TRIP_ID; }
 let activeTripId = (function(){ try { return new URLSearchParams(location.search).get('trip') || localStorage.getItem('active-trip') || DEFAULT_TRIP_ID; } catch(e){ return DEFAULT_TRIP_ID; } })();
+// Read-only share mode: family follows the live itinerary, no management chrome.
+const shareMode = (function(){ try { return new URLSearchParams(location.search).get('share') === '1'; } catch(e){ return false; } })();
 setTripKeys();
 let TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:false };
 async function loadActiveTrip(){
@@ -1430,7 +1463,7 @@ function renderBuiltCard(d){
     '<div style="font-size:13px;font-weight:600">' + statusChip(a.status) + '★'.repeat(d.priority) + ' ' + esc(d.name) + sourceBadge(d) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">' + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
     placeDetailsLine(a) +
-    '<div style="margin-top:4px;font-size:11px">⏰ <span data-name="' + eName + '" onclick="editTime(this)" style="cursor:pointer;color:#3b82f6">' + (a.time ? esc(a.time) : 'set time') + '</span></div>' +
+    '<div style="margin-top:4px;font-size:11px">⏰ <span data-name="' + eName + '" onclick="editTime(this)" style="cursor:pointer;color:#3b82f6">' + (a.time ? esc(fmtTime(a.time)) : 'set time') + '</span></div>' +
     (dir ? '<div style="margin-top:4px">' + dir + '</div>' : '') +
     '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">' +
       '<button data-action-for="' + eName + '" onclick="event.stopPropagation();openActionSheet(this)" title="Change status / details" style="font-size:11px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:2px 8px;cursor:pointer">✎ Edit</button>' +
@@ -1546,7 +1579,7 @@ function renderDayOverview(){
       const itemList = items.length
         ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">' + items.map(d => {
             const a = getAction(d.name);
-            const t = a.time ? '<span style="color:var(--muted)"> · ' + esc(a.time) + '</span>' : '';
+            const t = a.time ? '<span style="color:var(--muted)"> · ' + esc(fmtTime(a.time)) + '</span>' : '';
             return '<div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + statusChip(a.status) + esc(d.name) + t + '</div>';
           }).join('') + '</div>'
         : '<div style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic">' + (travelDayInfo(dy.n) ? '✈️ ' + esc(travelDayInfo(dy.n)) : 'Nothing planned yet') + '</div>';
@@ -1582,6 +1615,7 @@ function setView(v, push){
 function updateURL(push){
   const p = new URLSearchParams();
   if (activeTripId) p.set('trip', activeTripId);
+  if (shareMode) p.set('share', '1');
   p.set('view', currentView);
   if (currentView === 'days' && selectedDay != null) p.set('day', String(selectedDay));
   const url = location.pathname + '?' + p.toString();
@@ -1593,7 +1627,7 @@ async function applyUrlState(){
   if (t && t !== activeTripId) { await switchTrip(t); }
   const d = p.get('day');
   selectedDay = (d != null && d !== '') ? Number(d) : null;
-  setView(p.get('view') || 'table', false);
+  setView(shareMode ? 'itinerary' : (p.get('view') || 'table'), false);
 }
 window.addEventListener('popstate', () => { applyUrlState(); });
 function renderDays(){
@@ -1677,8 +1711,21 @@ const ITIN_DAYS = [
 ];
 
 function renderItinerary() {
-  if (hasCuratedContent()) return renderItineraryJapan();
-  return renderItineraryGeneric();
+  if (hasCuratedContent()) renderItineraryJapan(); else renderItineraryGeneric();
+  if (!shareMode) {
+    document.getElementById('itin-content').insertAdjacentHTML('afterbegin',
+      '<div style="text-align:right;margin:0 0 8px"><button id="share-itin-btn" onclick="shareItinerary()" style="padding:7px 14px;border-radius:8px;border:1px solid #22d3ee;background:rgba(34,211,238,0.12);color:#22d3ee;font-size:13px;cursor:pointer">🔗 Share itinerary</button></div>');
+  }
+}
+// Copy a read-only link: same live data, itinerary only, no management UI.
+function shareItinerary(){
+  const url = location.origin + location.pathname + '?trip=' + encodeURIComponent(activeTripId) + '&view=itinerary&share=1';
+  const done = () => {
+    const b = document.getElementById('share-itin-btn');
+    if (b) { b.textContent = '✓ Link copied'; setTimeout(() => { b.textContent = '🔗 Share itinerary'; }, 2000); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, () => prompt('Copy this link:', url));
+  else prompt('Copy this link:', url);
 }
 function renderItineraryGeneric() {
   const container = document.getElementById('itin-content');
@@ -1703,7 +1750,7 @@ function renderItineraryGeneric() {
       html += '<div class="itin-section-label">Planned</div>';
       assigned.forEach(d => {
         const a = getAction(d.name);
-        html += '<div class="itin-activity"><div class="itin-time">' + esc(a.time || '') + '</div><div class="itin-act-body">';
+        html += '<div class="itin-activity"><div class="itin-time">' + esc(fmtTime(a.time || '')) + '</div><div class="itin-act-body">';
         html += '<div class="itin-act-name">' + (a.status==='booked'?'✅ ':'') + esc(d.name) + '</div>';
         if (d.neighborhood) html += '<div class="itin-act-hood">' + esc(d.neighborhood) + (d.city?' · '+esc(d.city):'') + '</div>';
         if (d.why) html += '<div class="itin-act-why">' + esc(d.why) + '</div>';
