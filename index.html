@@ -1232,7 +1232,7 @@ function viewOnMap(name){
   closeActionSheet();
   setView('map', true);
   setTimeout(() => {
-    map.setView([place.lat, place.lng], 16);
+    map.setView([place.lat, place.lng], 16, { animate: false });
     const m = markers.find(mk => mk._placeName === place.name);
     if (m) m.openPopup();
     else L.popup({maxWidth:280}).setLatLng([place.lat, place.lng]).setContent(mapPopupHtml(place)).openOn(map);
@@ -1312,7 +1312,7 @@ function setNearbyArea(name, lat, lng){
   nearbyCenter = { lat, lng, label: name };
   document.getElementById('nearby-title').textContent = 'Near ' + name;
   document.getElementById('nearby-sub').textContent = 'Saved places around this area, closest first.';
-  map.setView([lat, lng], 15);
+  map.setView([lat, lng], 15, { animate: false });
   renderAreaChips();
 }
 function useMyLocation(){
@@ -1327,7 +1327,7 @@ function useMyLocation(){
     userMarker = L.circleMarker([lat, lng], { radius: 9, fillColor: '#5ea2ff', color: '#d6e7ff', weight: 3, fillOpacity: 1 }).addTo(map);
     document.getElementById('nearby-title').textContent = 'Near you';
     document.getElementById('nearby-sub').textContent = 'Everything you saved, closest first.';
-    map.setView([lat, lng], 15);
+    map.setView([lat, lng], 15, { animate: false });
     renderAreaChips();
   }, err => {
     btn.textContent = '◎ Use my location';
@@ -1367,7 +1367,7 @@ function renderNearbyList(){
 function focusNearby(name){
   const d = DATA.find(x => x.name === name);
   if (!d || typeof d.lat !== 'number') return;
-  map.setView([d.lat, d.lng], Math.max(map.getZoom(), 16));
+  map.setView([d.lat, d.lng], Math.max(map.getZoom(), 16), { animate: false });
   const m = markers.find(mk => mk._placeName === name);
   if (m) m.openPopup();
 }
@@ -2233,7 +2233,7 @@ function openDayOnMap(n){
   if (hotel && typeof hotel.lat === 'number') setTimeout(() => {
     nearbyCenter = { lat: hotel.lat, lng: hotel.lng, label: hotel.name };
     document.getElementById('nearby-title').textContent = 'Near ' + hotel.name;
-    if (map) map.setView([hotel.lat, hotel.lng], 14);
+    if (map) map.setView([hotel.lat, hotel.lng], 14, { animate: false });
   }, 350);
 }
 function renderDayRecs(dy){
@@ -2398,17 +2398,10 @@ function renderItineraryJapan() {
     const transit = TRANSIT[day.n];
     const isNewHotel = day.n === 1 || hotelForDay(day.n).name !== (prevHotel(day.n)||{}).name;
 
-    // Get assigned activities for this day
-    const assigned = DATA.filter(d => getAction(d.name).day === day.n)
-      .sort((a,b) => b.priority - a.priority);
-
-    // Get "want" items that match this day but aren't assigned
-    const wants = DATA.filter(d => {
-      const a = getAction(d.name);
-      if (a.day === day.n) return false;
-      if (a.status !== 'want' && a.status !== 'reserve' && a.status !== 'booked') return false;
-      return dayMatchesDayNum(d.days, day.n);
-    }).sort((a,b) => b.priority - a.priority).slice(0, 4);
+    // v2: anchors = committed (booked / timed / scheduled); considering = the rest of the day pool
+    const dayPool = DATA.filter(d => getAction(d.name).day === day.n && getAction(d.name).status !== 'skip');
+    const assigned = dayPool.filter(isAnchor).sort((a,b) => b.priority - a.priority);
+    const wants = dayPool.filter(d => !isAnchor(d)).sort((a,b) => b.priority - a.priority);
 
     html += '<div class="itin-day">';
 
@@ -2442,11 +2435,11 @@ function renderItineraryJapan() {
 
     // Assigned activities
     if (assigned.length) {
-      html += '<div class="itin-section-label">Planned</div>';
+      html += '<div class="itin-section-label">📌 Anchors</div>';
       assigned.forEach(d => {
         const a = getAction(d.name);
         html += '<div class="itin-activity">';
-        html += '<div class="itin-time">' + (d.heat.toLowerCase().includes('early') ? 'Morning' : d.heat.toLowerCase().includes('evening') ? 'Evening' : d.heat.toLowerCase().includes('indoor') ? 'Flexible' : '') + '</div>';
+        html += '<div class="itin-time">' + (a.time ? esc(fmtTime(a.time)) : (d.heat.toLowerCase().includes('early') ? 'Morning' : d.heat.toLowerCase().includes('evening') ? 'Evening' : 'Flexible')) + '</div>';
         html += '<div class="itin-act-body">';
         html += '<div class="itin-act-name">' + (a.status === 'booked' ? '✅ ' : '') + d.name + '</div>';
         if (d.neighborhood) html += '<div class="itin-act-hood">' + d.neighborhood + '</div>';
@@ -2464,17 +2457,15 @@ function renderItineraryJapan() {
       });
     }
 
-    // Considering
+    // Considering — options for the day, explicitly not commitments
     if (wants.length) {
-      html += '<div class="itin-section-label">Considering</div>';
+      html += '<div class="itin-section-label">＋ Considering — options, not commitments</div>';
       wants.forEach(d => {
-        const a = getAction(d.name);
-        html += '<div class="itin-activity" style="opacity:0.6">';
+        html += '<div class="itin-activity" style="opacity:0.72">';
         html += '<div class="itin-time"></div>';
         html += '<div class="itin-act-body">';
-        html += '<div class="itin-act-name">' + ACTIONS[a.status].icon + ' ' + d.name + '</div>';
-        if (d.neighborhood) html += '<div class="itin-act-hood">' + d.neighborhood + '</div>';
-        html += '<div class="itin-act-why">' + d.why + '</div>';
+        html += '<div class="itin-act-name" style="font-weight:600">＋ ' + esc(d.name) + '</div>';
+        html += '<div class="itin-act-hood">' + esc([d.neighborhood, d.category].filter(Boolean).join(' · ')) + '</div>';
         html += '</div></div>';
       });
     }
