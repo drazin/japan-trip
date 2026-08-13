@@ -11,12 +11,84 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 </script>
 <style>
   :root {
-    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e4e4e7; --muted: #9ca3af;
-    --accent: #3b82f6; --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
-    --cyan: #06b6d4; --pink: #ec4899; --purple: #a855f7; --orange: #fb923c;
+    /* v2 design tokens (from japan_trip_ux_vision_v2) */
+    --bg: #0b0d12; --card: #12161e; --card2: #171c25; --card3: #1d2430; --border: #2a3240;
+    --text: #f3f4f6; --muted: #98a2b0;
+    --accent: #5ea2ff; --accent2: #2f7df4; --green: #35d07f; --amber: #f3b84a; --red: #ff6b6b;
+    --cyan: #36d4e7; --pink: #ff5ba6; --purple: #a879ff; --orange: #fb923c;
+    --shadow: 0 14px 38px rgba(0,0,0,.27);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 15px; }
+  body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 15px; }
+  /* v2 shared components */
+  .topbar { position: sticky; top: 0; z-index: 30; background: rgba(11,13,18,.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
+  .eyebrow { font-size: 10px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; color: var(--accent); }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px; background: #10141b; color: var(--muted); font-size: 10px; }
+  .chip.blue { color: var(--accent); border-color: rgba(94,162,255,.3); background: rgba(94,162,255,.06); }
+  .chip.green { color: var(--green); border-color: rgba(53,208,127,.28); background: rgba(53,208,127,.05); }
+  .chip.pink { color: var(--pink); border-color: rgba(255,91,166,.3); background: rgba(255,91,166,.05); }
+  .chip.amber { color: var(--amber); border-color: rgba(243,184,74,.3); background: rgba(243,184,74,.05); }
+  .btn { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: var(--card2); color: var(--text); cursor: pointer; font-size: 13px; }
+  .btn:hover { border-color: #465369; }
+  .btn.primary { background: var(--accent2); border-color: var(--accent2); font-weight: 800; color: #fff; }
+  .btn.ghost { background: transparent; color: var(--muted); }
+  .btn.pink { border-color: rgba(255,91,166,.35); color: var(--pink); background: rgba(255,91,166,.06); }
+  .mobile-nav { display: none; }
+  .mm-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font-size: 13px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
+  .mm-item:hover { background: var(--card2); }
+  .mnav { border: 0; background: transparent; color: var(--muted); font-size: 10px; padding: 6px 10px; cursor: pointer; }
+  .mnav strong { display: block; font-size: 17px; margin-bottom: 2px; }
+  .mnav.active { color: var(--accent); }
+  /* v2 Plan view */
+  .builder-top { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin-bottom: 16px; }
+  .ingest-panel { padding: 17px; background: linear-gradient(135deg,#152037,#12161e 70%); }
+  .ingest-stat { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; }
+  .ingest-stat strong { font-size: 19px; display: block; }
+  .ingest-stat span { font-size: 10px; color: var(--muted); }
+  .days-wrap { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 14px; }
+  .days-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(215px,1fr)); gap: 10px; margin-top: 12px; }
+  .v2-day-card { position: relative; min-height: 172px; background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 12px 12px 40px; transition: .15s; cursor: pointer; }
+  .v2-day-card:hover { transform: translateY(-2px); border-color: #49566b; }
+  .v2-day-card.travel { background: linear-gradient(180deg,#17202d,#12161e); }
+  .day-n { font-size: 10px; font-weight: 850; color: var(--muted); letter-spacing: .08em; }
+  .day-date2 { font-size: 12px; font-weight: 800; margin-top: 2px; }
+  .day-city2 { font-size: 11px; font-weight: 850; color: var(--cyan); letter-spacing: .05em; margin-top: 8px; text-transform: uppercase; }
+  .day-theme2 { font-size: 13px; font-weight: 800; margin-top: 2px; line-height: 1.3; }
+  .day-items2 { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .day-item2 { font-size: 11px; color: #d8dde5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; }
+  .day-foot { position: absolute; left: 12px; right: 12px; bottom: 11px; display: flex; justify-content: space-between; align-items: center; }
+  .side-stack { display: flex; flex-direction: column; gap: 11px; }
+  .side-title { font-size: 13px; font-weight: 850; }
+  .side-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .area-list { display: flex; flex-direction: column; gap: 7px; margin-top: 11px; }
+  .area-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px; border-radius: 10px; background: var(--card2); border: 1px solid var(--border); font-size: 11px; }
+  .area-row button { border: 0; background: transparent; color: var(--accent); font-size: 10px; cursor: pointer; }
+  .detail-hero { display: flex; justify-content: space-between; gap: 16px; padding: 18px; margin-bottom: 12px; background: linear-gradient(135deg,#16243b,#111720 70%); border: 1px solid #2c3f5e; border-radius: 17px; flex-wrap: wrap; }
+  .detail-hero h2 { font-size: 24px; margin: 4px 0 2px; }
+  .hero-meta { font-size: 11px; color: var(--muted); margin-top: 9px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .loose-layout { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(300px,.9fr); gap: 12px; }
+  .bucket { padding: 14px; border-bottom: 1px solid var(--border); }
+  .bucket:last-child { border-bottom: 0; }
+  .bucket-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .bucket-title { font-size: 12px; font-weight: 850; letter-spacing: .07em; }
+  .place-mini { display: flex; justify-content: space-between; gap: 10px; background: var(--card2); border: 1px solid var(--border); border-radius: 11px; padding: 10px; margin: 7px 0; }
+  .place-mini-name { font-size: 12px; font-weight: 800; }
+  .place-mini-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .icon-btn { border: 1px solid var(--border); background: #10141a; border-radius: 8px; color: var(--muted); padding: 5px 7px; font-size: 10px; cursor: pointer; }
+  .rec-panel { padding: 14px; }
+  .rec-tabs { display: flex; gap: 6px; margin: 10px 0; }
+  .rec-tab { border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); padding: 6px 9px; font-size: 10px; cursor: pointer; }
+  .rec-tab.active { color: var(--accent); border-color: var(--accent); background: rgba(94,162,255,.06); }
+  .rec-card { border: 1px solid var(--border); border-radius: 11px; background: var(--card2); padding: 10px; margin: 8px 0; }
+  .rec-top { display: flex; justify-content: space-between; gap: 8px; }
+  .rec-name { font-size: 12px; font-weight: 800; }
+  .rec-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .rec-why { font-size: 11px; color: #d5dae2; line-height: 1.4; margin-top: 7px; }
+  .rec-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .mini { border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; background: #10141a; color: var(--muted); font-size: 10px; cursor: pointer; }
+  .mini.add { color: var(--accent); border-color: rgba(94,162,255,.3); }
+  @media (max-width: 1080px) { .builder-top, .days-wrap, .loose-layout { grid-template-columns: 1fr; } }
   .header { padding: 28px 40px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
   .header h1 { font-size: 28px; font-weight: 700; }
   .header .subtitle { color: var(--muted); font-size: 15px; }
@@ -254,10 +326,11 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     .header-actions button { padding: 6px 12px; font-size: 13px; }
     .stats-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 10px; padding-bottom: 10px; }
     .stat { min-width: 0; padding: 10px 12px; }
-    /* Tabs scroll horizontally instead of overflowing/clipping */
-    .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 4px; padding: 0 12px; flex-wrap: nowrap; }
-    .tabs::-webkit-scrollbar { display: none; }
-    .tab { padding: 12px 14px; font-size: 15px; white-space: nowrap; flex: 0 0 auto; }
+    /* Phone: tabs give way to a fixed bottom nav */
+    .tabs { display: none; }
+    .mobile-nav { display: flex; position: fixed; z-index: 70; left: 0; right: 0; bottom: 0; background: rgba(11,13,18,.97); border-top: 1px solid var(--border); padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); justify-content: space-around; }
+    .content, .table-view, .day-columns { padding-bottom: 84px; }
+    body { padding-bottom: 70px; }
     /* Action menu becomes a bottom sheet so it's never off-screen */
     .action-menu { position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; min-width: 0; max-height: 72vh; overflow-y: auto; box-shadow: 0 -8px 40px rgba(0,0,0,0.7); }
     .day-columns { grid-template-columns: 1fr; }
@@ -290,29 +363,46 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 </head>
 <body>
 
+<div class="topbar">
 <div class="header">
-  <div>
-    <h1 id="trip-title">Trip</h1>
-    <div class="subtitle"><span id="trip-subtitle"></span><span id="item-count"></span> places</div>
+  <div class="brand" style="display:flex;gap:12px;align-items:center">
+    <div class="logo" style="width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#2f7df4,#8ab9ff);display:grid;place-items:center;color:#08111f;font-weight:900;box-shadow:0 10px 25px rgba(47,125,244,.24)">JP</div>
+    <div>
+      <h1 id="trip-title" style="font-size:22px">Trip</h1>
+      <div class="subtitle" style="font-size:12px"><span id="trip-subtitle"></span><span id="item-count"></span> places</div>
+    </div>
   </div>
   <div class="header-actions">
-    <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:8px;background:var(--card);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
-    <button id="capture-btn" style="color:var(--green)">📥 IG Import <span id="pending-count"></span></button>
-    <button id="add-place-tab" style="color:var(--green)">➕ Add Place</button>
-    <button onclick="exportActions()">Export Progress</button>
-    <button onclick="document.getElementById('import-file').click()">Import Progress</button>
+    <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:10px;background:var(--card2);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
+    <button id="capture-btn" class="btn pink" style="border-color:rgba(255,91,166,.35);color:var(--pink);background:rgba(255,91,166,.06)">＋ IG Import <span id="pending-count"></span></button>
+    <button id="add-place-tab" class="btn primary" style="background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:800">＋ Add Place</button>
+    <div style="position:relative">
+      <button id="more-menu-btn" class="btn ghost" onclick="toggleMoreMenu(event)" style="background:transparent;color:var(--muted)">•••</button>
+      <div id="more-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:6px;flex-direction:column">
+        <button class="mm-item" onclick="closeMoreMenu();setView('calendar', true)">📅 Booking Calendar</button>
+        <button class="mm-item" onclick="closeMoreMenu();exportActions()">⬇ Export Progress</button>
+        <button class="mm-item" onclick="closeMoreMenu();document.getElementById('import-file').click()">⬆ Import Progress</button>
+      </div>
+    </div>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importActions(event)">
   </div>
 </div>
 
+<div class="tabs">
+  <div class="tab" data-view="days">Plan</div>
+  <div class="tab" data-view="table">Saved Places</div>
+  <div class="tab" data-view="map">Nearby Map</div>
+  <div class="tab" data-view="itinerary">Itinerary</div>
+</div>
+</div>
+
 <div class="stats-bar" id="stats-bar"></div>
 
-<div class="tabs">
-  <div class="tab active" data-view="table">All Places</div>
-  <div class="tab" data-view="map">Map</div>
-  <div class="tab" data-view="days">By Day</div>
-  <div class="tab" data-view="calendar">Booking Calendar</div>
-  <div class="tab" data-view="itinerary">Our Itinerary</div>
+<div class="mobile-nav" id="mobile-nav">
+  <button class="mnav" data-view="days" onclick="setView('days', true)"><strong>▦</strong>Plan</button>
+  <button class="mnav" data-view="table" onclick="setView('table', true)"><strong>★</strong>Saved</button>
+  <button class="mnav" data-view="map" onclick="setView('map', true)"><strong>◎</strong>Nearby</button>
+  <button class="mnav" data-view="itinerary" onclick="setView('itinerary', true)"><strong>☷</strong>Itinerary</button>
 </div>
 
 <div id="add-place-form" class="modal-overlay">
@@ -670,6 +760,18 @@ function importActions(e) {
   };
   reader.readAsText(file);
 }
+// Open the Add Place modal; optional dayN preselects the day pool.
+function openAddPlace(dayN){
+  const sel = document.getElementById('ap-city');
+  const cities = tripCities();
+  sel.innerHTML = (cities.length ? cities : ['']).map(c => '<option>' + esc(c) + '</option>').join('');
+  const dsel = document.getElementById('ap-day');
+  dsel.innerHTML = '<option value="">Unassigned (decide later)</option>' + DAYS.map(dy =>
+    `<option value="${dy.n}">Day ${dy.n} — ${esc(dy.d)}${dy.c ? ' · ' + esc(dy.c) : ''}</option>`).join('');
+  if (dayN) dsel.value = String(dayN);
+  document.getElementById('add-place-form').classList.add('open');
+  document.getElementById('ap-name').focus();
+}
 function resetFilters() {
   activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All' };
   searchTerm = '';
@@ -780,7 +882,7 @@ function setupNewTrip(){
 async function init() {
   await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
   if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
-  if (shareMode) document.querySelectorAll('.header-actions, .tabs').forEach(el => { el.style.display = 'none'; });
+  if (shareMode) document.querySelectorAll('.header-actions, .tabs, .mobile-nav').forEach(el => { el.style.display = 'none'; });
 }
 
 function renderAll() {
@@ -1557,55 +1659,166 @@ function dayStatusDots(dy){
   if (dayIsOpen(dy)) dots.push('<span title="open / needs planning" style="color:#f59e0b">⚠️</span>');
   return dots.join(' ');
 }
+// --- v2 presentation layer: anchors vs considering, friendly status labels ---
+// Anchor = we're committed: booked, placed in a time block, or has a fixed time.
+function isAnchor(d){ const a = getAction(d.name); return a.status === 'booked' || (a.block && a.block !== 'unscheduled') || !!a.time; }
+function dayBuckets(n){
+  const items = DATA.filter(d => getAction(d.name).day === n && getAction(d.name).status !== 'skip');
+  return { anchors: items.filter(isAnchor), consider: items.filter(d => !isAnchor(d)) };
+}
+// Old stored statuses stay untouched; this only decides how they read on screen.
+function displayStatus(a){
+  switch (a.status) {
+    case 'booked': return { label: 'Booked', chip: 'green' };
+    case 'want': return { label: 'Interested', chip: 'pink' };
+    case 'assigned': return { label: 'Planned', chip: 'blue' };
+    case 'reserve': return { label: 'To reserve', chip: 'amber' };
+    case 'research': return { label: 'Research', chip: 'amber' };
+    case 'flag': return { label: 'Discuss', chip: 'amber' };
+    case 'skip': return { label: 'Skipped', chip: '' };
+    default: return { label: 'Saved', chip: '' };
+  }
+}
+function statusChipV2(a){
+  const s = displayStatus(a);
+  const day = a.day ? `<span class="chip blue">Day ${a.day}${dayDate(a.day) ? ' · ' + esc(dayDate(a.day)) : ''}</span>` : '';
+  const st = (s.label === 'Saved' && a.day) ? '' : `<span class="chip ${s.chip}">${s.label}</span>`;
+  return st + day;
+}
+function openSheetFor(name){ sheetName = name; buildActionSheet(); document.getElementById('action-sheet').classList.add('open'); }
+// Top neighborhood clusters (with mappable places) — feeds Plan sidebar + Nearby areas
+function areaClusters(minCount){
+  const counts = {};
+  DATA.forEach(d => {
+    const h = d.neighborhood || '';
+    if (!h || h.includes('Various') || typeof d.lat !== 'number') return;
+    if (getAction(d.name).status === 'skip') return;
+    if (!counts[h]) counts[h] = { count: 0, lat: 0, lng: 0, city: d.city };
+    counts[h].count++; counts[h].lat += d.lat; counts[h].lng += d.lng;
+  });
+  return Object.entries(counts).filter(([,v]) => v.count >= (minCount || 6))
+    .map(([name, v]) => ({ name, count: v.count, city: v.city, lat: v.lat / v.count, lng: v.lng / v.count }))
+    .sort((a,b) => b.count - a.count);
+}
+function areaToMap(hood){ activeFilters.neighborhood = hood; setView('map', true); renderAll(); }
+
 function renderDayOverview(){
   const container = document.getElementById('day-columns');
   container.style.display = 'block';
-  const open = DAYS.filter(dayIsOpen);
-  const banner = open.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ '+open.length+' day(s) still open: '+open.map(d=>'Day '+d.n+' ('+esc(d.d||'')+')').join(', ')+'</div>' : '';
+  const total = DATA.length;
+  let interested = 0, withDay = 0;
+  DATA.forEach(d => { const a = getAction(d.name); if (a.status === 'want') interested++; if (a.day) withDay++; });
+  const daysWithIdeas = DAYS.filter(dy => dayBuckets(dy.n).anchors.length + dayBuckets(dy.n).consider.length > 0).length;
+
+  const ingest =
+    `<div class="builder-top">
+      <div class="panel ingest-panel">
+        <div class="eyebrow">Current workflow</div>
+        <div style="font-size:21px;font-weight:850;margin:3px 0">Keep feeding the trip</div>
+        <div class="side-sub">Add anything interesting. You don't need to decide now — get it in, loosely place it later.</div>
+        <div style="display:flex;gap:9px;margin-top:13px;flex-wrap:wrap">
+          <button class="btn pink" onclick="document.getElementById('capture-btn').click()">Instagram Import</button>
+          <button class="btn primary" onclick="openAddPlace()">Add a Place</button>
+          <button class="btn" onclick="setView('table', true)">Browse saved places</button>
+        </div>
+        <div class="ingest-stat">
+          <div><strong>${total}</strong><span>saved places</span></div>
+          <div><strong>${interested}</strong><span>interested</span></div>
+          <div><strong>${withDay}</strong><span>on days</span></div>
+          <div><strong>${total - withDay}</strong><span>unassigned — that's fine</span></div>
+        </div>
+      </div>
+      <div class="panel" style="padding:17px">
+        <div class="eyebrow">Loose plan</div>
+        <div style="font-size:19px;font-weight:850;margin:3px 0">Enough structure, not overplanned</div>
+        <div class="side-sub">Days are containers for ideas. The map is the decision tool once you're there.</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px">
+          <div style="background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:11px"><strong style="font-size:18px;display:block">${DAYS.length}</strong><span style="font-size:10px;color:var(--muted)">trip days</span></div>
+          <div style="background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:11px"><strong style="font-size:18px;display:block">${daysWithIdeas}</strong><span style="font-size:10px;color:var(--muted)">days with ideas</span></div>
+          <div style="background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:11px"><strong style="font-size:18px;display:block">${DAYS.length - daysWithIdeas}</strong><span style="font-size:10px;color:var(--muted)">flexible days</span></div>
+        </div>
+      </div>
+    </div>`;
+
+  const cards = DAYS.map(dy => {
+    const b = dayBuckets(dy.n);
+    const travel = !!travelDayInfo(dy.n);
+    const anchorRows = b.anchors.slice(0,2).map(d => `<div class="day-item2">📌 ${esc(d.name)}</div>`).join('');
+    const considerRows = b.consider.slice(0, b.anchors.length >= 2 ? 2 : 4 - Math.min(b.anchors.length,2) - 0).slice(0,3).map(d => `<div class="day-item2" style="color:var(--muted)">＋ ${esc(d.name)}</div>`).join('');
+    const empty = !b.anchors.length && !b.consider.length
+      ? `<div class="day-item2" style="color:var(--muted);font-style:italic">${travel ? '✈️ ' + esc(travelDayInfo(dy.n)) : 'Open day'}</div>` : '';
+    return `<div class="v2-day-card ${travel ? 'travel' : ''}" onclick="openDay(${dy.n})">
+      <div style="display:flex;justify-content:space-between;gap:7px">
+        <div><div class="day-n">DAY ${dy.n}</div><div class="day-date2">${esc(dy.d || '')}</div></div>
+        <span class="chip">${esc(dy.c || '')}</span>
+      </div>
+      ${dy.t ? `<div class="day-theme2">${esc(dy.t)}</div>` : '<div class="day-theme2" style="color:var(--muted)">—</div>'}
+      <div class="day-items2">${anchorRows}${considerRows}${empty}</div>
+      <div class="day-foot">
+        <span class="chip blue">${b.anchors.length} anchor${b.anchors.length === 1 ? '' : 's'}</span>
+        <span class="chip pink">${b.consider.length} considering</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const unassignedInterests = DATA.filter(d => { const a = getAction(d.name); return a.status === 'want' && !a.day; }).slice(0, 8);
+  const clusters = areaClusters(6).slice(0, 6);
   const decs = (TRIP.openDecisions || []).filter(o => o && (o.priority === 'high' || o.priority === 'medium'));
-  const todos = decs.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px"><div style="font-weight:600;margin-bottom:4px">📌 To book / decide</div>' +
-    decs.map(o => {
-      const m = String((o.item || '') + ' ' + (o.notes || '')).match(/Day (\d+)/i);
-      const dayLink = m ? ' <a onclick="openDay(' + m[1] + ')" style="cursor:pointer;color:#3b82f6">(Day ' + m[1] + (dayDate(m[1]) ? ' · ' + esc(dayDate(m[1])) : '') + ')</a>' : '';
-      return '<div style="padding:2px 0">' + (o.priority === 'high' ? '🔴' : '🟡') + ' ' + esc(o.item || '') + dayLink + '</div>';
-    }).join('') + '</div>' : '';
-  const blockOrder = { morning:0, afternoon:1, evening:2, unscheduled:3 };
-  container.innerHTML = banner + todos + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' +
-    DAYS.map(dy => {
-      const hotel = hotelForDay(dy.n);
-      // Assigned/booked items on this day, ordered by time block
-      const items = DATA.filter(d => getAction(d.name).day === dy.n)
-        .sort((a,b) => (blockOrder[effectiveBlock(getAction(a.name))] - blockOrder[effectiveBlock(getAction(b.name))]) || (b.priority - a.priority));
-      const itemList = items.length
-        ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">' + items.map(d => {
-            const a = getAction(d.name);
-            const t = a.time ? '<span style="color:var(--muted)"> · ' + esc(fmtTime(a.time)) + '</span>' : '';
-            return '<div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + statusChip(a.status) + esc(d.name) + t + '</div>';
-          }).join('') + '</div>'
-        : '<div style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic">' + (travelDayInfo(dy.n) ? '✈️ ' + esc(travelDayInfo(dy.n)) : 'Nothing planned yet') + '</div>';
-      return '<div onclick="openDay('+dy.n+')" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--card)" onmouseover="this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
-        '<div style="font-weight:700;font-size:13px">Day '+dy.n+' · '+esc(dy.c)+'</div>' +
-        '<div style="font-size:11px;color:var(--muted);margin:2px 0 6px">'+esc(dy.d)+(dy.t?' · '+esc(dy.t):'')+'</div>' +
-        (hotel ? '<div style="font-size:11px;color:var(--muted)">🏨 '+esc(hotel.name)+'</div>' : '') +
-        itemList +
-        '<div style="margin-top:8px;font-size:12px;min-height:0">'+dayStatusDots(dy)+'</div>' +
-      '</div>';
-    }).join('') + '</div>';
+  const todos = decs.length ? `<div class="panel" style="padding:13px;margin-top:11px">
+      <div class="side-title" style="color:var(--muted)">Logistics to sort</div>
+      ${decs.map(o => {
+        const m = String((o.item || '') + ' ' + (o.notes || '')).match(/Day (\d+)/i);
+        const dayLink = m ? ` <a onclick="openDay(${m[1]})" style="cursor:pointer;color:var(--accent)">(Day ${m[1]}${dayDate(m[1]) ? ' · ' + esc(dayDate(m[1])) : ''})</a>` : '';
+        return `<div style="font-size:11px;padding:3px 0;color:#d5dae2">${o.priority === 'high' ? '🔴' : '·'} ${esc(o.item || '')}${dayLink}</div>`;
+      }).join('')}
+    </div>` : '';
+
+  container.innerHTML = ingest +
+    `<div class="days-wrap">
+      <div class="panel" style="padding:15px">
+        <div style="display:flex;justify-content:space-between;align-items:end;gap:10px">
+          <div><div class="eyebrow">Trip builder</div><div style="font-size:20px;font-weight:850;margin-top:3px">Assign ideas to days</div><div class="side-sub">A day can have a few anchors plus a larger considering pool.</div></div>
+          <span class="chip blue">Loose itinerary</span>
+        </div>
+        <div class="days-grid">${cards}</div>
+      </div>
+      <aside class="side-stack">
+        <div class="panel" style="padding:13px">
+          <div class="side-title">Unassigned interests</div>
+          <div class="side-sub">Things you liked but haven't dropped onto a day yet.</div>
+          <div class="area-list">${unassignedInterests.length ? unassignedInterests.map(d =>
+            `<div class="area-row"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</span><button onclick="openSheetFor(${JSON.stringify(d.name).replace(/"/g,'&quot;')})">Assign →</button></div>`).join('')
+            : '<div class="side-sub">Nothing waiting. Flag places you like in Saved Places.</div>'}</div>
+        </div>
+        <div class="panel" style="padding:13px">
+          <div class="side-title">Useful area clusters</div>
+          <div class="side-sub">These get valuable once you're walking around.</div>
+          <div class="area-list">${clusters.map(c =>
+            `<div class="area-row"><span>${esc(c.name)} <span class="chip">${c.count}</span></span><button onclick="areaToMap(${JSON.stringify(c.name).replace(/"/g,'&quot;')})">Map →</button></div>`).join('')}</div>
+        </div>
+        ${todos}
+      </aside>
+    </div>`;
 }
 function openDay(n){ selectedDay = n; renderDays(); window.scrollTo(0,0); updateURL(true); }
 function backToOverview(){ selectedDay = null; renderDays(); updateURL(true); }
 
 // --- Deep-linkable URLs (trip + view + open day) ---
-let currentView = 'table';
+let currentView = 'days';
+function toggleMoreMenu(e){ e.stopPropagation(); const m = document.getElementById('more-menu'); m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
+function closeMoreMenu(){ document.getElementById('more-menu').style.display = 'none'; }
+document.addEventListener('click', () => closeMoreMenu());
 function setView(v, push){
   currentView = v;
-  document.querySelectorAll('.tab[data-view]').forEach(t => t.classList.toggle('active', t.dataset.view === v));
+  document.querySelectorAll('.tab[data-view], .mnav[data-view]').forEach(t => t.classList.toggle('active', t.dataset.view === v));
   document.getElementById('table-view').style.display = v==='table'?'block':'none';
   document.getElementById('map-view').style.display = v==='map'?'block':'none';
   document.getElementById('day-view').style.display = v==='days'?'block':'none';
   document.getElementById('calendar-view').style.display = v==='calendar'?'block':'none';
   document.getElementById('itin-view').style.display = v==='itinerary'?'block':'none';
-  document.getElementById('controls').style.display = v==='itinerary'?'none':'flex';
+  // v2: search/filter bar and status counts belong to Saved Places only
+  document.getElementById('controls').style.display = v==='table'?'flex':'none';
+  document.getElementById('stats-bar').style.display = v==='table'?'':'none';
   if (v==='map') setTimeout(()=>{if(!map)renderMap();else{map.invalidateSize();renderMap();}},100);
   if (v==='days') renderDays();
   if (v==='calendar') renderCalendar();
@@ -1627,7 +1840,7 @@ async function applyUrlState(){
   if (t && t !== activeTripId) { await switchTrip(t); }
   const d = p.get('day');
   selectedDay = (d != null && d !== '') ? Number(d) : null;
-  setView(shareMode ? 'itinerary' : (p.get('view') || 'table'), false);
+  setView(shareMode ? 'itinerary' : (p.get('view') || 'days'), false);
 }
 window.addEventListener('popstate', () => { applyUrlState(); });
 function renderDays(){
@@ -1646,25 +1859,115 @@ function renderDays(){
     (tdi ? '<span style="font-size:12px;color:#f59e0b">✈️ '+esc(tdi)+'</span>' : '') +
     '</div>';
   container.style.display = 'block';
-  const openPrompt = dayIsOpen(dy) ? '<div style="margin-bottom:12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ This day is open — set a focus area, drag options into the time blocks, or hit ✨ Plan day with AI.</div>' : '';
   const hotel = hotelForDay(dy.n);
   const hid = hotelIdForDay(dy.n);
   const times = hotelTimesStr(hotel);
-  const hotelLine = hotel
-    ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">🏨 ' + esc(hotel.name) +
-        (times ? ' · ' + esc(times) : '') +
-        ' <span onclick="editHotelTimes(\'' + esc(hid) + '\')" style="cursor:pointer;color:#3b82f6;font-size:11px">✎ ' + (times ? 'edit times' : 'add check-in/out') + '</span></div>'
+  const hotelBit = hotel
+    ? `<span>🏨 ${esc(hotel.name)}${times ? ' · ' + esc(times) : ''} <span onclick="editHotelTimes('${esc(hid)}')" style="cursor:pointer;color:var(--accent)">✎</span></span>`
     : '';
-  const header = '<h3 style="margin:0 0 2px">Day ' + dy.n + ' · ' + esc(dy.d || '') + (dy.t ? ' — ' + esc(dy.t) : '') +
-    ' <span onclick="editDayTitle(' + dy.n + ')" title="Edit title" style="cursor:pointer;color:#3b82f6;font-size:13px;vertical-align:2px">✎</span>' +
-    ' <span id="ai-title-btn" onclick="aiDayTitle(' + dy.n + ')" title="AI title from this day\'s pool" style="cursor:pointer;color:#a855f7;font-size:13px;vertical-align:2px">✨</span></h3>' +
-    '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">' + esc(dy.c) + '</div>' + hotelLine;
+  const b = dayBuckets(dy.n);
+  const hero =
+    `<div class="detail-hero">
+      <div>
+        <div class="eyebrow">${esc((dy.c || '').toUpperCase())}${tdi ? ' · ✈️ ' + esc(tdi) : ''}</div>
+        <h2>Day ${dy.n} · ${esc(dy.t || dy.c || '')}
+          <span onclick="editDayTitle(${dy.n})" title="Edit title" style="cursor:pointer;color:var(--accent);font-size:14px;vertical-align:3px">✎</span>
+          <span id="ai-title-btn" onclick="aiDayTitle(${dy.n})" title="AI title from this day's pool" style="cursor:pointer;color:var(--purple);font-size:14px;vertical-align:3px">✨</span></h2>
+        <div class="side-sub">${esc(dy.d || '')}</div>
+        <div class="hero-meta">${hotelBit}<span>💡 Keep options loose; decide based on energy, heat and location.</span></div>
+      </div>
+      <div style="display:flex;gap:7px;align-items:flex-start;flex-wrap:wrap">
+        <button class="btn" onclick="openDayOnMap(${dy.n})">Open this day on map</button>
+        <button class="btn primary" onclick="openAddPlace(${dy.n})">+ Add idea</button>
+      </div>
+    </div>`;
+
+  const miniRow = (d, kind) => {
+    const a = getAction(d.name);
+    const time = a.time ? ` · ⏰ ${esc(fmtTime(a.time))}` : '';
+    const meta = [d.neighborhood, d.category].filter(Boolean).join(' · ');
+    const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
+    return `<div class="place-mini">
+      <div style="min-width:0">
+        <div class="place-mini-name">${kind === 'anchor' ? '📌 ' : ''}${esc(d.name)}</div>
+        <div class="place-mini-meta">${esc(meta)}${time}</div>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">${statusChipV2(a)}<button class="icon-btn" onclick="openSheetFor(${jn})">•••</button></div>
+    </div>`;
+  };
+  const buckets =
+    `<div class="panel">
+      <div class="bucket">
+        <div class="bucket-head"><div><div class="bucket-title">ANCHORS</div><div class="side-sub">Things you're fairly sure about — booked or given a time.</div></div></div>
+        ${b.anchors.length ? b.anchors.map(d => miniRow(d, 'anchor')).join('') : '<div class="side-sub">No fixed anchors. That is okay.</div>'}
+      </div>
+      <div class="bucket">
+        <div class="bucket-head"><div><div class="bucket-title">CONSIDERING</div><div class="side-sub">The loose pool. Decide later based on location, energy, weather.</div></div></div>
+        ${b.consider.length ? b.consider.map(d => miniRow(d, 'consider')).join('') : '<div class="side-sub">Nothing added yet — pull ideas in from the right.</div>'}
+      </div>
+      <div class="bucket" style="padding:10px 14px">
+        <span onclick="toggleAdvancedDay()" style="cursor:pointer;font-size:11px;color:var(--muted)">${advancedDayOpen ? '▾' : '▸'} Schedule details — time blocks & AI day plan</span>
+      </div>
+    </div>`;
+
   const plan = getDayPlan(dy.n);
-  container.innerHTML = nav + openPrompt + header + renderDayControls(dy) + renderAiPlan(dy.n, plan.ai) +
-    '<div class="day-builder">' +
-      '<div>' + renderDayBuilt(dy) + '</div>' +
-      '<div>' + renderDayOptions(dy, filtered) + '</div>' +
-    '</div>';
+  const advanced = advancedDayOpen
+    ? `<div class="panel" style="padding:14px;margin-top:12px">${renderDayControls(dy)}${renderAiPlan(dy.n, plan.ai)}
+        <div class="day-builder"><div>${renderDayBuilt(dy)}</div><div>${renderDayOptions(dy, filtered)}</div></div>
+      </div>`
+    : '';
+
+  container.innerHTML = nav + hero +
+    `<div class="loose-layout">
+      <div>${buckets}${advanced}</div>
+      <div class="panel rec-panel">
+        <div class="side-title">Saved ideas that fit this day</div>
+        <div class="side-sub">Not a to-do list — just good candidates for ${esc(dy.c || 'this day')}.</div>
+        <div class="rec-tabs">
+          ${['nearby','interested','all'].map(t => `<button class="rec-tab ${recTab === t ? 'active' : ''}" onclick="setRecTab('${t}')">${t === 'nearby' ? 'Nearby' : t === 'interested' ? 'Interested' : 'All saved'}</button>`).join('')}
+        </div>
+        <div>${renderDayRecs(dy)}</div>
+      </div>
+    </div>`;
+}
+
+// --- v2 day-detail helpers ---
+let advancedDayOpen = false;
+let recTab = 'nearby';
+function toggleAdvancedDay(){ advancedDayOpen = !advancedDayOpen; renderDays(); }
+function setRecTab(t){ recTab = t; renderDays(); }
+function addConsidering(name){ addToDayBlock(name, 'unscheduled'); }
+function openDayOnMap(n){
+  const hotel = hotelForDay(n);
+  setView('map', true);
+  if (hotel && typeof hotel.lat === 'number') setTimeout(() => { if (map) map.setView([hotel.lat, hotel.lng], 14); }, 300);
+}
+function renderDayRecs(dy){
+  const hotel = hotelForDay(dy.n);
+  const distOf = d => (hotel && typeof d.lat === 'number') ? haversine(hotel.lat, hotel.lng, d.lat, d.lng) : null;
+  let pool = DATA.filter(d => { const a = getAction(d.name); return a.day !== dy.n && a.status !== 'skip'; });
+  if (recTab === 'interested') pool = pool.filter(d => getAction(d.name).status === 'want');
+  else pool = pool.filter(d => d.city === dy.c);
+  if (recTab === 'nearby') pool = pool.filter(d => typeof d.lat === 'number').sort((a,b) => (distOf(a) ?? 999) - (distOf(b) ?? 999));
+  else pool = pool.sort((a,b) => b.priority - a.priority);
+  pool = pool.slice(0, 12);
+  if (!pool.length) return '<div class="side-sub">Nothing matching. Try another tab or Saved Places.</div>';
+  return pool.map(d => {
+    const a = getAction(d.name);
+    const km = distOf(d);
+    const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
+    return `<div class="rec-card">
+      <div class="rec-top">
+        <div style="min-width:0"><div class="rec-name">${esc(d.name)}</div><div class="rec-meta">${esc([d.neighborhood, d.category].filter(Boolean).join(' · '))}${km != null ? ' · ' + km.toFixed(1) + ' km from hotel' : ''}</div></div>
+        ${statusChipV2(a)}
+      </div>
+      ${d.why ? `<div class="rec-why">${esc(d.why)}</div>` : ''}
+      <div class="rec-actions">
+        <button class="mini add" onclick="addConsidering(${jn})">+ Considering</button>
+        <button class="mini" onclick="openSheetFor(${jn})">Details</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function dcAction(btn) {
@@ -2162,19 +2465,7 @@ function setupListeners() {
   document.getElementById('search').addEventListener('input', e => { searchTerm=e.target.value; renderTable(); if(map)renderMap(); });
 
   // Add place (modal)
-  document.getElementById('add-place-tab').addEventListener('click', e => {
-    e.stopPropagation();
-    // Populate the city dropdown from the active trip's cities (not hardcoded Japan).
-    const sel = document.getElementById('ap-city');
-    const cities = tripCities();
-    sel.innerHTML = (cities.length ? cities : ['']).map(c => '<option>' + esc(c) + '</option>').join('');
-    // Day pool: picking a day drops the place into that day's Unscheduled block.
-    const dsel = document.getElementById('ap-day');
-    dsel.innerHTML = '<option value="">Unassigned (decide later)</option>' + DAYS.map(dy =>
-      `<option value="${dy.n}">Day ${dy.n} — ${esc(dy.d)}${dy.c ? ' · ' + esc(dy.c) : ''}</option>`).join('');
-    document.getElementById('add-place-form').classList.add('open');
-    document.getElementById('ap-name').focus();
-  });
+  document.getElementById('add-place-tab').addEventListener('click', e => { e.stopPropagation(); openAddPlace(); });
   document.getElementById('ap-cancel').addEventListener('click', () => {
     document.getElementById('add-place-form').classList.remove('open');
   });
