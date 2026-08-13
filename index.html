@@ -227,7 +227,25 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 
   /* Map */
   .map-view { display: none; }
-  #map { height: 700px; border-radius: 14px; border: 1px solid var(--border); margin-top: 16px; }
+  #map { height: 700px; border-radius: 14px; border: 1px solid var(--border); }
+  .nearby-layout { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 12px; padding: 12px 40px 30px; }
+  .nearby-side { padding: 13px; max-height: 700px; overflow-y: auto; }
+  .area-switch { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+  .area-chip { border: 1px solid var(--border); background: transparent; border-radius: 999px; color: var(--muted); padding: 6px 9px; font-size: 10px; cursor: pointer; }
+  .area-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(94,162,255,.06); }
+  .nearby-list { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+  .nearby-card { border: 1px solid var(--border); border-radius: 11px; background: var(--card2); padding: 10px; cursor: pointer; }
+  .nearby-card:hover { border-color: #49566b; }
+  .nearby-top { display: flex; justify-content: space-between; gap: 8px; }
+  .distance { font-size: 11px; color: var(--cyan); font-weight: 800; white-space: nowrap; }
+  @media (max-width: 900px) {
+    .nearby-layout { grid-template-columns: 1fr; padding: 10px 12px 90px; }
+    .nearby-head { padding: 12px 12px 0 !important; }
+    #map { height: 52vh; }
+    .nearby-side { max-height: none; order: 2; }
+    .nearby-card { padding: 13px; }
+    .nearby-card .library-name { font-size: 14px; }
+  }
   .leaflet-popup-content-wrapper { background: var(--card) !important; color: var(--text) !important; border: 1px solid var(--border) !important; border-radius: 10px !important; }
   .leaflet-popup-tip { background: var(--card) !important; }
   .leaflet-popup-content { font-size: 14px !important; line-height: 1.5 !important; }
@@ -503,7 +521,25 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
       <tbody id="table-body"></tbody>
     </table>
   </div>
-  <div class="map-view" id="map-view"><div id="map"></div></div>
+  <div class="map-view" id="map-view">
+    <div style="padding:16px 40px 4px" class="nearby-head">
+      <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap">
+        <div><div class="eyebrow">On-the-go mode</div><div style="font-size:24px;font-weight:850;margin-top:2px">Nearby Map</div>
+        <div class="side-sub">Open this while walking around — everything you saved, near where you are.</div></div>
+        <button class="btn primary" id="locate-btn" onclick="useMyLocation()">◎ Use my location</button>
+      </div>
+    </div>
+    <div class="nearby-layout">
+      <div class="panel nearby-side">
+        <div class="side-title" id="nearby-title">Nearby places</div>
+        <div class="side-sub" id="nearby-sub">Pick an area or use your location.</div>
+        <div class="area-switch" id="area-switch"></div>
+        <select id="nearby-filter" class="select-v2" style="width:100%;max-width:none" onchange="renderNearby()"></select>
+        <div class="nearby-list" id="nearby-list"></div>
+      </div>
+      <div style="position:relative"><div id="map"></div></div>
+    </div>
+  </div>
   <div class="day-view" id="day-view"><div class="day-columns" id="day-columns"></div></div>
   <div class="calendar-view" id="calendar-view" style="display:none"><div id="calendar-content"></div></div>
   <div class="itin-view" id="itin-view"><div id="itin-content"></div></div>
@@ -955,7 +991,7 @@ function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
   updateHeader();
   renderStats(); renderFilters(); renderLibrary();
-  if (document.getElementById('map-view').style.display !== 'none' && map) renderMap();
+  if (document.getElementById('map-view').style.display !== 'none' && map) renderNearby();
   if (document.getElementById('day-view').style.display !== 'none') renderDays();
 }
 
@@ -1156,14 +1192,38 @@ function gmapsUrl(d){
   const q = d.address ? `${d.name}, ${d.address}` : `${d.name}, ${d.city || ''}`;
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 }
+function gmapsDirUrl(d){
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(typeof d.lat === 'number' ? d.lat + ',' + d.lng : d.name + ', ' + (d.city || ''));
+}
+// The trip day whose date is literally today — powers "+ add to today" while traveling.
+function todayDayN(){
+  const iso = new Date().toISOString().slice(0,10);
+  const dy = DAYS.find(x => x.date === iso);
+  return dy ? dy.n : null;
+}
 function mapPopupHtml(d){
   const a = getAction(d.name);
-  const dayTag = a.day ? ' · Day '+a.day+(dayDate(a.day)?' ('+dayDate(a.day)+')':'') : '';
-  const aLabel = (a.status!=='none' || a.day)
-    ? `<br><b>${a.status!=='none' ? ACTIONS[a.status].icon+' '+ACTIONS[a.status].label : '🤔 Considering'}</b>${dayTag}`
-    : '';
-  const addr = d.address?`<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}</span>`:'';
-  return `<strong>${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.city} · ${d.neighborhood}</span>${addr}<br>${'★'.repeat(d.priority)}${'☆'.repeat(5-d.priority)}<br>${d.why}${aLabel}<br><a href="${gmapsUrl(d)}" target="_blank" rel="noopener" style="color:#22d3ee;font-size:11px">Open in Google Maps ↗</a>`;
+  const s = displayStatus(a);
+  const dayTag = a.day ? ` · Day ${a.day}${dayDate(a.day) ? ' (' + dayDate(a.day) + ')' : ''}` : '';
+  const state = (s.label !== 'Saved' || a.day) ? `<br><b>${s.label}</b>${dayTag}` : '';
+  const addr = d.address ? `<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}</span>` : '';
+  const km = nearbyCenter && typeof d.lat === 'number' ? haversine(nearbyCenter.lat, nearbyCenter.lng, d.lat, d.lng) : null;
+  const dist = km != null ? `<br><span style="color:#36d4e7;font-size:11px;font-weight:700">${km.toFixed(1)} km away</span>` : '';
+  const tn = todayDayN();
+  const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
+  const srcBit = d.source ? `<span style="color:#9ca3af;font-size:10px"> · ${d.source}</span>` : '';
+  const addToday = (tn && a.day !== tn)
+    ? `<button onclick="addToDayN(${jn}, ${tn})" style="margin-top:5px;border:1px solid #5ea2ff;background:rgba(94,162,255,.1);color:#5ea2ff;border-radius:7px;padding:3px 8px;font-size:11px;cursor:pointer">+ Today's considering</button>` : '';
+  return `<strong style="font-size:14px">${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.neighborhood || d.city}${srcBit}</span>${addr}${dist}${d.why ? '<br>' + d.why : ''}${state}<br>` +
+    `<div style="display:flex;gap:8px;margin-top:5px;align-items:center;flex-wrap:wrap">` +
+    `<a href="${gmapsDirUrl(d)}" target="_blank" rel="noopener" style="color:#36d4e7;font-size:12px;font-weight:700">Directions ↗</a>` +
+    `<a onclick="openSheetFor(${jn})" style="color:#9ca3af;font-size:11px;cursor:pointer">Details</a>${addToday}</div>`;
+}
+function addToDayN(name, n){
+  const a = getAction(name);
+  itemActions[name] = { ...a, status: a.status, day: n, block: a.block || '' };
+  saveActions(); renderAll();
+  if (map) map.closePopup();
 }
 // Jump to the Map tab centered on a place, popup open. No arg = the open sheet's place.
 function viewOnMap(name){
@@ -1178,6 +1238,140 @@ function viewOnMap(name){
     else L.popup({maxWidth:280}).setLatLng([place.lat, place.lng]).setContent(mapPopupHtml(place)).openOn(map);
   }, 250);
 }
+// --- v2 Nearby Map ---
+let nearbyCenter = null;   // {lat, lng, label} — user location or a chosen area
+let userMarker = null;
+// Places whose pin contradicts their own neighborhood (old geocode fallbacks).
+// UI-level flag only — never rewrites stored coords.
+let COORD_SUSPECT = new Set();
+function computeCoordSuspects(){
+  COORD_SUSPECT = new Set();
+  const hoods = {};
+  DATA.forEach(d => {
+    const h = d.neighborhood || '';
+    if (h && !h.includes('Various') && typeof d.lat === 'number') (hoods[h] = hoods[h] || []).push(d);
+  });
+  Object.values(hoods).forEach(ps => {
+    if (ps.length < 4) return;
+    const lats = ps.map(p => p.lat).sort((a,b) => a-b), lngs = ps.map(p => p.lng).sort((a,b) => a-b);
+    const mlat = lats[Math.floor(lats.length/2)], mlng = lngs[Math.floor(lngs.length/2)];
+    ps.forEach(p => { if (haversine(p.lat, p.lng, mlat, mlng) > 2.5) COORD_SUSPECT.add(p.name); });
+  });
+}
+function ensureMap(){
+  if (!map) {
+    map = L.map('map').setView(tripDefaultCoord(), 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map);
+    map.on('moveend', () => { if (currentView === 'map') renderNearbyList(); });
+  }
+}
+function nearbyPool(){
+  const f = (document.getElementById('nearby-filter') || {}).value || 'all';
+  let pool = DATA.filter(d => typeof d.lat === 'number' && getAction(d.name).status !== 'skip');
+  if (f === 'interested') pool = pool.filter(d => getAction(d.name).status === 'want');
+  else if (f === 'assigned') pool = pool.filter(d => getAction(d.name).day);
+  else if (f.startsWith('cat:')) pool = pool.filter(d => d.category === f.slice(4));
+  return pool;
+}
+function renderNearby(){
+  ensureMap();
+  // filter select (preserve selection across renders)
+  const fsel = document.getElementById('nearby-filter');
+  const cur = fsel.value || 'all';
+  const cats = [...new Set(DATA.map(d => d.category))].sort();
+  fsel.innerHTML = `<option value="all">All saved nearby</option>
+    <option value="interested">Only interested</option>
+    <option value="assigned">Assigned to a day</option>` +
+    cats.map(c => `<option value="cat:${esc(c)}">${esc(c)}</option>`).join('');
+  fsel.value = [...fsel.options].some(o => o.value === cur) ? cur : 'all';
+
+  // markers: every mappable saved place in the pool — never just the itinerary
+  markers.forEach(m => map.removeLayer(m)); markers = [];
+  const colors = {Food:'#ff6b6b',Attraction:'#5ea2ff',Experience:'#a879ff','Temple/Shrine':'#35d07f',Shopping:'#ff5ba6'};
+  if (!COORD_SUSPECT.size) computeCoordSuspects();
+  nearbyPool().forEach(d => {
+    const a = getAction(d.name);
+    const suspect = COORD_SUSPECT.has(d.name);
+    const color = a.status==='booked' ? '#35d07f' : a.status==='want' ? '#ff5ba6' : colors[d.category] || '#f3b84a';
+    const m = L.circleMarker([d.lat, d.lng], { radius: a.day ? 8 : 5.5, fillColor: color, color: '#fff', weight: a.day ? 2 : 1, opacity: suspect ? .35 : .9, fillOpacity: suspect ? .25 : .75 }).addTo(map);
+    m.bindPopup(() => mapPopupHtml(d), { maxWidth: 300 });
+    m._placeName = d.name;
+    markers.push(m);
+  });
+  if (userMarker) userMarker.addTo(map);
+  renderAreaChips();
+  renderNearbyList();
+}
+function renderAreaChips(){
+  const clusters = areaClusters(6).slice(0, 10);
+  document.getElementById('area-switch').innerHTML = clusters.map(c =>
+    `<button class="area-chip ${nearbyCenter && nearbyCenter.label === c.name ? 'active' : ''}" onclick="setNearbyArea(${JSON.stringify(c.name).replace(/"/g,'&quot;')}, ${c.lat}, ${c.lng})">${esc(c.name)} · ${c.count}</button>`
+  ).join('');
+}
+function setNearbyArea(name, lat, lng){
+  nearbyCenter = { lat, lng, label: name };
+  document.getElementById('nearby-title').textContent = 'Near ' + name;
+  document.getElementById('nearby-sub').textContent = 'Saved places around this area, closest first.';
+  map.setView([lat, lng], 15);
+  renderAreaChips();
+}
+function useMyLocation(){
+  const btn = document.getElementById('locate-btn');
+  if (!navigator.geolocation) { alert('Location not available in this browser.'); return; }
+  btn.textContent = '◎ Locating…';
+  navigator.geolocation.getCurrentPosition(pos => {
+    btn.textContent = '◎ Use my location';
+    const { latitude: lat, longitude: lng } = pos.coords;
+    nearbyCenter = { lat, lng, label: 'you' };
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.circleMarker([lat, lng], { radius: 9, fillColor: '#5ea2ff', color: '#d6e7ff', weight: 3, fillOpacity: 1 }).addTo(map);
+    document.getElementById('nearby-title').textContent = 'Near you';
+    document.getElementById('nearby-sub').textContent = 'Everything you saved, closest first.';
+    map.setView([lat, lng], 15);
+    renderAreaChips();
+  }, err => {
+    btn.textContent = '◎ Use my location';
+    alert('Could not get your location: ' + err.message);
+  }, { enableHighAccuracy: true, timeout: 12000 });
+}
+function renderNearbyList(){
+  const el = document.getElementById('nearby-list');
+  if (!el || !map) return;
+  const b = map.getBounds();
+  const c = nearbyCenter || map.getCenter().wrap && { lat: map.getCenter().lat, lng: map.getCenter().lng } || null;
+  if (!COORD_SUSPECT.size) computeCoordSuspects();
+  const inView = nearbyPool().filter(d => b.contains([d.lat, d.lng]));
+  const good = inView.filter(d => !COORD_SUSPECT.has(d.name))
+    .map(d => ({ d, km: c ? haversine(c.lat, c.lng, d.lat, d.lng) : null }))
+    .sort((a, b2) => (a.km ?? 999) - (b2.km ?? 999)).slice(0, 60);
+  const iffy = inView.filter(d => COORD_SUSPECT.has(d.name)).slice(0, 20);
+  const row = (d, km) => {
+    const a = getAction(d.name);
+    const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
+    return `<div class="nearby-card" onclick="focusNearby(${jn})">
+      <div class="nearby-top">
+        <div style="min-width:0"><div class="library-name" style="font-size:13px">${esc(d.name)}</div>
+        <div class="library-meta">${esc([d.category, d.neighborhood].filter(Boolean).join(' · '))}</div></div>
+        ${km != null ? `<div class="distance">${km < 10 ? km.toFixed(1) : Math.round(km)} km</div>` : ''}
+      </div>
+      <div style="display:flex;gap:5px;margin-top:7px;align-items:center;flex-wrap:wrap">${statusChipV2(a)}
+        <a href="${gmapsDirUrl(d)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="mini" style="color:var(--cyan);text-decoration:none">Directions ↗</a>
+      </div>
+    </div>`;
+  };
+  el.innerHTML = (good.length ? good.map(r => row(r.d, r.km)).join('') :
+      '<div class="side-sub" style="margin-top:10px">No saved places in this view — zoom out or pick another area.</div>') +
+    (iffy.length ? `<div class="side-sub" style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)">📍 Pin unverified — double-check in Google Maps before walking:</div>` +
+      iffy.map(d => row(d, null)).join('') : '');
+}
+function focusNearby(name){
+  const d = DATA.find(x => x.name === name);
+  if (!d || typeof d.lat !== 'number') return;
+  map.setView([d.lat, d.lng], Math.max(map.getZoom(), 16));
+  const m = markers.find(mk => mk._placeName === name);
+  if (m) m.openPopup();
+}
+
 function renderMap() {
   if (!map) { map = L.map('map').setView(tripDefaultCoord(), 7); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map); }
   markers.forEach(m => map.removeLayer(m)); markers = [];
@@ -1310,6 +1504,7 @@ async function loadActiveTrip(){
     }
     const trip = await res.json();
     DATA = (trip.base_places || []).slice();
+    COORD_SUSPECT = new Set();   // recompute per trip
     SEGMENTS = trip.segments || [];
     DAYS = SEGMENTS.map(s => ({ n: s.n, d: s.dateLabel || s.date || ('Day ' + s.n), date: s.date || null, c: s.city || '', t: s.theme || '' }));
     TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:true,
@@ -1789,7 +1984,13 @@ function areaClusters(minCount){
     .map(([name, v]) => ({ name, count: v.count, city: v.city, lat: v.lat / v.count, lng: v.lng / v.count }))
     .sort((a,b) => b.count - a.count);
 }
-function areaToMap(hood){ activeFilters.neighborhood = hood; setView('map', true); renderAll(); }
+function areaToMap(hood){
+  setView('map', true);
+  setTimeout(() => {
+    const c = areaClusters(3).find(x => x.name === hood);
+    if (c) setNearbyArea(c.name, c.lat, c.lng);
+  }, 300);
+}
 
 function renderDayOverview(){
   const container = document.getElementById('day-columns');
@@ -1908,7 +2109,7 @@ function setView(v, push){
   // v2: search/filter bar and status counts belong to Saved Places only
   document.getElementById('controls').style.display = v==='table'?'flex':'none';
   document.getElementById('stats-bar').style.display = v==='table'?'':'none';
-  if (v==='map') setTimeout(()=>{if(!map)renderMap();else{map.invalidateSize();renderMap();}},100);
+  if (v==='map') setTimeout(()=>{ensureMap();map.invalidateSize();renderNearby();},100);
   if (v==='days') renderDays();
   if (v==='calendar') renderCalendar();
   if (v==='itinerary') renderItinerary();
@@ -2029,7 +2230,11 @@ function addConsidering(name){ addToDayBlock(name, 'unscheduled'); }
 function openDayOnMap(n){
   const hotel = hotelForDay(n);
   setView('map', true);
-  if (hotel && typeof hotel.lat === 'number') setTimeout(() => { if (map) map.setView([hotel.lat, hotel.lng], 14); }, 300);
+  if (hotel && typeof hotel.lat === 'number') setTimeout(() => {
+    nearbyCenter = { lat: hotel.lat, lng: hotel.lng, label: hotel.name };
+    document.getElementById('nearby-title').textContent = 'Near ' + hotel.name;
+    if (map) map.setView([hotel.lat, hotel.lng], 14);
+  }, 350);
 }
 function renderDayRecs(dy){
   const hotel = hotelForDay(dy.n);
@@ -2138,9 +2343,11 @@ function renderItineraryGeneric() {
     if (hotel) html += '<div class="itin-hotel"><div class="itin-hotel-name">🏨 ' + esc(hotel.name) + '</div>' +
       (hotel.address ? '<div class="itin-hotel-detail">' + esc(hotel.address) + '</div>' : '') +
       (hotelTimesStr(hotel) ? '<div class="itin-hotel-detail" style="color:var(--green)">' + esc(hotelTimesStr(hotel)) + '</div>' : '') + '</div>';
-    if (assigned.length) {
-      html += '<div class="itin-section-label">Planned</div>';
-      assigned.forEach(d => {
+    const anchorsItin = assigned.filter(d => isAnchor(d) && getAction(d.name).status !== 'skip');
+    const considerItin = assigned.filter(d => !isAnchor(d) && getAction(d.name).status !== 'skip');
+    if (anchorsItin.length || considerItin.length) {
+      if (anchorsItin.length) html += '<div class="itin-section-label">📌 Anchors</div>';
+      anchorsItin.forEach(d => {
         const a = getAction(d.name);
         html += '<div class="itin-activity"><div class="itin-time">' + esc(fmtTime(a.time || '')) + '</div><div class="itin-act-body">';
         html += '<div class="itin-act-name">' + (a.status==='booked'?'✅ ':'') + esc(d.name) + '</div>';
@@ -2148,12 +2355,21 @@ function renderItineraryGeneric() {
         if (d.why) html += '<div class="itin-act-why">' + esc(d.why) + '</div>';
         html += placeDetailsLine(a);
         html += '<div class="itin-act-tags"><span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + esc(d.category) + '</span>';
-        if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(34,197,94,0.15);color:var(--green)">Confirmed</span>';
-        if (a.status==='reserve') html += '<span class="itin-act-tag" style="background:rgba(239,68,68,0.15);color:#fca5a5">Needs booking</span>';
+        if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(53,208,127,0.15);color:var(--green)">Confirmed</span>';
+        if (a.status==='reserve') html += '<span class="itin-act-tag" style="background:rgba(255,107,107,0.15);color:#fca5a5">Needs booking</span>';
         html += '</div>';
         if (a.notes) html += '<div style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic">' + esc(a.notes) + '</div>';
         html += '</div></div>';
       });
+      if (considerItin.length) {
+        html += '<div class="itin-section-label" style="margin-top:10px">＋ Considering — options, not commitments</div>';
+        considerItin.forEach(d => {
+          html += '<div class="itin-activity" style="opacity:.78"><div class="itin-time"></div><div class="itin-act-body">';
+          html += '<div class="itin-act-name" style="font-weight:600">＋ ' + esc(d.name) + '</div>';
+          html += '<div class="itin-act-hood">' + esc([d.neighborhood, d.category].filter(Boolean).join(' · ')) + '</div>';
+          html += '</div></div>';
+        });
+      }
     } else {
       html += '<div class="itin-empty">' + (hotel ? 'Day at ' + esc(hotel.name) : 'Nothing planned yet') + (day.t ? ' — ' + esc(day.t) : '') + '</div>';
     }
