@@ -300,7 +300,6 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     <button id="capture-btn" style="color:var(--green)">📥 IG Import <span id="pending-count"></span></button>
     <button onclick="exportActions()">Export Progress</button>
     <button onclick="document.getElementById('import-file').click()">Import Progress</button>
-    <button onclick="clearActions()" style="color:var(--red)">Reset All</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importActions(event)">
   </div>
 </div>
@@ -368,6 +367,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   <select id="hood-filters" class="search-input" style="width:auto;min-width:200px;cursor:pointer"></select>
   <div class="filter-label">Action</div>
   <div class="filter-group" id="action-filters"></div>
+  <button id="reset-filters" onclick="resetFilters()" style="display:none;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;white-space:nowrap">✕ Reset filters</button>
 </div>
 
 <div class="content">
@@ -662,8 +662,11 @@ function importActions(e) {
   };
   reader.readAsText(file);
 }
-function clearActions() {
-  if (confirm('Reset all actions? This cannot be undone.')) { itemActions = {}; saveActions(); renderAll(); }
+function resetFilters() {
+  activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All' };
+  searchTerm = '';
+  const si = document.getElementById('search'); if (si) si.value = '';
+  renderAll();
 }
 
 // State
@@ -823,6 +826,9 @@ function renderFilters() {
     const label = a === 'All' ? 'All' : `${info.icon} ${info.label}`;
     return `<button class="filter-btn ${activeFilters.action===a?'active':''}" data-filter="action" data-value="${a}">${label}</button>`;
   }).join('');
+  // Reset-filters button only appears when something is actually filtering
+  const rf = document.getElementById('reset-filters');
+  if (rf) rf.style.display = (searchTerm || Object.values(activeFilters).some(v => v !== 'All')) ? 'inline-block' : 'none';
 }
 
 function getFiltered() {
