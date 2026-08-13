@@ -298,6 +298,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   <div class="header-actions">
     <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:8px;background:var(--card);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
     <button id="capture-btn" style="color:var(--green)">📥 IG Import <span id="pending-count"></span></button>
+    <button id="add-place-tab" style="color:var(--green)">➕ Add Place</button>
     <button onclick="exportActions()">Export Progress</button>
     <button onclick="document.getElementById('import-file').click()">Import Progress</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importActions(event)">
@@ -312,7 +313,6 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   <div class="tab" data-view="days">By Day</div>
   <div class="tab" data-view="calendar">Booking Calendar</div>
   <div class="tab" data-view="itinerary">Our Itinerary</div>
-  <div class="tab" id="add-place-tab" style="margin-left:auto;color:var(--green)">+ Add Place</div>
 </div>
 
 <div id="add-place-form" class="modal-overlay">
