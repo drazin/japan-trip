@@ -89,6 +89,18 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .mini { border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; background: #10141a; color: var(--muted); font-size: 10px; cursor: pointer; }
   .mini.add { color: var(--accent); border-color: rgba(94,162,255,.3); }
   @media (max-width: 1080px) { .builder-top, .days-wrap, .loose-layout { grid-template-columns: 1fr; } }
+  /* v2 Saved Places library */
+  .select-v2 { padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--card2); color: var(--text); font-size: 13px; max-width: 160px; }
+  .library { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+  .library-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 11px; border: 1px solid var(--border); background: var(--card); border-radius: 12px; padding: 12px; }
+  .library-name { font-size: 15px; font-weight: 800; cursor: pointer; }
+  .library-name:hover { color: var(--accent); }
+  .library-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .library-desc { font-size: 11px; color: #d5dae2; line-height: 1.4; margin-top: 6px; }
+  .lib-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .mini.heart { color: var(--pink); border-color: rgba(255,91,166,.3); }
+  .mini.heart.on { background: rgba(255,91,166,.14); font-weight: 800; }
+  @media (max-width: 900px) { .library { grid-template-columns: 1fr; } }
   .header { padding: 28px 40px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
   .header h1 { font-size: 28px; font-weight: 700; }
   .header .subtitle { color: var(--muted); font-size: 15px; }
@@ -447,17 +459,28 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   </div>
 </div>
 
-<div class="controls" id="controls">
-  <input type="text" class="search-input" id="search" placeholder="Search places...">
-  <div class="filter-label">City</div>
-  <div class="filter-group" id="city-filters"></div>
-  <div class="filter-label">Type</div>
-  <div class="filter-group" id="cat-filters"></div>
-  <div class="filter-label">Area</div>
-  <select id="hood-filters" class="search-input" style="width:auto;min-width:200px;cursor:pointer"></select>
-  <div class="filter-label">Action</div>
-  <div class="filter-group" id="action-filters"></div>
-  <button id="reset-filters" onclick="resetFilters()" style="display:none;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;white-space:nowrap">✕ Reset filters</button>
+<div class="controls" id="controls" style="flex-wrap:wrap;gap:8px;align-items:center">
+  <input type="text" class="search-input" id="search" placeholder="Search place, area, food, attraction…" style="flex:1;min-width:220px">
+  <select id="lib-city" class="select-v2" onchange="libFilterChange('city', this.value)"></select>
+  <select id="hood-filters" class="select-v2" style="max-width:180px"></select>
+  <select id="lib-type" class="select-v2" onchange="libFilterChange('category', this.value)"></select>
+  <select id="lib-status" class="select-v2" onchange="libStatusChange(this.value)">
+    <option value="All">All statuses</option>
+    <option value="Interested">Interested</option>
+    <option value="AssignedAny">On a day</option>
+    <option value="Unassigned">Unassigned</option>
+    <option value="Booked">Booked</option>
+    <option value="Hidden">Hidden / skipped</option>
+  </select>
+  <button class="btn ghost" onclick="toggleMoreFilters()" id="more-filters-btn" style="font-size:12px">More filters</button>
+  <button id="reset-filters" onclick="resetFilters()" style="display:none;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;white-space:nowrap">✕ Reset</button>
+  <div id="more-filters" style="display:none;width:100%;padding-top:8px;border-top:1px solid var(--border)">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span class="filter-label">Source</span><span id="city-filters"></span>
+      <span class="filter-label">Status detail</span><div class="filter-group" id="action-filters"></div>
+    </div>
+    <div class="filter-group" id="cat-filters" style="display:none"></div>
+  </div>
 </div>
 
 <div class="content">
@@ -773,14 +796,15 @@ function openAddPlace(dayN){
   document.getElementById('ap-name').focus();
 }
 function resetFilters() {
-  activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All' };
+  activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All', assign: 'All' };
   searchTerm = '';
   const si = document.getElementById('search'); if (si) si.value = '';
+  const ls = document.getElementById('lib-status'); if (ls) ls.value = 'All';
   renderAll();
 }
 
 // State
-let activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All' };
+let activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All', assign: 'All' };
 let sortField = 'priority'; let sortDir = -1;
 let searchTerm = ''; let map = null; let markers = [];
 let openMenu = null;
@@ -885,30 +909,77 @@ async function init() {
   if (shareMode) document.querySelectorAll('.header-actions, .tabs, .mobile-nav').forEach(el => { el.style.display = 'none'; });
 }
 
+// v2 Saved Places: the research library (replaces the old table render)
+let libLimit = 100;
+function toggleInterested(name){
+  const a = getAction(name);
+  setAction(name, a.status === 'want' ? 'none' : 'want', a.day, a.notes, a.reserveDate, a.time);
+}
+function libShowMore(){ libLimit += 150; renderLibrary(); }
+function renderLibrary(){
+  const view = document.getElementById('table-view');
+  const list = getFiltered();
+  const shown = list.slice(0, libLimit);
+  const cards = shown.map(d => {
+    const a = getAction(d.name);
+    const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
+    const meta = [d.city, d.neighborhood, d.category].filter(Boolean).join(' · ');
+    const interested = a.status === 'want';
+    return `<div class="library-card">
+      <div style="min-width:0">
+        <div class="library-name" onclick="openSheetFor(${jn})">${esc(d.name)}${sourceBadge(d)}</div>
+        <div class="library-meta">${esc(meta)}</div>
+        ${d.why ? `<div class="library-desc">${esc(d.why)}</div>` : ''}
+      </div>
+      <div class="lib-side">
+        <div>${statusChipV2(a)}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="mini heart ${interested ? 'on' : ''}" onclick="toggleInterested(${jn})">${interested ? '♥ Interested' : '♡ Interested'}</button>
+          <button class="mini" onclick="openSheetFor(${jn})">Assign</button>
+          ${typeof d.lat === 'number' ? `<button class="mini" onclick="viewOnMap(${jn})">Map</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  view.innerHTML = `<div style="padding:16px 40px 30px">
+    <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;margin-bottom:12px">
+      <div><div class="eyebrow">Everything you loaded</div><div style="font-size:24px;font-weight:850;margin-top:2px">Saved Places</div>
+      <div class="side-sub">The research library. Flag what interests you, assign it to a day if useful, and leave the rest alone — saved is a perfectly good state.</div></div>
+      <span class="chip">${list.length} place${list.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="library">${cards || '<div class="side-sub">Nothing matches these filters.</div>'}</div>
+    ${list.length > libLimit ? `<div style="text-align:center;margin-top:14px"><button class="btn" onclick="libShowMore()">Show more (${list.length - libLimit} remaining)</button></div>` : ''}
+  </div>`;
+}
 function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
   updateHeader();
-  renderStats(); renderFilters(); renderTable();
+  renderStats(); renderFilters(); renderLibrary();
   if (document.getElementById('map-view').style.display !== 'none' && map) renderMap();
   if (document.getElementById('day-view').style.display !== 'none') renderDays();
 }
 
 function renderStats() {
+  // v2: neutral library summary — counts are information, not a to-do list.
   const bar = document.getElementById('stats-bar');
-  const counts = { total: DATA.length, want: 0, flag: 0, research: 0, reserve: 0, booked: 0, assigned: 0, skip: 0 };
-  DATA.forEach(d => { const a = getAction(d.name).status; if (counts[a] !== undefined) counts[a]++; });
-  const unactioned = counts.total - counts.want - counts.flag - counts.research - counts.reserve - counts.booked - counts.assigned - counts.skip;
-  bar.innerHTML = `
-    <div class="stat ${activeFilters.action==='All'?'active-stat':''}" data-action-filter="All"><div class="label">Total</div><div class="value">${counts.total}</div></div>
-    <div class="stat ${activeFilters.action==='want'?'active-stat':''}" data-action-filter="want"><div class="label">💖 Want</div><div class="value" style="color:var(--pink)">${counts.want}</div></div>
-    <div class="stat ${activeFilters.action==='flag'?'active-stat':''}" data-action-filter="flag"><div class="label">🚩 Discuss</div><div class="value" style="color:var(--amber)">${counts.flag}</div></div>
-    <div class="stat ${activeFilters.action==='reserve'?'active-stat':''}" data-action-filter="reserve"><div class="label">🎫 Reserve</div><div class="value" style="color:var(--red)">${counts.reserve}</div></div>
-    <div class="stat ${activeFilters.action==='research'?'active-stat':''}" data-action-filter="research"><div class="label">🔍 Research</div><div class="value" style="color:var(--purple)">${counts.research}</div></div>
-    <div class="stat ${activeFilters.action==='booked'?'active-stat':''}" data-action-filter="booked"><div class="label">✅ Booked</div><div class="value" style="color:var(--green)">${counts.booked}</div></div>
-    <div class="stat ${activeFilters.action==='assigned'?'active-stat':''}" data-action-filter="assigned"><div class="label">📅 Assigned</div><div class="value" style="color:var(--accent)">${counts.assigned}</div></div>
-    <div class="stat ${activeFilters.action==='skip'?'active-stat':''}" data-action-filter="skip"><div class="label">✕ Skip</div><div class="value" style="color:#666">${counts.skip}</div></div>
-    <div class="stat ${activeFilters.action==='none'?'active-stat':''}" data-action-filter="none"><div class="label">Unactioned</div><div class="value">${unactioned}</div></div>
-  `;
+  let interested = 0, booked = 0, onDays = 0, hidden = 0;
+  DATA.forEach(d => {
+    const a = getAction(d.name);
+    if (a.status === 'want') interested++;
+    if (a.status === 'booked') booked++;
+    if (a.status === 'skip') hidden++;
+    if (a.day) onDays++;
+  });
+  const sel = v => (document.getElementById('lib-status') || {}).value === v ? 'active-stat' : '';
+  const card = (statusKey, label, value, color) =>
+    `<div class="stat ${sel(statusKey)}" onclick="const s=document.getElementById('lib-status'); if(s){s.value='${statusKey}';} libStatusChange('${statusKey}')">
+      <div class="label">${label}</div><div class="value"${color ? ` style="color:${color}"` : ''}>${value}</div></div>`;
+  bar.innerHTML =
+    card('All', 'Saved places', DATA.length, '') +
+    card('Interested', '♥ Interested', interested, 'var(--pink)') +
+    card('AssignedAny', '📅 On days', onDays, 'var(--accent)') +
+    card('Booked', '✓ Booked', booked, 'var(--green)') +
+    (hidden ? card('Hidden', 'Hidden', hidden, 'var(--muted)') : '');
 }
 
 function renderFilters() {
@@ -916,33 +987,47 @@ function renderFilters() {
   const cats = ['All', ...new Set(DATA.map(d => d.category))];
   const actions = ['All', 'want', 'flag', 'research', 'reserve', 'booked', 'assigned', 'skip', 'none'];
 
-  // Neighborhoods: show only for selected city, min 3 items, sorted by count
+  const citySel = document.getElementById('lib-city');
+  citySel.innerHTML = cities.map(c => `<option value="${esc(c)}" ${activeFilters.city===c?'selected':''}>${c === 'All' ? 'All cities' : esc(c)}</option>`).join('');
+  const typeSel = document.getElementById('lib-type');
+  typeSel.innerHTML = cats.map(c => `<option value="${esc(c)}" ${activeFilters.category===c?'selected':''}>${c === 'All' ? 'All types' : esc(c)}</option>`).join('');
+
+  // Neighborhoods: scoped to selected city, sorted by count
   const hoodSource = activeFilters.city === 'All' ? DATA : DATA.filter(d => d.city === activeFilters.city);
   const hoodCounts = {};
   hoodSource.forEach(d => { const h = d.neighborhood || ''; if (h && !h.includes('Various') && h.length > 0) { hoodCounts[h] = (hoodCounts[h]||0) + 1; } });
   const hoods = ['All', ...Object.entries(hoodCounts).sort((a,b) => b[1]-a[1]).map(([h]) => h)];
-
-  const sourceChips = SOURCE_CHIPS.filter(s => DATA.some(d => d.source === s.source)).map(s =>
-    `<button class="filter-btn ${activeFilters.source===s.source?'active':''}" data-filter="source" data-value="${activeFilters.source===s.source?'All':s.source}" style="margin-left:8px;border-color:${s.color};color:${s.color}">${s.icon} ${s.label}</button>`
-  ).join('');
-  document.getElementById('city-filters').innerHTML = cities.map(c =>
-    `<button class="filter-btn ${activeFilters.city===c?'active':''}" data-filter="city" data-value="${c}">${c}</button>`
-  ).join('') + sourceChips;
   const hoodSelect = document.getElementById('hood-filters');
   hoodSelect.innerHTML = hoods.map(h =>
-    `<option value="${h}" ${activeFilters.neighborhood===h?'selected':''}>${h === 'All' ? 'All Areas' : h + ' (' + hoodCounts[h] + ')'}</option>`
+    `<option value="${h}" ${activeFilters.neighborhood===h?'selected':''}>${h === 'All' ? 'All areas' : h + ' (' + hoodCounts[h] + ')'}</option>`
   ).join('');
-  document.getElementById('cat-filters').innerHTML = cats.map(c =>
-    `<button class="filter-btn ${activeFilters.category===c?'active':''}" data-filter="category" data-value="${c}">${c}</button>`
+
+  // "More filters" drawer: provenance chips + full legacy status chips
+  const sourceChips = SOURCE_CHIPS.filter(s => DATA.some(d => d.source === s.source)).map(s =>
+    `<button class="filter-btn ${activeFilters.source===s.source?'active':''}" data-filter="source" data-value="${activeFilters.source===s.source?'All':s.source}" style="border-color:${s.color};color:${s.color}">${s.icon} ${s.label}</button>`
   ).join('');
+  document.getElementById('city-filters').innerHTML = sourceChips || '<span class="side-sub">—</span>';
   document.getElementById('action-filters').innerHTML = actions.map(a => {
     const info = ACTIONS[a] || {label:a,icon:''};
     const label = a === 'All' ? 'All' : `${info.icon} ${info.label}`;
     return `<button class="filter-btn ${activeFilters.action===a?'active':''}" data-filter="action" data-value="${a}">${label}</button>`;
   }).join('');
-  // Reset-filters button only appears when something is actually filtering
   const rf = document.getElementById('reset-filters');
-  if (rf) rf.style.display = (searchTerm || Object.values(activeFilters).some(v => v !== 'All')) ? 'inline-block' : 'none';
+  if (rf) rf.style.display = (searchTerm || activeFilters.assign !== 'All' || Object.entries(activeFilters).some(([k,v]) => k !== 'assign' && v !== 'All')) ? 'inline-block' : 'none';
+}
+function libFilterChange(key, val){ activeFilters[key] = val; if (key === 'city') activeFilters.neighborhood = 'All'; renderAll(); }
+function libStatusChange(val){
+  activeFilters.assign = 'All'; activeFilters.action = 'All';
+  if (val === 'Interested') activeFilters.action = 'want';
+  else if (val === 'Booked') activeFilters.action = 'booked';
+  else if (val === 'Hidden') activeFilters.action = 'skip';
+  else if (val === 'AssignedAny') activeFilters.assign = 'assigned';
+  else if (val === 'Unassigned') activeFilters.assign = 'unassigned';
+  renderAll();
+}
+function toggleMoreFilters(){
+  const el = document.getElementById('more-filters');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 function getFiltered() {
@@ -951,10 +1036,14 @@ function getFiltered() {
     if (activeFilters.source !== 'All' && d.source !== activeFilters.source) return false;
     if (activeFilters.neighborhood !== 'All' && (d.neighborhood||'') !== activeFilters.neighborhood) return false;
     if (activeFilters.category !== 'All' && d.category !== activeFilters.category) return false;
+    const act = getAction(d.name);
     if (activeFilters.action !== 'All') {
-      const s = getAction(d.name).status;
-      if (activeFilters.action !== s) return false;
+      if (activeFilters.action !== act.status) return false;
+    } else if (act.status === 'skip') {
+      return false;   // v2: skipped places stay hidden unless explicitly filtered for
     }
+    if (activeFilters.assign === 'assigned' && !act.day) return false;
+    if (activeFilters.assign === 'unassigned' && act.day) return false;
     if (searchTerm && !JSON.stringify(d).toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   }).sort((a, b) => {
@@ -1076,9 +1165,9 @@ function mapPopupHtml(d){
   const addr = d.address?`<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}</span>`:'';
   return `<strong>${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.city} · ${d.neighborhood}</span>${addr}<br>${'★'.repeat(d.priority)}${'☆'.repeat(5-d.priority)}<br>${d.why}${aLabel}<br><a href="${gmapsUrl(d)}" target="_blank" rel="noopener" style="color:#22d3ee;font-size:11px">Open in Google Maps ↗</a>`;
 }
-// From the action sheet: jump to the Map tab centered on the place, popup open.
-function viewOnMap(){
-  const place = DATA.find(d => d.name === sheetName);
+// Jump to the Map tab centered on a place, popup open. No arg = the open sheet's place.
+function viewOnMap(name){
+  const place = DATA.find(d => d.name === (name || sheetName));
   if (!place || typeof place.lat !== 'number') return;
   closeActionSheet();
   setView('map', true);
