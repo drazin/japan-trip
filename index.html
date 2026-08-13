@@ -208,10 +208,10 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .itin-cover .itin-family { font-size: 13px; color: var(--muted); margin-top: 8px; }
 
   .itin-day { margin-bottom: 48px; page-break-inside: avoid; }
-  .itin-day-header { display: flex; align-items: baseline; gap: 16px; border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 20px; }
-  .itin-day-num { font-size: 13px; text-transform: uppercase; letter-spacing: 3px; color: var(--accent); }
+  .itin-day-header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 20px; }
+  .itin-day-num { font-size: 13px; text-transform: uppercase; letter-spacing: 3px; color: var(--accent); white-space: nowrap; }
   .itin-day-title { font-size: 24px; font-weight: 400; }
-  .itin-day-date { font-size: 14px; color: var(--muted); margin-left: auto; }
+  .itin-day-date { font-size: 14px; color: var(--muted); margin-left: auto; white-space: nowrap; flex-shrink: 0; }
 
   .itin-hotel { background: rgba(59,130,246,0.05); border-left: 3px solid var(--accent); padding: 14px 18px; border-radius: 0 8px 8px 0; margin-bottom: 20px; font-family: -apple-system, system-ui, sans-serif; }
   .itin-hotel-name { font-size: 16px; font-weight: 600; color: var(--text); }
