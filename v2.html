@@ -367,12 +367,14 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     .header h1 { font-size: 17px !important; }
     .header .subtitle { display: none; }
     .logo { width: 30px !important; height: 30px !important; border-radius: 9px !important; font-size: 12px; }
-    .header-actions { gap: 6px; flex: 1; justify-content: flex-end; }
-    #trip-switcher { max-width: 118px; font-size: 12px; padding: 7px 6px !important; }
-    .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 38px; }
+    .header-actions { gap: 6px; flex: 1; justify-content: flex-end; flex-wrap: nowrap; }
+    .header-actions .btn { padding: 9px 11px; font-size: 14px; min-height: 40px; }
+    .btn-label { display: none; }
+    #trip-switcher { display: none; }
+    #trip-switcher.in-menu { display: block; width: 100%; max-width: none; margin-bottom: 4px; min-height: 40px; }
 
     /* Stats: one horizontally scrollable row instead of a 200px grid */
-    .stats-bar { display: flex !important; overflow-x: auto; gap: 6px !important; padding: 8px 12px !important; scrollbar-width: none; }
+    .stats-bar { display: flex !important; flex-wrap: nowrap !important; overflow-x: auto; gap: 6px !important; padding: 8px 12px !important; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     .stats-bar::-webkit-scrollbar { display: none; }
     .stat { flex: 0 0 auto; min-width: 96px; padding: 8px 10px !important; }
     .stat .label { font-size: 10px; }
@@ -486,8 +488,8 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   </div>
   <div class="header-actions">
     <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:10px;background:var(--card2);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
-    <button id="capture-btn" class="btn pink" style="border-color:rgba(255,91,166,.35);color:var(--pink);background:rgba(255,91,166,.06)">＋ IG Import <span id="pending-count"></span></button>
-    <button id="add-place-tab" class="btn primary" style="background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:800">＋ Add Place</button>
+    <button id="capture-btn" class="btn pink" style="border-color:rgba(255,91,166,.35);color:var(--pink);background:rgba(255,91,166,.06)">📥<span class="btn-label"> IG Import</span> <span id="pending-count"></span></button>
+    <button id="add-place-tab" class="btn primary" style="background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:800">＋<span class="btn-label"> Add Place</span></button>
     <div style="position:relative">
       <button id="more-menu-btn" class="btn ghost" onclick="toggleMoreMenu(event)" style="background:transparent;color:var(--muted)">•••</button>
       <div id="more-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:6px;flex-direction:column">
@@ -1025,6 +1027,7 @@ function setupNewTrip(){
 async function init() {
   await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
   if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  placeTripSwitcher();
   if (shareMode) document.querySelectorAll('.header-actions, .tabs, .mobile-nav').forEach(el => { el.style.display = 'none'; });
 }
 
@@ -2180,6 +2183,21 @@ function backToOverview(){ selectedDay = null; renderDays(); updateURL(true); }
 
 // --- Deep-linkable URLs (trip + view + open day) ---
 let currentView = 'days';
+// The trip switcher lives in the header on desktop, inside the ••• menu on phones.
+function placeTripSwitcher(){
+  const sel = document.getElementById('trip-switcher');
+  const menu = document.getElementById('more-menu');
+  const actions = document.querySelector('.header-actions');
+  if (!sel || !menu || !actions) return;
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    if (sel.parentElement !== menu) menu.insertBefore(sel, menu.firstChild);
+    sel.classList.add('in-menu');
+  } else {
+    if (sel.parentElement !== actions) actions.insertBefore(sel, actions.firstChild);
+    sel.classList.remove('in-menu');
+  }
+}
+window.addEventListener('resize', placeTripSwitcher);
 function toggleMoreMenu(e){ e.stopPropagation(); const m = document.getElementById('more-menu'); m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
 function closeMoreMenu(){ document.getElementById('more-menu').style.display = 'none'; }
 document.addEventListener('click', () => closeMoreMenu());
