@@ -12,6 +12,9 @@ app.use(express.static(__dirname));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// v2 UI preview — same APIs and same live data as `/`, different front end.
+app.get('/v2', (req, res) => res.sendFile(path.join(__dirname, 'v2.html')));
+
 // --- Storage: Postgres in production (survives redeploys), JSON file for local dev ---
 
 let pool = null;
