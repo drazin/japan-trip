@@ -35,7 +35,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .btn.ghost { background: transparent; color: var(--muted); }
   .btn.pink { border-color: rgba(255,91,166,.35); color: var(--pink); background: rgba(255,91,166,.06); }
   .mobile-nav { display: none; }
-  .hide-bar { display: none !important; }
+  .hide-bar, .stats-bar.hide-bar { display: none !important; }
   .mm-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font-size: 13px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
   .mm-item:hover { background: var(--card2); }
   .mnav { border: 0; background: transparent; color: var(--muted); font-size: 10px; padding: 6px 10px; cursor: pointer; }
@@ -441,8 +441,10 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     .ingest-panel .eyebrow { display: none; }
 
     /* Plan: full-width day cards, roomier detail */
-    .days-grid { grid-template-columns: 1fr !important; gap: 8px; }
-    .v2-day-card { min-height: 0; padding: 13px 13px 42px; }
+    .days-wrap, .days-wrap > .panel, .days-grid, .loose-layout, .builder-top { min-width: 0; }
+    .days-grid { grid-template-columns: 1fr !important; gap: 8px; min-width: 0; }
+    .v2-day-card { min-height: 0; padding: 13px 13px 42px; min-width: 0; overflow: hidden; }
+    .day-items2 { min-width: 0; }
     .day-date2 { font-size: 14px; }
     .day-theme2 { font-size: 15px; }
     .day-item2 { font-size: 13px; }
