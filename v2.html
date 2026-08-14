@@ -35,6 +35,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .btn.ghost { background: transparent; color: var(--muted); }
   .btn.pink { border-color: rgba(255,91,166,.35); color: var(--pink); background: rgba(255,91,166,.06); }
   .mobile-nav { display: none; }
+  .hide-bar { display: none !important; }
   .mm-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font-size: 13px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
   .mm-item:hover { background: var(--card2); }
   .mnav { border: 0; background: transparent; color: var(--muted); font-size: 10px; padding: 6px 10px; cursor: pointer; }
@@ -103,6 +104,9 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .lib-chips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
   .lib-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
   .nearby-actions { display: flex; gap: 5px; margin-top: 7px; align-items: center; flex-wrap: wrap; }
+  .nearby-modes { display: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .nearby-modes .nm { border: 0; background: transparent; color: var(--muted); padding: 10px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .nearby-modes .nm.active { background: rgba(94,162,255,.14); color: var(--accent); }
   .mini.heart { color: var(--pink); border-color: rgba(255,91,166,.3); }
   .mini.heart.on { background: rgba(255,91,166,.14); font-weight: 800; }
   @media (max-width: 900px) { .library { grid-template-columns: 1fr; } }
@@ -421,6 +425,21 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     .nearby-actions { gap: 8px; margin-top: 9px; }
     .nearby-actions .mini.dir { flex: 1; }
 
+    /* Nearby: map/list toggle owns the screen on phones */
+    .nearby-modes { display: flex; }
+    .locate-label { display: none; }
+    #locate-btn { font-size: 16px; }
+    .nearby-layout.list-mode > div:last-child { display: none; }
+    .nearby-layout.list-mode .nearby-side { order: 0; }
+
+    /* Plan: day cards come first; intro copy compresses (counts already live in the stats row) */
+    .builder-top { margin-bottom: 10px; }
+    .builder-top .panel:nth-child(2) { display: none; }
+    .ingest-stat { display: none; }
+    .ingest-panel .side-sub { display: none; }
+    .ingest-panel div[style*="font-size:21px"] { font-size: 17px !important; }
+    .ingest-panel .eyebrow { display: none; }
+
     /* Plan: full-width day cards, roomier detail */
     .days-grid { grid-template-columns: 1fr !important; gap: 8px; }
     .v2-day-card { min-height: 0; padding: 13px 13px 42px; }
@@ -615,7 +634,13 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
       <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap">
         <div><div class="eyebrow">On-the-go mode</div><div style="font-size:24px;font-weight:850;margin-top:2px">Nearby Map</div>
         <div class="side-sub">Open this while walking around — everything you saved, near where you are.</div></div>
-        <button class="btn primary" id="locate-btn" onclick="useMyLocation()">◎ Use my location</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="nearby-modes" id="nearby-modes">
+            <button class="nm active" data-mode="map" onclick="setNearbyMode('map')">Map</button>
+            <button class="nm" data-mode="list" onclick="setNearbyMode('list')">List</button>
+          </div>
+          <button class="btn primary" id="locate-btn" onclick="useMyLocation()">◎ <span class="locate-label">Use my location</span></button>
+        </div>
       </div>
     </div>
     <div class="nearby-layout">
@@ -1031,7 +1056,7 @@ function setupNewTrip(){
 
 async function init() {
   await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
-  if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hide-bar'); });
   placeTripSwitcher();
   if (shareMode) document.querySelectorAll('.header-actions, .tabs, .mobile-nav').forEach(el => { el.style.display = 'none'; });
 }
@@ -1394,6 +1419,11 @@ function renderNearby(){
   if (userMarker) userMarker.addTo(map);
   renderAreaChips();
   renderNearbyList();
+}
+function setNearbyMode(mode){
+  document.querySelector('.nearby-layout').classList.toggle('list-mode', mode === 'list');
+  document.querySelectorAll('#nearby-modes .nm').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  if (mode === 'map' && map) setTimeout(() => { map.invalidateSize(); renderNearbyList(); }, 60);
 }
 function renderAreaChips(){
   const clusters = areaClusters(6).slice(0, 10);
@@ -2216,7 +2246,7 @@ function setView(v, push){
   document.getElementById('itin-view').style.display = v==='itinerary'?'block':'none';
   // v2: search/filter bar and status counts belong to Saved Places only
   document.getElementById('controls').style.display = v==='table'?'flex':'none';
-  document.getElementById('stats-bar').style.display = v==='table'?'':'none';
+  document.getElementById('stats-bar').classList.toggle('hide-bar', v !== 'table');
   if (v==='map') setTimeout(()=>{ensureMap();map.invalidateSize();renderNearby();},100);
   if (v==='days') renderDays();
   if (v==='calendar') renderCalendar();
