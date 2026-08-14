@@ -495,9 +495,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   <div id="more-filters" style="display:none;width:100%;padding-top:8px;border-top:1px solid var(--border)">
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <span class="filter-label">Source</span><span id="city-filters"></span>
-      <span class="filter-label">Status detail</span><div class="filter-group" id="action-filters"></div>
     </div>
-    <div class="filter-group" id="cat-filters" style="display:none"></div>
   </div>
 </div>
 
@@ -547,14 +545,15 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 
 <script>
 const ACTIONS = {
-  none: { label: 'Set action...', icon: '·', cls: 'action-none' },
-  want: { label: 'We want this!', icon: '💖', cls: 'action-want' },
-  flag: { label: 'Discuss / Decide', icon: '🚩', cls: 'action-flag' },
-  research: { label: 'Needs Research', icon: '🔍', cls: 'action-research' },
-  reserve: { label: 'Make Reservation', icon: '🎫', cls: 'action-reserve' },
-  booked: { label: 'Booked / Confirmed', icon: '✅', cls: 'action-booked' },
-  assigned: { label: 'Planned (no booking)', icon: '📌', cls: 'action-assigned' },
-  skip: { label: 'Skip / Not this trip', icon: '✕', cls: 'action-skip' },
+  none: { label: 'Saved', icon: '·', cls: 'action-none' },
+  want: { label: 'Interested', icon: '♥', cls: 'action-want' },
+  assigned: { label: 'Planned', icon: '📌', cls: 'action-assigned' },
+  booked: { label: 'Booked', icon: '✅', cls: 'action-booked' },
+  skip: { label: 'Hidden / skip', icon: '✕', cls: 'action-skip' },
+  // Legacy statuses: old saved data still renders, but pickers no longer offer them.
+  flag: { label: 'Discuss / Decide', icon: '🚩', cls: 'action-flag', legacy: true },
+  research: { label: 'Needs Research', icon: '🔍', cls: 'action-research', legacy: true },
+  reserve: { label: 'Make Reservation', icon: '🎫', cls: 'action-reserve', legacy: true },
 };
 
 let DAYS = [];  // populated from the active trip (loadActiveTrip)
@@ -701,7 +700,7 @@ function buildActionSheet(){
     document.body.appendChild(ov);
   }
   const btn = 'text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;gap:8px';
-  const acts = Object.entries(ACTIONS).filter(([k])=>k!=='none').map(([k,v]) =>
+  const acts = Object.entries(ACTIONS).filter(([k,v])=>k!=='none' && !v.legacy).map(([k,v]) =>
     `<button onclick="asStatus('${k}')" style="${btn};${a.status===k?'border-color:var(--green);background:rgba(34,197,94,0.12)':''}">${v.icon} ${v.label}${a.status===k?' ✓':''}</button>`
   ).join('');
   const days = DAYS.map(dy =>
@@ -1021,7 +1020,6 @@ function renderStats() {
 function renderFilters() {
   const cities = ['All', ...new Set(DATA.map(d => d.city))];
   const cats = ['All', ...new Set(DATA.map(d => d.category))];
-  const actions = ['All', 'want', 'flag', 'research', 'reserve', 'booked', 'assigned', 'skip', 'none'];
 
   const citySel = document.getElementById('lib-city');
   citySel.innerHTML = cities.map(c => `<option value="${esc(c)}" ${activeFilters.city===c?'selected':''}>${c === 'All' ? 'All cities' : esc(c)}</option>`).join('');
@@ -1043,11 +1041,6 @@ function renderFilters() {
     `<button class="filter-btn ${activeFilters.source===s.source?'active':''}" data-filter="source" data-value="${activeFilters.source===s.source?'All':s.source}" style="border-color:${s.color};color:${s.color}">${s.icon} ${s.label}</button>`
   ).join('');
   document.getElementById('city-filters').innerHTML = sourceChips || '<span class="side-sub">—</span>';
-  document.getElementById('action-filters').innerHTML = actions.map(a => {
-    const info = ACTIONS[a] || {label:a,icon:''};
-    const label = a === 'All' ? 'All' : `${info.icon} ${info.label}`;
-    return `<button class="filter-btn ${activeFilters.action===a?'active':''}" data-filter="action" data-value="${a}">${label}</button>`;
-  }).join('');
   const rf = document.getElementById('reset-filters');
   if (rf) rf.style.display = (searchTerm || activeFilters.assign !== 'All' || Object.entries(activeFilters).some(([k,v]) => k !== 'assign' && v !== 'All')) ? 'inline-block' : 'none';
 }
@@ -1449,7 +1442,7 @@ function renderDayCard(d, borderStyle) {
         return '<div style="margin-bottom:4px">' + main + hotelLink + '</div>';
       })() : ''}
       <div class="dc-action-row" style="margin-top:8px">
-        ${Object.entries(ACTIONS).filter(([k])=>k!=='none').map(([k,v]) =>
+        ${Object.entries(ACTIONS).filter(([k,v])=>k!=='none' && !v.legacy).map(([k,v]) =>
           '<button class="dc-action-btn'+(a.status===k?' dc-active':'')+'" data-dc-action="'+k+'" data-dc-target="'+eName+'" onclick="event.stopPropagation();dcAction(this)">'+v.icon+' '+v.label+'</button>'
         ).join('')}
       </div>
@@ -2728,8 +2721,7 @@ function setupListeners() {
     if (e.target.classList.contains('reserve-date-input') || e.target.classList.contains('dc-resdate')) {
       const name = e.target.dataset.resdateFor;
       const current = getAction(name);
-      const newStatus = current.status === 'none' ? 'reserve' : current.status;
-      setAction(name, newStatus, current.day, current.notes, e.target.value);
+      setAction(name, current.status, current.day, current.notes, e.target.value);
     }
   });
   document.addEventListener('focusout', e => {
