@@ -98,6 +98,10 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .library-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
   .library-desc { font-size: 11px; color: #d5dae2; line-height: 1.4; margin-top: 6px; }
   .lib-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .view-pad { padding: 16px 40px 30px; }
+  .lib-chips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+  .lib-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+  .nearby-actions { display: flex; gap: 5px; margin-top: 7px; align-items: center; flex-wrap: wrap; }
   .mini.heart { color: var(--pink); border-color: rgba(255,91,166,.3); }
   .mini.heart.on { background: rgba(255,91,166,.14); font-weight: 800; }
   @media (max-width: 900px) { .library { grid-template-columns: 1fr; } }
@@ -356,6 +360,84 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     .header-actions button { padding: 6px 12px; font-size: 13px; }
     .stats-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 10px; padding-bottom: 10px; }
     .stat { min-width: 0; padding: 10px 12px; }
+    /* ---- v2 mobile-first pass ---- */
+    /* Header scrolls away on phones (bottom nav handles navigation) and shrinks hard */
+    .topbar { position: static; }
+    .header { padding: 10px 12px 8px; gap: 8px; align-items: center; }
+    .header h1 { font-size: 17px !important; }
+    .header .subtitle { display: none; }
+    .logo { width: 30px !important; height: 30px !important; border-radius: 9px !important; font-size: 12px; }
+    .header-actions { gap: 6px; flex: 1; justify-content: flex-end; }
+    #trip-switcher { max-width: 118px; font-size: 12px; padding: 7px 6px !important; }
+    .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 38px; }
+
+    /* Stats: one horizontally scrollable row instead of a 200px grid */
+    .stats-bar { display: flex !important; overflow-x: auto; gap: 6px !important; padding: 8px 12px !important; scrollbar-width: none; }
+    .stats-bar::-webkit-scrollbar { display: none; }
+    .stat { flex: 0 0 auto; min-width: 96px; padding: 8px 10px !important; }
+    .stat .label { font-size: 10px; }
+    .stat .value { font-size: 18px; }
+
+    /* Filters: search full width, controls scroll horizontally */
+    .controls { padding: 8px 12px !important; gap: 6px !important; }
+    .controls #search { width: 100%; flex: 1 0 100% !important; min-height: 44px; font-size: 15px; }
+    .select-v2 { flex: 0 0 auto; max-width: 46%; min-height: 40px; font-size: 12px; }
+    #more-filters-btn, #reset-filters { min-height: 40px; }
+
+    /* Saved Places cards: text gets the full width, actions become a row beneath */
+    .view-pad { padding: 12px 12px 90px; }
+    .library { gap: 8px; }
+    .library-card { grid-template-columns: 1fr; gap: 9px; padding: 13px; }
+    .library-name { font-size: 17px; line-height: 1.3; }
+    .library-meta { font-size: 12px; }
+    .library-desc { font-size: 13px; }
+    .lib-side { flex-direction: column; align-items: stretch; width: 100%; gap: 8px; }
+    .lib-chips { justify-content: flex-start; }
+    .lib-actions { justify-content: stretch; gap: 6px; }
+    .lib-actions .mini { flex: 1; text-align: center; }
+    .mini { min-height: 42px; padding: 10px 12px; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+
+    /* Nearby: map first and big, minimal preamble, chunky list rows */
+    .nearby-head { padding: 10px 12px 0 !important; }
+    .nearby-head .eyebrow, .nearby-head .side-sub { display: none; }
+    .nearby-head > div { align-items: center !important; }
+    .nearby-head div[style*="font-size:24px"] { font-size: 19px !important; }
+    #locate-btn { min-height: 44px; padding: 10px 14px; }
+    .nearby-layout { gap: 8px; padding: 8px 12px 90px; }
+    #map { height: 46vh; min-height: 300px; }
+    .nearby-side { padding: 0; border: 0; background: transparent; box-shadow: none; }
+    .area-switch { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 8px 0; padding-bottom: 2px; }
+    .area-switch::-webkit-scrollbar { display: none; }
+    .area-chip { flex: 0 0 auto; min-height: 38px; font-size: 12px; padding: 8px 12px; }
+    #nearby-filter { min-height: 44px; font-size: 14px; }
+    .nearby-card { padding: 13px; }
+    .nearby-card .library-name { font-size: 16px !important; }
+    .distance { font-size: 14px; }
+    .nearby-actions { gap: 8px; margin-top: 9px; }
+    .nearby-actions .mini.dir { flex: 1; }
+
+    /* Plan: full-width day cards, roomier detail */
+    .days-grid { grid-template-columns: 1fr !important; gap: 8px; }
+    .v2-day-card { min-height: 0; padding: 13px 13px 42px; }
+    .day-date2 { font-size: 14px; }
+    .day-theme2 { font-size: 15px; }
+    .day-item2 { font-size: 13px; }
+    .ingest-panel, .builder-top .panel, .days-wrap > .panel, .rec-panel { padding: 13px !important; }
+    .ingest-stat { gap: 12px; }
+    .detail-hero { padding: 14px; }
+    .detail-hero h2 { font-size: 20px; }
+    .place-mini { padding: 12px; }
+    .place-mini-name { font-size: 14px; }
+    .place-mini-meta { font-size: 12px; }
+    .rec-name { font-size: 14px; }
+    .rec-meta, .rec-why { font-size: 12px; }
+    .rec-actions .mini { flex: 1; }
+    .icon-btn { min-height: 38px; min-width: 38px; }
+    .day-columns { padding: 10px 12px 90px; }
+
+    /* Itinerary breathing room */
+    .itin { padding: 0 12px 90px; }
+
     /* Phone: tabs give way to a fixed bottom nav */
     .tabs { display: none; }
     .mobile-nav { display: flex; position: fixed; z-index: 70; left: 0; right: 0; bottom: 0; background: rgba(11,13,18,.97); border-top: 1px solid var(--border); padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); justify-content: space-around; }
@@ -969,8 +1051,8 @@ function renderLibrary(){
         ${d.why ? `<div class="library-desc">${esc(d.why)}</div>` : ''}
       </div>
       <div class="lib-side">
-        <div>${statusChipV2(a)}</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+        <div class="lib-chips">${statusChipV2(a)}</div>
+        <div class="lib-actions">
           <button class="mini heart ${interested ? 'on' : ''}" onclick="toggleInterested(${jn})">${interested ? '♥ Interested' : '♡ Interested'}</button>
           <button class="mini" onclick="openSheetFor(${jn})">Assign</button>
           ${typeof d.lat === 'number' ? `<button class="mini" onclick="viewOnMap(${jn})">Map</button>` : ''}
@@ -978,7 +1060,7 @@ function renderLibrary(){
       </div>
     </div>`;
   }).join('');
-  view.innerHTML = `<div style="padding:16px 40px 30px">
+  view.innerHTML = `<div class="view-pad">
     <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;margin-bottom:12px">
       <div><div class="eyebrow">Everything you loaded</div><div style="font-size:24px;font-weight:850;margin-top:2px">Saved Places</div>
       <div class="side-sub">The research library. Flag what interests you, assign it to a day if useful, and leave the rest alone — saved is a perfectly good state.</div></div>
@@ -1357,8 +1439,8 @@ function renderNearbyList(){
         <div class="library-meta">${esc([d.category, d.neighborhood].filter(Boolean).join(' · '))}</div></div>
         ${km != null ? `<div class="distance">${km < 10 ? km.toFixed(1) : Math.round(km)} km</div>` : ''}
       </div>
-      <div style="display:flex;gap:5px;margin-top:7px;align-items:center;flex-wrap:wrap">${statusChipV2(a)}
-        <a href="${gmapsDirUrl(d)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="mini" style="color:var(--cyan);text-decoration:none">Directions ↗</a>
+      <div class="nearby-actions">${statusChipV2(a)}
+        <a href="${gmapsDirUrl(d)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="mini dir" style="color:var(--cyan);text-decoration:none">Directions ↗</a>
       </div>
     </div>`;
   };
