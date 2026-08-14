@@ -486,6 +486,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     <option value="All">All statuses</option>
     <option value="Interested">Interested</option>
     <option value="AssignedAny">On a day</option>
+    <option value="Considering">Considering</option>
     <option value="Unassigned">Unassigned</option>
     <option value="Booked">Booked</option>
     <option value="Hidden">Hidden / skipped</option>
@@ -1009,9 +1010,11 @@ function renderStats() {
   const card = (statusKey, label, value, color) =>
     `<div class="stat ${sel(statusKey)}" onclick="const s=document.getElementById('lib-status'); if(s){s.value='${statusKey}';} libStatusChange('${statusKey}')">
       <div class="label">${label}</div><div class="value"${color ? ` style="color:${color}"` : ''}>${value}</div></div>`;
+  const considering = DATA.filter(d => { const a = getAction(d.name); return a.day && a.status !== 'skip' && !isAnchor(d); }).length;
   bar.innerHTML =
     card('All', 'Saved places', DATA.length, '') +
     card('Interested', '♥ Interested', interested, 'var(--pink)') +
+    card('Considering', '🤔 Considering', considering, 'var(--amber)') +
     card('AssignedAny', '📅 On days', onDays, 'var(--accent)') +
     card('Booked', '✓ Booked', booked, 'var(--green)') +
     (hidden ? card('Hidden', 'Hidden', hidden, 'var(--muted)') : '');
@@ -1051,6 +1054,7 @@ function libStatusChange(val){
   else if (val === 'Booked') activeFilters.action = 'booked';
   else if (val === 'Hidden') activeFilters.action = 'skip';
   else if (val === 'AssignedAny') activeFilters.assign = 'assigned';
+  else if (val === 'Considering') activeFilters.assign = 'considering';
   else if (val === 'Unassigned') activeFilters.assign = 'unassigned';
   renderAll();
 }
@@ -1073,6 +1077,7 @@ function getFiltered() {
     }
     if (activeFilters.assign === 'assigned' && !act.day) return false;
     if (activeFilters.assign === 'unassigned' && act.day) return false;
+    if (activeFilters.assign === 'considering' && !(act.day && !isAnchor(d))) return false;
     if (searchTerm && !JSON.stringify(d).toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   }).sort((a, b) => {
@@ -1263,6 +1268,8 @@ function nearbyPool(){
   let pool = DATA.filter(d => typeof d.lat === 'number' && getAction(d.name).status !== 'skip');
   if (f === 'interested') pool = pool.filter(d => getAction(d.name).status === 'want');
   else if (f === 'assigned') pool = pool.filter(d => getAction(d.name).day);
+  else if (f === 'considering') pool = pool.filter(d => getAction(d.name).day && !isAnchor(d));
+  else if (f === 'anchors') pool = pool.filter(d => getAction(d.name).day && isAnchor(d));
   else if (f.startsWith('cat:')) pool = pool.filter(d => d.category === f.slice(4));
   return pool;
 }
@@ -1274,7 +1281,9 @@ function renderNearby(){
   const cats = [...new Set(DATA.map(d => d.category))].sort();
   fsel.innerHTML = `<option value="all">All saved nearby</option>
     <option value="interested">Only interested</option>
-    <option value="assigned">Assigned to a day</option>` +
+    <option value="considering">🤔 Considering (in a day pool)</option>
+    <option value="anchors">📌 Anchors</option>
+    <option value="assigned">On any day</option>` +
     cats.map(c => `<option value="cat:${esc(c)}">${esc(c)}</option>`).join('');
   fsel.value = [...fsel.options].some(o => o.value === cur) ? cur : 'all';
 
