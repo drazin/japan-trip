@@ -452,8 +452,10 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     .ingest-stat { gap: 12px; }
     .detail-hero { padding: 14px; }
     .detail-hero h2 { font-size: 20px; }
-    .place-mini { padding: 12px; }
-    .place-mini-name { font-size: 14px; }
+    .place-mini { padding: 12px; flex-direction: column; align-items: stretch; gap: 8px; }
+    .place-mini > div:last-child { justify-content: flex-start; flex-wrap: wrap; }
+    .place-mini-name { font-size: 15px; }
+    .rec-top { flex-direction: column; align-items: flex-start; gap: 6px; }
     .place-mini-meta { font-size: 12px; }
     .rec-name { font-size: 14px; }
     .rec-meta, .rec-why { font-size: 12px; }
