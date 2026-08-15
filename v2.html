@@ -1288,6 +1288,17 @@ function renderFilters() {
   const rf = document.getElementById('reset-filters');
   if (rf) rf.style.display = (searchTerm || activeFilters.assign !== 'All' || Object.entries(activeFilters).some(([k,v]) => k !== 'assign' && v !== 'All')) ? 'inline-block' : 'none';
 }
+// Every word must appear somewhere in the place — so "kanazawa market" finds Omicho Market.
+function placeHaystack(d){
+  const a = getAction(d.name);
+  return [d.name, d.city, d.neighborhood, d.category, d.why, d.address, d.source, d.type,
+          d.booking, d.family_fit, d.heat, d.ig_caption, d.ig_collections, a.notes]
+    .filter(Boolean).join(' ').toLowerCase();
+}
+function matchesSearch(d, q){
+  const hay = placeHaystack(d);
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
+}
 function libFilterChange(key, val){ activeFilters[key] = val; if (key === 'city') activeFilters.neighborhood = 'All'; renderAll(); }
 function libStatusChange(val){
   activeFilters.assign = 'All'; activeFilters.action = 'All';
@@ -1319,7 +1330,7 @@ function getFiltered() {
     if (activeFilters.assign === 'assigned' && !act.day) return false;
     if (activeFilters.assign === 'unassigned' && act.day) return false;
     if (activeFilters.assign === 'considering' && !(act.day && !isAnchor(d))) return false;
-    if (searchTerm && !JSON.stringify(d).toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm && !matchesSearch(d, searchTerm)) return false;
     return true;
   }).sort((a, b) => {
     let av, bv;
@@ -2531,8 +2542,7 @@ function renderDayRecsList(dy){
   let pool = DATA.filter(d => { const a = getAction(d.name); return a.day !== dy.n && a.status !== 'skip'; });
   if (recTab === 'interested') pool = pool.filter(d => getAction(d.name).status === 'want');
   else if (recTab === 'nearby') pool = pool.filter(d => d.city === dy.c && typeof d.lat === 'number');
-  if (q) pool = pool.filter(d =>
-    [d.name, d.city, d.neighborhood, d.category, d.why, d.address, d.source].filter(Boolean).join(' ').toLowerCase().includes(q));
+  if (q) pool = pool.filter(d => matchesSearch(d, q));
   if (recTab === 'nearby') pool.sort((a,b) => (distOf(a) ?? 9999) - (distOf(b) ?? 9999));
   else pool.sort((a,b) => (a.city === dy.c ? 0 : 1) - (b.city === dy.c ? 0 : 1) || b.priority - a.priority);
   const total = pool.length;
