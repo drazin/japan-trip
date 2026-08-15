@@ -856,14 +856,36 @@ function buildActionSheet(){
   ).join('');
   const ctx = [place.category, place.neighborhood, place.city].filter(Boolean).join(' · ');
   const linkStyle = 'font-size:11px;background:rgba(34,211,238,0.12);border:1px solid #22d3ee;color:#22d3ee;border-radius:6px;padding:3px 8px;cursor:pointer;text-decoration:none;display:inline-block';
+  const sm = sourceMeta(place);
+  const igDate = place.ig_saved_date ? new Date(place.ig_saved_date) : null;
+  const igDateStr = igDate && !isNaN(igDate) ? igDate.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : '';
+  const link = place.ig_url || place.url || '';
+  const collections = Array.isArray(place.ig_collections) ? place.ig_collections.filter(Boolean).join(', ') : (place.ig_collections || '');
+  const provenance = sm ? `<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--card2)">
+      <div style="font-size:11px;color:${sm.color};font-weight:800">${sm.icon} Where this came from</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">
+        ${esc(sm.label)}${igDateStr ? ' · saved ' + esc(igDateStr) : ''}${collections ? ' · collection “' + esc(collections) + '”' : ''}
+      </div>
+      ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener" style="font-size:11px;color:${sm.color}">View original ↗</a>` : ''}
+      ${place.ig_caption ? `<div style="font-size:11px;color:#d5dae2;line-height:1.45;margin-top:6px;max-height:96px;overflow-y:auto;white-space:pre-wrap">${esc(place.ig_caption)}</div>` : ''}
+    </div>` : '';
+  const attrs = [
+    place.family_fit ? `<span class="chip">👨‍👩‍👧 Family: ${esc(place.family_fit)}</span>` : '',
+    place.heat ? `<span class="chip">${esc(place.heat)}</span>` : '',
+    place.priority ? `<span class="chip">${'★'.repeat(place.priority)}${'☆'.repeat(Math.max(0,5-place.priority))}</span>` : '',
+    place.type && place.type !== place.category ? `<span class="chip">${esc(place.type)}</span>` : '',
+  ].filter(Boolean).join(' ');
+  const bookingLine = place.booking ? `<div style="font-size:12px;color:var(--amber);margin-top:6px">🎫 ${esc(place.booking)}</div>` : '';
   const placeInfo =
     (ctx ? `<div style="font-size:12px;color:var(--muted);margin-top:-6px">${esc(ctx)}${sourceBadge(place)}</div>` : '') +
-    (place.why ? `<div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(place.why)}</div>` : '') +
+    (place.why ? `<div style="font-size:13px;color:#d5dae2;margin-top:5px;line-height:1.45">${esc(place.why)}</div>` : '') +
+    bookingLine +
+    (attrs ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">${attrs}</div>` : '') +
     (place.address ? `<div style="font-size:12px;color:var(--muted);margin-top:3px">📍 ${esc(place.address)}${place.addressApprox ? ' <span style="font-size:10px;color:#f59e0b">approx</span>' : ''}</div>` : '') +
     (place.name ? `<div style="display:flex;gap:8px;margin:8px 0 10px">
        ${typeof place.lat === 'number' ? `<button onclick="viewOnMap()" style="${linkStyle}">🗺 View on map</button>` : ''}
        <a href="${gmapsUrl(place)}" target="_blank" rel="noopener" style="${linkStyle}">Google Maps ↗</a>
-     </div>` : '');
+     </div>` : '') + provenance;
   ov.innerHTML =
     `<div class="modal-box action-sheet-box">
        <div class="modal-title" style="font-size:16px">${esc(name)}</div>
@@ -1350,11 +1372,17 @@ function placeDetailsLine(a){
 }
 // Sources that get a colored provenance badge + filter chip (others stay unlabeled)
 const SOURCE_CHIPS = [
-  { source: "Brandon's List", label: "Brandon's List", short: 'Brandon', icon: '★', color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
-  { source: 'FarEast', label: 'FarEast', short: 'FarEast', icon: '◆', color: '#22d3ee', bg: 'rgba(34,211,238,0.15)' },
+  { source: 'Instagram',      label: 'Instagram',      short: 'Instagram', icon: '📷', color: '#ff5ba6', bg: 'rgba(255,91,166,0.14)' },
+  { source: "Brandon's List", label: "Brandon's List", short: 'Brandon',   icon: '★',  color: '#f3b84a', bg: 'rgba(243,184,74,0.16)' },
+  { source: 'FarEast',        label: 'FarEast map',    short: 'FarEast',   icon: '◆',  color: '#36d4e7', bg: 'rgba(54,212,231,0.14)' },
+  { source: 'Guide',          label: 'Japan guide',    short: 'Guide',     icon: '📖', color: '#a879ff', bg: 'rgba(168,121,255,0.14)' },
+  { source: 'Must-See',       label: 'Must-see list',  short: 'Must-see',  icon: '⭐', color: '#35d07f', bg: 'rgba(53,208,127,0.13)' },
+  { source: 'Itinerary',      label: 'Booked itinerary', short: 'Itinerary', icon: '📋', color: '#5ea2ff', bg: 'rgba(94,162,255,0.14)' },
+  { source: 'Manual',         label: 'Added by hand',  short: 'Manual',    icon: '✎',  color: '#98a2b0', bg: 'rgba(152,162,176,0.12)' },
 ];
+function sourceMeta(d){ return d && SOURCE_CHIPS.find(s => s.source === d.source); }
 function sourceBadge(d){
-  const s = d && SOURCE_CHIPS.find(s => s.source === d.source);
+  const s = sourceMeta(d);
   if (!s) return '';
   return ` <span title="From ${s.label}" style="font-size:10px;background:${s.bg};color:${s.color};border:1px solid ${s.color};border-radius:6px;padding:1px 6px;white-space:nowrap;vertical-align:1px">${s.icon} ${s.short}</span>`;
 }
@@ -1576,7 +1604,7 @@ function renderNearbyList(){
     const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
     return `<div class="nearby-card" onclick="focusNearby(${jn})">
       <div class="nearby-top">
-        <div style="min-width:0"><div class="library-name" style="font-size:13px">${esc(d.name)}</div>
+        <div style="min-width:0"><div class="library-name" style="font-size:13px">${esc(d.name)}${sourceBadge(d)}</div>
         <div class="library-meta">${esc([d.category, d.neighborhood].filter(Boolean).join(' · '))}</div></div>
         ${km != null ? `<div class="distance">${km < 10 ? km.toFixed(1) : Math.round(km)} km</div>` : ''}
       </div>
@@ -2420,7 +2448,7 @@ function renderDays(){
     const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
     return `<div class="place-mini">
       <div style="min-width:0">
-        <div class="place-mini-name">${kind === 'anchor' ? '📌 ' : ''}${esc(d.name)}</div>
+        <div class="place-mini-name">${kind === 'anchor' ? '📌 ' : ''}${esc(d.name)}${sourceBadge(d)}</div>
         <div class="place-mini-meta">${esc(meta)}${time}</div>
       </div>
       <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">${statusChipV2(a)}<button class="icon-btn" onclick="openSheetFor(${jn})">•••</button></div>
@@ -2518,7 +2546,7 @@ function renderDayRecsList(dy){
     const meta = [d.city !== dy.c ? d.city : null, d.neighborhood, d.category].filter(Boolean).join(' · ');
     return `<div class="rec-card">
       <div class="rec-top">
-        <div style="min-width:0"><div class="rec-name">${esc(d.name)}</div><div class="rec-meta">${esc(meta)}${km != null && d.city === dy.c ? ' · ' + km.toFixed(1) + ' km from hotel' : ''}</div></div>
+        <div style="min-width:0"><div class="rec-name">${esc(d.name)}${sourceBadge(d)}</div><div class="rec-meta">${esc(meta)}${km != null && d.city === dy.c ? ' · ' + km.toFixed(1) + ' km from hotel' : ''}</div></div>
         ${statusChipV2(a)}
       </div>
       ${d.why ? `<div class="rec-why">${esc(d.why)}</div>` : ''}
