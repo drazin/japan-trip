@@ -516,6 +516,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:10px;background:var(--card2);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
     <button id="capture-btn" class="btn pink" style="border-color:rgba(255,91,166,.35);color:var(--pink);background:rgba(255,91,166,.06)">📥<span class="btn-label"> IG Import</span> <span id="pending-count"></span></button>
     <button id="add-place-tab" class="btn primary" style="background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:800">＋<span class="btn-label"> Add Place</span></button>
+    <button id="fx-btn" class="btn" onclick="openFx()" title="Yen ↔ USD converter" style="font-weight:800">¥$</button>
     <div style="position:relative">
       <button id="more-menu-btn" class="btn ghost" onclick="toggleMoreMenu(event)" style="background:transparent;color:var(--muted)">•••</button>
       <div id="more-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:6px;flex-direction:column">
@@ -544,6 +545,30 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   <button class="mnav" data-view="table" onclick="setView('table', true)"><strong>★</strong>Saved</button>
   <button class="mnav" data-view="map" onclick="setView('map', true)"><strong>◎</strong>Nearby</button>
   <button class="mnav" data-view="itinerary" onclick="setView('itinerary', true)"><strong>☷</strong>Itinerary</button>
+</div>
+
+<div id="fx-modal" class="modal-overlay">
+  <div class="modal-box" style="width:min(460px,94vw)">
+    <div class="modal-title">¥ ⇄ $ &nbsp;<span style="font-size:12px;font-weight:400;color:var(--muted)" id="fx-rate-line"></span></div>
+    <div style="display:flex;gap:10px;align-items:flex-end">
+      <div style="flex:1"><div class="field-label">Japanese yen</div>
+        <input type="text" inputmode="decimal" id="fx-yen" class="search-input" style="width:100%;font-size:22px;font-weight:700;padding:12px" placeholder="0" oninput="fxCalc('yen')"></div>
+      <div style="padding-bottom:14px;color:var(--muted)">⇄</div>
+      <div style="flex:1"><div class="field-label">US dollars</div>
+        <input type="text" inputmode="decimal" id="fx-usd" class="search-input" style="width:100%;font-size:22px;font-weight:700;padding:12px" placeholder="0" oninput="fxCalc('usd')"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px" id="fx-quick"></div>
+    <div class="field-label" style="margin-top:16px">Quick reference</div>
+    <div id="fx-table" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:150px">
+        <div class="field-label">Rate — yen per $1</div>
+        <input type="text" inputmode="decimal" id="fx-rate" class="search-input" style="width:100%" oninput="fxSetRate(this.value)">
+      </div>
+      <button class="btn" onclick="fxRefresh()" id="fx-refresh" style="align-self:flex-end">↻ Live rate</button>
+      <button class="btn primary" onclick="closeFx()" style="align-self:flex-end">Done</button>
+    </div>
+  </div>
 </div>
 
 <div id="add-place-form" class="modal-overlay">
@@ -941,6 +966,77 @@ function importActions(e) {
   };
   reader.readAsText(file);
 }
+// --- Yen ⇄ USD converter ------------------------------------------------
+const FX_KEY = 'fx-jpy-per-usd';
+const FX_STAMP_KEY = 'fx-updated';
+let fxRate = Number(localStorage.getItem(FX_KEY)) || 159;   // seeded from the trip's planning rate
+const fmtUsd = n => '$' + (n >= 100 ? Math.round(n).toLocaleString() : n.toFixed(2));
+const fmtYen = n => '¥' + Math.round(n).toLocaleString();
+function openFx(){
+  document.getElementById('fx-rate').value = String(fxRate);
+  renderFx();
+  document.getElementById('fx-modal').classList.add('open');
+  const y = document.getElementById('fx-yen'); y.focus(); y.select();
+}
+function closeFx(){ document.getElementById('fx-modal').classList.remove('open'); }
+function fxSetRate(v){
+  const n = parseFloat(String(v).replace(/[^0-9.]/g,''));
+  if (!n || n <= 0) return;
+  fxRate = n;
+  try { localStorage.setItem(FX_KEY, String(n)); } catch(e){}
+  renderFx();
+  const yen = parseFloat((document.getElementById('fx-yen').value || '').replace(/[^0-9.]/g,''));
+  if (yen) fxCalc('yen');
+}
+function fxCalc(from){
+  const yEl = document.getElementById('fx-yen'), uEl = document.getElementById('fx-usd');
+  if (from === 'yen') {
+    const y = parseFloat((yEl.value || '').replace(/[^0-9.]/g,''));
+    uEl.value = isFinite(y) && y ? (y / fxRate).toFixed(2) : '';
+  } else {
+    const u = parseFloat((uEl.value || '').replace(/[^0-9.]/g,''));
+    yEl.value = isFinite(u) && u ? String(Math.round(u * fxRate)) : '';
+  }
+}
+function fxQuick(yen){
+  document.getElementById('fx-yen').value = String(yen);
+  fxCalc('yen');
+}
+function renderFx(){
+  const stamp = localStorage.getItem(FX_STAMP_KEY);
+  document.getElementById('fx-rate-line').textContent = `¥${fxRate} = $1${stamp ? ' · updated ' + stamp : ' · planning rate'}`;
+  document.getElementById('fx-quick').innerHTML = [500,1000,3000,5000,10000].map(y =>
+    `<button class="mini" onclick="fxQuick(${y})">${fmtYen(y)}</button>`).join('');
+  // Denominations you actually hand over, plus the dollar amounts you think in
+  const rows = [100,500,1000,2000,3000,5000,10000,20000].map(y =>
+    `<div style="display:flex;justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px">
+      <span>${fmtYen(y)}</span><b style="color:var(--green)">${fmtUsd(y / fxRate)}</b></div>`);
+  const back = [10,20,50,100].map(u =>
+    `<div style="display:flex;justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px">
+      <span>$${u}</span><b style="color:var(--cyan)">${fmtYen(u * fxRate)}</b></div>`);
+  document.getElementById('fx-table').innerHTML = rows.join('') + back.join('');
+}
+async function fxRefresh(){
+  const btn = document.getElementById('fx-refresh');
+  btn.textContent = '↻ …';
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=JPY');
+    const j = await r.json();
+    const rate = j && j.rates && j.rates.JPY;
+    if (!rate) throw new Error('no rate');
+    fxRate = Math.round(rate * 100) / 100;
+    document.getElementById('fx-rate').value = String(fxRate);
+    try {
+      localStorage.setItem(FX_KEY, String(fxRate));
+      localStorage.setItem(FX_STAMP_KEY, (j.date || new Date().toISOString().slice(0,10)));
+    } catch(e){}
+    renderFx();
+  } catch(e) {
+    alert('Could not fetch a live rate (offline?). The saved rate still works — you can edit it by hand.');
+  }
+  btn.textContent = '↻ Live rate';
+}
+
 // Open the Add Place modal; optional dayN preselects the day pool.
 function openAddPlace(dayN){
   const sel = document.getElementById('ap-city');
@@ -2911,6 +3007,9 @@ function setupListeners() {
   });
   document.getElementById('add-place-form').addEventListener('click', e => {
     if (e.target.id === 'add-place-form') e.currentTarget.classList.remove('open');
+  });
+  document.getElementById('fx-modal').addEventListener('click', e => {
+    if (e.target.id === 'fx-modal') closeFx();
   });
   document.getElementById('ap-submit').addEventListener('click', async () => {
     const name = document.getElementById('ap-name').value.trim();
