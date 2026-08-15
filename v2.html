@@ -854,6 +854,18 @@ function buildActionSheet(){
   const days = DAYS.map(dy =>
     `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:5px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer;line-height:1.2">${dy.n}<br><span style="font-size:9px;opacity:0.7">${esc((dy.d||'').split(' ').pop())}</span></button>`
   ).join('');
+  // Once a day is chosen, offer the time-of-day slots (drag-free, works on phones)
+  const curBlock = effectiveBlock(a);
+  const blockRow = a.day ? `
+       <div class="field-label" style="margin-top:14px">Time of day on Day ${a.day}${dayDate(a.day) ? ' · ' + esc(dayDate(a.day)) : ''}</div>
+       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
+         ${DAY_BLOCKS.map(([k, label]) => {
+           const on = curBlock === k;
+           const [icon, ...rest] = label.split(' ');
+           return `<button onclick="asBlock('${k}')" style="padding:9px 3px;border-radius:9px;border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};background:${on ? 'rgba(94,162,255,0.18)' : 'transparent'};color:${on ? 'var(--accent)' : 'var(--text)'};font-size:15px;line-height:1.25;cursor:pointer">${icon}<br><span style="font-size:10px">${rest.join(' ')}</span></button>`;
+         }).join('')}
+       </div>
+       <div style="font-size:11px;color:var(--muted);margin-top:4px">A time slot makes it an anchor for the day; 🤔 Considering keeps it as an option.</div>` : '';
   const ctx = [place.category, place.neighborhood, place.city].filter(Boolean).join(' · ');
   const linkStyle = 'font-size:11px;background:rgba(34,211,238,0.12);border:1px solid #22d3ee;color:#22d3ee;border-radius:6px;padding:3px 8px;cursor:pointer;text-decoration:none;display:inline-block';
   const sm = sourceMeta(place);
@@ -894,6 +906,7 @@ function buildActionSheet(){
        <div style="font-size:11px;color:var(--muted);margin-top:6px">✅ <b>Booked</b> = reservation confirmed · 📌 <b>Planned</b> = on the itinerary, nothing to book. Set a day & time below for any of these.</div>
        <div class="field-label" style="margin-top:14px">Assign to day</div>
        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">${days}</div>
+       ${blockRow}
        <div class="field-label" style="margin-top:14px">Reservation / arrival time</div>
        <input type="time" id="as-time" class="search-input" style="width:100%" value="${parseTimeTo24(a.time)}">
        ${a.time && !parseTimeTo24(a.time) ? '<div style="font-size:10px;color:#f59e0b;margin-top:2px">Current note: "' + esc(a.time) + '" — picking a time replaces it</div>' : ''}
@@ -945,6 +958,16 @@ async function asLookup(){
       saveActions(); buildActionSheet();
     } else { alert(data.message || 'Lookup failed.'); if (btn){ btn.disabled=false; btn.textContent='✨ Look up details'; } }
   } catch(e){ alert('Lookup failed — server error.'); if (btn){ btn.disabled=false; btn.textContent='✨ Look up details'; } }
+}
+function asBlock(k){
+  const inp = asReadInputs();
+  const cur = getAction(sheetName);
+  // Committing to a time slot means it's planned; Considering leaves the decision open.
+  const status = (cur.status === 'none' && k !== 'unscheduled') ? 'assigned' : cur.status;
+  itemActions[sheetName] = { ...cur, status, block: k, notes: inp.notes, reserveDate: inp.reserveDate, time: inp.time,
+                             hours: inp.hours, cost: inp.cost, lead: inp.lead };
+  saveActions();
+  buildActionSheet();   // keep the sheet open so you can keep adjusting
 }
 function asStatus(k){
   const inp=asReadInputs(); asPersistInfo(inp, false); const a=getAction(sheetName);
