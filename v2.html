@@ -2452,22 +2452,41 @@ function renderDays(){
     `<div class="loose-layout">
       <div>${buckets}${advanced}</div>
       <div class="panel rec-panel">
-        <div class="side-title">Saved ideas that fit this day</div>
-        <div class="side-sub">Not a to-do list — just good candidates for ${esc(dy.c || 'this day')}.</div>
+        <div class="side-title">Add places to this day</div>
+        <div class="side-sub">Search everything you've saved, then drop it into Considering or mark it Booked.</div>
+        <input type="text" id="rec-search" class="search-input" style="width:100%;margin-top:9px" placeholder="Search all ${DATA.length} saved places…"
+               value="${esc(recSearch)}" oninput="recSearchChange(this.value)">
         <div class="rec-tabs">
-          ${['nearby','interested','all'].map(t => `<button class="rec-tab ${recTab === t ? 'active' : ''}" onclick="setRecTab('${t}')">${t === 'nearby' ? 'Nearby' : t === 'interested' ? 'Interested' : 'All saved'}</button>`).join('')}
+          ${[['all','All saved'],['interested','Interested'],['nearby','Near this day']].map(([t,label]) =>
+            `<button class="rec-tab ${recTab === t ? 'active' : ''}" data-tab="${t}" onclick="setRecTab('${t}')">${label}</button>`).join('')}
         </div>
-        <div>${renderDayRecs(dy)}</div>
+        <div id="day-recs">${renderDayRecsList(dy)}</div>
       </div>
     </div>`;
 }
 
 // --- v2 day-detail helpers ---
 let advancedDayOpen = false;
-let recTab = 'nearby';
+let recTab = 'all';          // searching everything is the default way to fill a day
+let recSearch = '';
 function toggleAdvancedDay(){ advancedDayOpen = !advancedDayOpen; renderDays(); }
-function setRecTab(t){ recTab = t; renderDays(); }
+// Update only the results list so the search box keeps focus while typing.
+function refreshRecs(){
+  const dy = DAYS.find(d => d.n === selectedDay);
+  const el = document.getElementById('day-recs');
+  if (dy && el) el.innerHTML = renderDayRecsList(dy);
+}
+function recSearchChange(v){ recSearch = v; refreshRecs(); }
+function setRecTab(t){
+  recTab = t;
+  document.querySelectorAll('.rec-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  refreshRecs();
+}
 function addConsidering(name){ addToDayBlock(name, 'unscheduled'); }
+function addBooked(name){
+  const a = getAction(name);
+  setAction(name, 'booked', selectedDay, a.notes, a.reserveDate, a.time);
+}
 function openDayOnMap(n){
   const hotel = hotelForDay(n);
   setView('map', true);
@@ -2477,28 +2496,35 @@ function openDayOnMap(n){
     if (map) map.setView([hotel.lat, hotel.lng], 14, { animate: false });
   }, 350);
 }
-function renderDayRecs(dy){
+function renderDayRecsList(dy){
   const hotel = hotelForDay(dy.n);
   const distOf = d => (hotel && typeof d.lat === 'number') ? haversine(hotel.lat, hotel.lng, d.lat, d.lng) : null;
+  const q = recSearch.trim().toLowerCase();
   let pool = DATA.filter(d => { const a = getAction(d.name); return a.day !== dy.n && a.status !== 'skip'; });
   if (recTab === 'interested') pool = pool.filter(d => getAction(d.name).status === 'want');
-  else pool = pool.filter(d => d.city === dy.c);
-  if (recTab === 'nearby') pool = pool.filter(d => typeof d.lat === 'number').sort((a,b) => (distOf(a) ?? 999) - (distOf(b) ?? 999));
-  else pool = pool.sort((a,b) => b.priority - a.priority);
-  pool = pool.slice(0, 12);
-  if (!pool.length) return '<div class="side-sub">Nothing matching. Try another tab or Saved Places.</div>';
-  return pool.map(d => {
+  else if (recTab === 'nearby') pool = pool.filter(d => d.city === dy.c && typeof d.lat === 'number');
+  if (q) pool = pool.filter(d =>
+    [d.name, d.city, d.neighborhood, d.category, d.why, d.address, d.source].filter(Boolean).join(' ').toLowerCase().includes(q));
+  if (recTab === 'nearby') pool.sort((a,b) => (distOf(a) ?? 9999) - (distOf(b) ?? 9999));
+  else pool.sort((a,b) => (a.city === dy.c ? 0 : 1) - (b.city === dy.c ? 0 : 1) || b.priority - a.priority);
+  const total = pool.length;
+  const shown = pool.slice(0, 40);
+  if (!shown.length) return `<div class="side-sub" style="margin-top:8px">No matches${q ? ' for “' + esc(recSearch) + '”' : ''}. Try a different search or tab.</div>`;
+  const header = `<div class="side-sub" style="margin:8px 0 4px">${total} match${total === 1 ? '' : 'es'}${total > 40 ? ' — showing first 40, keep typing to narrow' : ''}</div>`;
+  return header + shown.map(d => {
     const a = getAction(d.name);
     const km = distOf(d);
     const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
+    const meta = [d.city !== dy.c ? d.city : null, d.neighborhood, d.category].filter(Boolean).join(' · ');
     return `<div class="rec-card">
       <div class="rec-top">
-        <div style="min-width:0"><div class="rec-name">${esc(d.name)}</div><div class="rec-meta">${esc([d.neighborhood, d.category].filter(Boolean).join(' · '))}${km != null ? ' · ' + km.toFixed(1) + ' km from hotel' : ''}</div></div>
+        <div style="min-width:0"><div class="rec-name">${esc(d.name)}</div><div class="rec-meta">${esc(meta)}${km != null && d.city === dy.c ? ' · ' + km.toFixed(1) + ' km from hotel' : ''}</div></div>
         ${statusChipV2(a)}
       </div>
       ${d.why ? `<div class="rec-why">${esc(d.why)}</div>` : ''}
       <div class="rec-actions">
-        <button class="mini add" onclick="addConsidering(${jn})">+ Considering</button>
+        <button class="mini add" onclick="addConsidering(${jn})">＋ Considering</button>
+        <button class="mini" style="color:var(--green);border-color:rgba(53,208,127,.3)" onclick="addBooked(${jn})">✅ Booked</button>
         <button class="mini" onclick="openSheetFor(${jn})">Details</button>
       </div>
     </div>`;
