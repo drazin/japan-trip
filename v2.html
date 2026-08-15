@@ -1018,21 +1018,21 @@ function renderFx(){
 }
 async function fxRefresh(){
   const btn = document.getElementById('fx-refresh');
+  const line = document.getElementById('fx-rate-line');
   btn.textContent = '↻ …';
   try {
-    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=JPY');
-    const j = await r.json();
-    const rate = j && j.rates && j.rates.JPY;
-    if (!rate) throw new Error('no rate');
-    fxRate = Math.round(rate * 100) / 100;
+    const j = await (await fetch('/api/fx')).json();
+    if (!j.ok || !j.rate) throw new Error(j.message || 'no rate');
+    fxRate = j.rate;
     document.getElementById('fx-rate').value = String(fxRate);
     try {
       localStorage.setItem(FX_KEY, String(fxRate));
-      localStorage.setItem(FX_STAMP_KEY, (j.date || new Date().toISOString().slice(0,10)));
+      localStorage.setItem(FX_STAMP_KEY, j.date || new Date().toISOString().slice(0,10));
     } catch(e){}
     renderFx();
   } catch(e) {
-    alert('Could not fetch a live rate (offline?). The saved rate still works — you can edit it by hand.');
+    // Never block with a dialog — the saved rate still works offline.
+    line.innerHTML = line.textContent + ' <span style="color:var(--amber)">· live rate unavailable</span>';
   }
   btn.textContent = '↻ Live rate';
 }

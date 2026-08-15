@@ -12,6 +12,26 @@ app.use(express.static(__dirname));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// FX rate proxy: keeps the browser off a third-party origin (CORS/offline safe) and caches.
+let fxCache = { rate: null, date: null, at: 0 };
+app.get('/api/fx', async (req, res) => {
+  if (fxCache.rate && Date.now() - fxCache.at < 6 * 3600 * 1000) {
+    return res.json({ ok: true, rate: fxCache.rate, date: fxCache.date, cached: true });
+  }
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=JPY');
+    if (!r.ok) throw new Error('upstream ' + r.status);
+    const j = await r.json();
+    const rate = j && j.rates && j.rates.JPY;
+    if (!rate) throw new Error('no rate in response');
+    fxCache = { rate: Math.round(rate * 100) / 100, date: j.date || null, at: Date.now() };
+    res.json({ ok: true, rate: fxCache.rate, date: fxCache.date });
+  } catch (err) {
+    console.error('fx failed', err.message);
+    res.json({ ok: false, message: 'Rate unavailable' });
+  }
+});
+
 // v2 UI preview — same APIs and same live data as `/`, different front end.
 app.get('/v2', (req, res) => res.sendFile(path.join(__dirname, 'v2.html')));
 
