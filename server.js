@@ -32,8 +32,9 @@ app.get('/api/fx', async (req, res) => {
   }
 });
 
-// v2 UI preview — same APIs and same live data as `/`, different front end.
-app.get('/v2', (req, res) => res.sendFile(path.join(__dirname, 'v2.html')));
+// `/` serves v2 (the current app). v1 stays available at /v1; /v2 keeps working for old links.
+app.get('/v1', (req, res) => res.sendFile(path.join(__dirname, 'v1.html')));
+app.get('/v2', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 // --- Storage: Postgres in production (survives redeploys), JSON file for local dev ---
 

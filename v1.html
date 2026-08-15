@@ -11,101 +11,12 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 </script>
 <style>
   :root {
-    /* v2 design tokens (from japan_trip_ux_vision_v2) */
-    --bg: #0b0d12; --card: #12161e; --card2: #171c25; --card3: #1d2430; --border: #2a3240;
-    --text: #f3f4f6; --muted: #98a2b0;
-    --accent: #5ea2ff; --accent2: #2f7df4; --green: #35d07f; --amber: #f3b84a; --red: #ff6b6b;
-    --cyan: #36d4e7; --pink: #ff5ba6; --purple: #a879ff; --orange: #fb923c;
-    --shadow: 0 14px 38px rgba(0,0,0,.27);
+    --bg: #0f1117; --card: #1a1d27; --border: #2a2d3a; --text: #e4e4e7; --muted: #9ca3af;
+    --accent: #3b82f6; --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
+    --cyan: #06b6d4; --pink: #ec4899; --purple: #a855f7; --orange: #fb923c;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 15px; }
-  /* v2 shared components */
-  .topbar { position: sticky; top: 0; z-index: 30; background: rgba(11,13,18,.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
-  .eyebrow { font-size: 10px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; color: var(--accent); }
-  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); }
-  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px; background: #10141b; color: var(--muted); font-size: 10px; }
-  .chip.blue { color: var(--accent); border-color: rgba(94,162,255,.3); background: rgba(94,162,255,.06); }
-  .chip.green { color: var(--green); border-color: rgba(53,208,127,.28); background: rgba(53,208,127,.05); }
-  .chip.pink { color: var(--pink); border-color: rgba(255,91,166,.3); background: rgba(255,91,166,.05); }
-  .chip.amber { color: var(--amber); border-color: rgba(243,184,74,.3); background: rgba(243,184,74,.05); }
-  .btn { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: var(--card2); color: var(--text); cursor: pointer; font-size: 13px; }
-  .btn:hover { border-color: #465369; }
-  .btn.primary { background: var(--accent2); border-color: var(--accent2); font-weight: 800; color: #fff; }
-  .btn.ghost { background: transparent; color: var(--muted); }
-  .btn.pink { border-color: rgba(255,91,166,.35); color: var(--pink); background: rgba(255,91,166,.06); }
-  .hide-bar, .stats-bar.hide-bar { display: none !important; }
-  .mm-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font-size: 13px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
-  .mm-item:hover { background: var(--card2); }
-  /* v2 Plan view */
-  .builder-top { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin-bottom: 16px; }
-  .ingest-panel { padding: 17px; background: linear-gradient(135deg,#152037,#12161e 70%); }
-  .ingest-stat { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; }
-  .ingest-stat strong { font-size: 19px; display: block; }
-  .ingest-stat span { font-size: 10px; color: var(--muted); }
-  .days-wrap { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 14px; }
-  .days-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(215px,1fr)); gap: 10px; margin-top: 12px; }
-  .v2-day-card { position: relative; min-height: 172px; background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 12px 12px 40px; transition: .15s; cursor: pointer; }
-  .v2-day-card:hover { transform: translateY(-2px); border-color: #49566b; }
-  .v2-day-card.travel { background: linear-gradient(180deg,#17202d,#12161e); }
-  .day-n { font-size: 10px; font-weight: 850; color: var(--muted); letter-spacing: .08em; }
-  .day-date2 { font-size: 12px; font-weight: 800; margin-top: 2px; }
-  .day-city2 { font-size: 11px; font-weight: 850; color: var(--cyan); letter-spacing: .05em; margin-top: 8px; text-transform: uppercase; }
-  .day-theme2 { font-size: 13px; font-weight: 800; margin-top: 2px; line-height: 1.3; }
-  .day-items2 { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
-  .day-item2 { font-size: 11px; color: #d8dde5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; }
-  .day-foot { position: absolute; left: 12px; right: 12px; bottom: 11px; display: flex; justify-content: space-between; align-items: center; }
-  .side-stack { display: flex; flex-direction: column; gap: 11px; }
-  .side-title { font-size: 13px; font-weight: 850; }
-  .side-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
-  .area-list { display: flex; flex-direction: column; gap: 7px; margin-top: 11px; }
-  .area-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px; border-radius: 10px; background: var(--card2); border: 1px solid var(--border); font-size: 11px; }
-  .area-row button { border: 0; background: transparent; color: var(--accent); font-size: 10px; cursor: pointer; }
-  .detail-hero { display: flex; justify-content: space-between; gap: 16px; padding: 18px; margin-bottom: 12px; background: linear-gradient(135deg,#16243b,#111720 70%); border: 1px solid #2c3f5e; border-radius: 17px; flex-wrap: wrap; }
-  .detail-hero h2 { font-size: 24px; margin: 4px 0 2px; }
-  .hero-meta { font-size: 11px; color: var(--muted); margin-top: 9px; display: flex; gap: 10px; flex-wrap: wrap; }
-  .loose-layout { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(300px,.9fr); gap: 12px; }
-  .bucket { padding: 14px; border-bottom: 1px solid var(--border); }
-  .bucket:last-child { border-bottom: 0; }
-  .bucket-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 9px; }
-  .bucket-title { font-size: 12px; font-weight: 850; letter-spacing: .07em; }
-  .place-mini { display: flex; justify-content: space-between; gap: 10px; background: var(--card2); border: 1px solid var(--border); border-radius: 11px; padding: 10px; margin: 7px 0; }
-  .place-mini-name { font-size: 12px; font-weight: 800; }
-  .place-mini-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
-  .icon-btn { border: 1px solid var(--border); background: #10141a; border-radius: 8px; color: var(--muted); padding: 5px 7px; font-size: 10px; cursor: pointer; }
-  .rec-panel { padding: 14px; }
-  .rec-tabs { display: flex; gap: 6px; margin: 10px 0; }
-  .rec-tab { border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); padding: 6px 9px; font-size: 10px; cursor: pointer; }
-  .rec-tab.active { color: var(--accent); border-color: var(--accent); background: rgba(94,162,255,.06); }
-  .rec-card { border: 1px solid var(--border); border-radius: 11px; background: var(--card2); padding: 10px; margin: 8px 0; }
-  .rec-top { display: flex; justify-content: space-between; gap: 8px; }
-  .rec-name { font-size: 12px; font-weight: 800; }
-  .rec-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
-  .rec-why { font-size: 11px; color: #d5dae2; line-height: 1.4; margin-top: 7px; }
-  .rec-actions { display: flex; gap: 6px; margin-top: 8px; }
-  .mini { border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; background: #10141a; color: var(--muted); font-size: 10px; cursor: pointer; }
-  .mini.add { color: var(--accent); border-color: rgba(94,162,255,.3); }
-  @media (max-width: 1080px) { .builder-top, .days-wrap, .loose-layout { grid-template-columns: 1fr; } }
-  /* v2 Saved Places library */
-  .select-v2 { padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--card2); color: var(--text); font-size: 13px; max-width: 160px; }
-  .library { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
-  .library-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 11px; border: 1px solid var(--border); background: var(--card); border-radius: 12px; padding: 12px; }
-  .library-name { font-size: 15px; font-weight: 800; cursor: pointer; }
-  .library-name:hover { color: var(--accent); }
-  .library-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
-  .library-desc { font-size: 11px; color: #d5dae2; line-height: 1.4; margin-top: 6px; }
-  .lib-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-  .control-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .view-pad { padding: 16px 40px 30px; }
-  .lib-chips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
-  .lib-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
-  .nearby-actions { display: flex; gap: 5px; margin-top: 7px; align-items: center; flex-wrap: wrap; }
-  .nearby-modes { display: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .nearby-modes .nm { border: 0; background: transparent; color: var(--muted); padding: 10px 14px; font-size: 13px; font-weight: 700; cursor: pointer; }
-  .nearby-modes .nm.active { background: rgba(94,162,255,.14); color: var(--accent); }
-  .mini.heart { color: var(--pink); border-color: rgba(255,91,166,.3); }
-  .mini.heart.on { background: rgba(255,91,166,.14); font-weight: 800; }
-  @media (max-width: 900px) { .library { grid-template-columns: 1fr; } }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 15px; }
   .header { padding: 28px 40px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
   .header h1 { font-size: 28px; font-weight: 700; }
   .header .subtitle { color: var(--muted); font-size: 15px; }
@@ -232,25 +143,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 
   /* Map */
   .map-view { display: none; }
-  #map { height: 700px; border-radius: 14px; border: 1px solid var(--border); }
-  .nearby-layout { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 12px; padding: 12px 40px 30px; }
-  .nearby-side { padding: 13px; max-height: 700px; overflow-y: auto; }
-  .area-switch { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
-  .area-chip { border: 1px solid var(--border); background: transparent; border-radius: 999px; color: var(--muted); padding: 6px 9px; font-size: 10px; cursor: pointer; }
-  .area-chip.active { border-color: var(--accent); color: var(--accent); background: rgba(94,162,255,.06); }
-  .nearby-list { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
-  .nearby-card { border: 1px solid var(--border); border-radius: 11px; background: var(--card2); padding: 10px; cursor: pointer; }
-  .nearby-card:hover { border-color: #49566b; }
-  .nearby-top { display: flex; justify-content: space-between; gap: 8px; }
-  .distance { font-size: 11px; color: var(--cyan); font-weight: 800; white-space: nowrap; }
-  @media (max-width: 900px) {
-    .nearby-layout { grid-template-columns: 1fr; padding: 10px 12px 90px; }
-    .nearby-head { padding: 12px 12px 0 !important; }
-    #map { height: 52vh; }
-    .nearby-side { max-height: none; order: 2; }
-    .nearby-card { padding: 13px; }
-    .nearby-card .library-name { font-size: 14px; }
-  }
+  #map { height: 700px; border-radius: 14px; border: 1px solid var(--border); margin-top: 16px; }
   .leaflet-popup-content-wrapper { background: var(--card) !important; color: var(--text) !important; border: 1px solid var(--border) !important; border-radius: 10px !important; }
   .leaflet-popup-tip { background: var(--card) !important; }
   .leaflet-popup-content { font-size: 14px !important; line-height: 1.5 !important; }
@@ -361,114 +254,10 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     .header-actions button { padding: 6px 12px; font-size: 13px; }
     .stats-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 10px; padding-bottom: 10px; }
     .stat { min-width: 0; padding: 10px 12px; }
-    /* ---- v2 mobile-first pass ---- */
-    /* Header scrolls away on phones (bottom nav handles navigation) and shrinks hard */
-    .topbar { position: static; }
-    .header { padding: 10px 12px 8px; gap: 8px; align-items: center; }
-    .header h1 { font-size: 17px !important; }
-    .header .subtitle { display: none; }
-    .logo { width: 30px !important; height: 30px !important; border-radius: 9px !important; font-size: 12px; }
-    .header-actions { gap: 6px; flex: 1; justify-content: flex-end; flex-wrap: nowrap; }
-    .header-actions .btn { padding: 9px 11px; font-size: 14px; min-height: 40px; }
-    .btn-label { display: none; }
-    #trip-switcher { display: none; }
-    #trip-switcher.in-menu { display: block; width: 100%; max-width: none; margin-bottom: 4px; min-height: 40px; }
-
-    /* Stats: one horizontally scrollable row instead of a 200px grid */
-    .stats-bar { display: flex !important; flex-wrap: nowrap !important; overflow-x: auto; gap: 6px !important; padding: 8px 12px !important; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-    .stats-bar::-webkit-scrollbar { display: none; }
-    .stat { flex: 0 0 auto; min-width: 88px; padding: 6px 10px !important; }
-    .stat .label { font-size: 10px; }
-    .stat .value { font-size: 16px; line-height: 1.3; }
-
-    /* Filters: search full width, controls scroll horizontally */
-    .controls { padding: 8px 12px !important; gap: 6px !important; }
-    .controls #search { width: 100%; flex: 1 0 100% !important; min-height: 44px; font-size: 15px; }
-    .control-row { flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; padding-bottom: 2px; }
-    .control-row::-webkit-scrollbar { display: none; }
-    .select-v2 { flex: 0 0 auto; max-width: none; min-height: 40px; font-size: 12px; }
-    #more-filters-btn, #reset-filters { min-height: 40px; }
-
-    /* Saved Places cards: text gets the full width, actions become a row beneath */
-    .view-pad { padding: 12px 12px 90px; }
-    .library { gap: 8px; }
-    .library-card { grid-template-columns: 1fr; gap: 9px; padding: 13px; }
-    .library-name { font-size: 17px; line-height: 1.3; }
-    .library-meta { font-size: 12px; }
-    .library-desc { font-size: 13px; }
-    .lib-side { flex-direction: column; align-items: stretch; width: 100%; gap: 8px; }
-    .lib-chips { justify-content: flex-start; }
-    .lib-actions { justify-content: stretch; gap: 6px; }
-    .lib-actions .mini { flex: 1; text-align: center; }
-    .mini { min-height: 42px; padding: 10px 12px; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
-
-    /* Nearby: map first and big, minimal preamble, chunky list rows */
-    .nearby-head { padding: 10px 12px 0 !important; }
-    .nearby-head .eyebrow, .nearby-head .side-sub { display: none; }
-    .nearby-head > div { align-items: center !important; }
-    .nearby-head div[style*="font-size:24px"] { font-size: 19px !important; }
-    #locate-btn { min-height: 44px; padding: 10px 14px; }
-    .nearby-layout { gap: 8px; padding: 8px 12px 90px; }
-    #map { height: 46vh; min-height: 300px; }
-    .nearby-side { padding: 0; border: 0; background: transparent; box-shadow: none; }
-    .area-switch { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 8px 0; padding-bottom: 2px; }
-    .area-switch::-webkit-scrollbar { display: none; }
-    .area-chip { flex: 0 0 auto; min-height: 38px; font-size: 12px; padding: 8px 12px; }
-    #nearby-filter { min-height: 44px; font-size: 14px; }
-    .nearby-card { padding: 13px; }
-    .nearby-card .library-name { font-size: 16px !important; }
-    .distance { font-size: 14px; }
-    .nearby-actions { gap: 8px; margin-top: 9px; }
-    .nearby-actions .mini.dir { flex: 1; }
-
-    /* Nearby: map/list toggle owns the screen on phones */
-    .nearby-modes { display: flex; }
-    .locate-label { display: none; }
-    #locate-btn { font-size: 16px; }
-    .nearby-layout.list-mode > div:last-child { display: none; }
-    .nearby-layout.list-mode .nearby-side { order: 0; }
-
-    /* Plan: day cards come first; intro copy compresses (counts already live in the stats row) */
-    .builder-top { margin-bottom: 10px; }
-    .builder-top .panel:nth-child(2) { display: none; }
-    .ingest-stat { display: none; }
-    .ingest-panel .side-sub { display: none; }
-    .ingest-panel div[style*="font-size:21px"] { font-size: 17px !important; }
-    .ingest-panel .eyebrow { display: none; }
-
-    /* Plan: full-width day cards, roomier detail */
-    .days-wrap, .days-wrap > .panel, .days-grid, .loose-layout, .builder-top { min-width: 0; }
-    .days-grid { grid-template-columns: 1fr !important; gap: 8px; min-width: 0; }
-    .v2-day-card { min-height: 0; padding: 13px 13px 42px; min-width: 0; overflow: hidden; }
-    .day-items2 { min-width: 0; }
-    .day-date2 { font-size: 14px; }
-    .day-theme2 { font-size: 15px; }
-    .day-item2 { font-size: 13px; }
-    .ingest-panel, .builder-top .panel, .days-wrap > .panel, .rec-panel { padding: 13px !important; }
-    .ingest-stat { gap: 12px; }
-    .detail-hero { padding: 14px; }
-    .detail-hero h2 { font-size: 20px; }
-    .place-mini { padding: 12px; flex-direction: column; align-items: stretch; gap: 8px; }
-    .place-mini > div:last-child { justify-content: flex-start; flex-wrap: wrap; }
-    .place-mini-name { font-size: 15px; }
-    .rec-top { flex-direction: column; align-items: flex-start; gap: 6px; }
-    .place-mini-meta { font-size: 12px; }
-    .rec-name { font-size: 14px; }
-    .rec-meta, .rec-why { font-size: 12px; }
-    .rec-actions .mini { flex: 1; }
-    .icon-btn { min-height: 38px; min-width: 38px; }
-    .day-columns { padding: 10px 12px 90px; }
-
-    /* Itinerary breathing room */
-    .itin { padding: 0 12px 90px; }
-
-    /* Phone: the same top tabs as desktop — one nav pattern everywhere.
-       The header scrolls away and the tabs stay pinned. */
-    .topbar { position: sticky; top: 0; }
-    .topbar.compact .header { display: none; }
-    .tabs { display: flex; padding: 0 6px; gap: 0; }
-    .tab { flex: 1; text-align: center; padding: 13px 4px; font-size: 13px; white-space: nowrap; }
-    .content, .table-view, .day-columns { padding-bottom: 24px; }
+    /* Tabs scroll horizontally instead of overflowing/clipping */
+    .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 4px; padding: 0 12px; flex-wrap: nowrap; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { padding: 12px 14px; font-size: 15px; white-space: nowrap; flex: 0 0 auto; }
     /* Action menu becomes a bottom sheet so it's never off-screen */
     .action-menu { position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; min-width: 0; max-height: 72vh; overflow-y: auto; box-shadow: 0 -8px 40px rgba(0,0,0,0.7); }
     .day-columns { grid-template-columns: 1fr; }
@@ -501,67 +290,30 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 </head>
 <body>
 
-<div class="topbar">
 <div class="header">
-  <div class="brand" style="display:flex;gap:12px;align-items:center">
-    <div class="logo" style="width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#2f7df4,#8ab9ff);display:grid;place-items:center;color:#08111f;font-weight:900;box-shadow:0 10px 25px rgba(47,125,244,.24)">JP</div>
-    <div>
-      <h1 id="trip-title" style="font-size:22px">Trip</h1>
-      <div class="subtitle" style="font-size:12px"><span id="trip-subtitle"></span><span id="item-count"></span> places</div>
-    </div>
+  <div>
+    <h1 id="trip-title">Trip</h1>
+    <div class="subtitle"><span id="trip-subtitle"></span><span id="item-count"></span> places</div>
   </div>
   <div class="header-actions">
-    <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:10px;background:var(--card2);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
-    <button id="capture-btn" class="btn pink" style="border-color:rgba(255,91,166,.35);color:var(--pink);background:rgba(255,91,166,.06)">📥<span class="btn-label"> IG Import</span> <span id="pending-count"></span></button>
-    <button id="add-place-tab" class="btn primary" style="background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:800">＋<span class="btn-label"> Add Place</span></button>
-    <button id="fx-btn" class="btn" onclick="openFx()" title="Yen ↔ USD converter" style="font-weight:800">¥$</button>
-    <div style="position:relative">
-      <button id="more-menu-btn" class="btn ghost" onclick="toggleMoreMenu(event)" style="background:transparent;color:var(--muted)">•••</button>
-      <div id="more-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:6px;flex-direction:column">
-        <button class="mm-item" onclick="closeMoreMenu();setView('calendar', true)">📅 Booking Calendar</button>
-        <button class="mm-item" onclick="closeMoreMenu();exportActions()">⬇ Export Progress</button>
-        <button class="mm-item" onclick="closeMoreMenu();document.getElementById('import-file').click()">⬆ Import Progress</button>
-        <button class="mm-item" style="color:var(--muted)" onclick="location.href='/' + location.search">↩ Switch to v1</button>
-      </div>
-    </div>
+    <select id="trip-switcher" title="Switch trip" style="padding:6px 10px;border-radius:8px;background:var(--card);color:var(--text);border:1px solid var(--border);font-size:13px"></select>
+    <button id="capture-btn" style="color:var(--green)">📥 IG Import <span id="pending-count"></span></button>
+    <button id="add-place-tab" style="color:var(--green)">➕ Add Place</button>
+    <button onclick="exportActions()">Export Progress</button>
+    <button onclick="document.getElementById('import-file').click()">Import Progress</button>
+    <button onclick="location.href='/' + location.search" style="color:#22d3ee;border-color:#22d3ee">← Back to current app</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importActions(event)">
   </div>
 </div>
 
-<div class="tabs">
-  <div class="tab" data-view="days">Plan</div>
-  <div class="tab" data-view="table">Saved Places</div>
-  <div class="tab" data-view="map">Nearby Map</div>
-  <div class="tab" data-view="itinerary">Itinerary</div>
-</div>
-</div>
-
 <div class="stats-bar" id="stats-bar"></div>
 
-
-
-<div id="fx-modal" class="modal-overlay">
-  <div class="modal-box" style="width:min(460px,94vw)">
-    <div class="modal-title">¥ ⇄ $ &nbsp;<span style="font-size:12px;font-weight:400;color:var(--muted)" id="fx-rate-line"></span></div>
-    <div style="display:flex;gap:10px;align-items:flex-end">
-      <div style="flex:1"><div class="field-label">Japanese yen</div>
-        <input type="text" inputmode="decimal" id="fx-yen" class="search-input" style="width:100%;font-size:22px;font-weight:700;padding:12px" placeholder="0" oninput="fxCalc('yen')"></div>
-      <div style="padding-bottom:14px;color:var(--muted)">⇄</div>
-      <div style="flex:1"><div class="field-label">US dollars</div>
-        <input type="text" inputmode="decimal" id="fx-usd" class="search-input" style="width:100%;font-size:22px;font-weight:700;padding:12px" placeholder="0" oninput="fxCalc('usd')"></div>
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px" id="fx-quick"></div>
-    <div class="field-label" style="margin-top:16px">Quick reference</div>
-    <div id="fx-table" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap">
-      <div style="flex:1;min-width:150px">
-        <div class="field-label">Rate — yen per $1</div>
-        <input type="text" inputmode="decimal" id="fx-rate" class="search-input" style="width:100%" oninput="fxSetRate(this.value)">
-      </div>
-      <button class="btn" onclick="fxRefresh()" id="fx-refresh" style="align-self:flex-end">↻ Live rate</button>
-      <button class="btn primary" onclick="closeFx()" style="align-self:flex-end">Done</button>
-    </div>
-  </div>
+<div class="tabs">
+  <div class="tab active" data-view="table">All Places</div>
+  <div class="tab" data-view="map">Map</div>
+  <div class="tab" data-view="days">By Day</div>
+  <div class="tab" data-view="calendar">Booking Calendar</div>
+  <div class="tab" data-view="itinerary">Our Itinerary</div>
 </div>
 
 <div id="add-place-form" class="modal-overlay">
@@ -606,29 +358,17 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   </div>
 </div>
 
-<div class="controls" id="controls" style="flex-wrap:wrap;gap:8px;align-items:center">
-  <input type="text" class="search-input" id="search" placeholder="Search place, area, food, attraction…" style="flex:1;min-width:220px">
-  <div class="control-row">
-  <select id="lib-city" class="select-v2" onchange="libFilterChange('city', this.value)"></select>
-  <select id="hood-filters" class="select-v2" style="max-width:180px"></select>
-  <select id="lib-type" class="select-v2" onchange="libFilterChange('category', this.value)"></select>
-  <select id="lib-status" class="select-v2" onchange="libStatusChange(this.value)">
-    <option value="All">All statuses</option>
-    <option value="Interested">Interested</option>
-    <option value="AssignedAny">On a day</option>
-    <option value="Considering">Considering</option>
-    <option value="Unassigned">Unassigned</option>
-    <option value="Booked">Booked</option>
-    <option value="Hidden">Hidden / skipped</option>
-  </select>
-  <button class="btn ghost" onclick="toggleMoreFilters()" id="more-filters-btn" style="font-size:12px">More filters</button>
-  <button id="reset-filters" onclick="resetFilters()" style="display:none;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;white-space:nowrap">✕ Reset</button>
-  </div>
-  <div id="more-filters" style="display:none;width:100%;padding-top:8px;border-top:1px solid var(--border)">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      <span class="filter-label">Source</span><span id="city-filters"></span>
-    </div>
-  </div>
+<div class="controls" id="controls">
+  <input type="text" class="search-input" id="search" placeholder="Search places...">
+  <div class="filter-label">City</div>
+  <div class="filter-group" id="city-filters"></div>
+  <div class="filter-label">Type</div>
+  <div class="filter-group" id="cat-filters"></div>
+  <div class="filter-label">Area</div>
+  <select id="hood-filters" class="search-input" style="width:auto;min-width:200px;cursor:pointer"></select>
+  <div class="filter-label">Action</div>
+  <div class="filter-group" id="action-filters"></div>
+  <button id="reset-filters" onclick="resetFilters()" style="display:none;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;white-space:nowrap">✕ Reset filters</button>
 </div>
 
 <div class="content">
@@ -651,31 +391,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
       <tbody id="table-body"></tbody>
     </table>
   </div>
-  <div class="map-view" id="map-view">
-    <div style="padding:16px 40px 4px" class="nearby-head">
-      <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap">
-        <div><div class="eyebrow">On-the-go mode</div><div style="font-size:24px;font-weight:850;margin-top:2px">Nearby Map</div>
-        <div class="side-sub">Open this while walking around — everything you saved, near where you are.</div></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div class="nearby-modes" id="nearby-modes">
-            <button class="nm active" data-mode="map" onclick="setNearbyMode('map')">Map</button>
-            <button class="nm" data-mode="list" onclick="setNearbyMode('list')">List</button>
-          </div>
-          <button class="btn primary" id="locate-btn" onclick="useMyLocation()">◎ <span class="locate-label">Use my location</span></button>
-        </div>
-      </div>
-    </div>
-    <div class="nearby-layout">
-      <div class="panel nearby-side">
-        <div class="side-title" id="nearby-title">Nearby places</div>
-        <div class="side-sub" id="nearby-sub">Pick an area or use your location.</div>
-        <div class="area-switch" id="area-switch"></div>
-        <select id="nearby-filter" class="select-v2" style="width:100%;max-width:none" onchange="renderNearby()"></select>
-        <div class="nearby-list" id="nearby-list"></div>
-      </div>
-      <div style="position:relative"><div id="map"></div></div>
-    </div>
-  </div>
+  <div class="map-view" id="map-view"><div id="map"></div></div>
   <div class="day-view" id="day-view"><div class="day-columns" id="day-columns"></div></div>
   <div class="calendar-view" id="calendar-view" style="display:none"><div id="calendar-content"></div></div>
   <div class="itin-view" id="itin-view"><div id="itin-content"></div></div>
@@ -683,15 +399,14 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 
 <script>
 const ACTIONS = {
-  none: { label: 'Saved', icon: '·', cls: 'action-none' },
-  want: { label: 'Interested', icon: '♥', cls: 'action-want' },
-  assigned: { label: 'Planned', icon: '📌', cls: 'action-assigned' },
-  booked: { label: 'Booked', icon: '✅', cls: 'action-booked' },
-  skip: { label: 'Hidden / skip', icon: '✕', cls: 'action-skip' },
-  // Legacy statuses: old saved data still renders, but pickers no longer offer them.
-  flag: { label: 'Discuss / Decide', icon: '🚩', cls: 'action-flag', legacy: true },
-  research: { label: 'Needs Research', icon: '🔍', cls: 'action-research', legacy: true },
-  reserve: { label: 'Make Reservation', icon: '🎫', cls: 'action-reserve', legacy: true },
+  none: { label: 'Set action...', icon: '·', cls: 'action-none' },
+  want: { label: 'We want this!', icon: '💖', cls: 'action-want' },
+  flag: { label: 'Discuss / Decide', icon: '🚩', cls: 'action-flag' },
+  research: { label: 'Needs Research', icon: '🔍', cls: 'action-research' },
+  reserve: { label: 'Make Reservation', icon: '🎫', cls: 'action-reserve' },
+  booked: { label: 'Booked / Confirmed', icon: '✅', cls: 'action-booked' },
+  assigned: { label: 'Planned (no booking)', icon: '📌', cls: 'action-assigned' },
+  skip: { label: 'Skip / Not this trip', icon: '✕', cls: 'action-skip' },
 };
 
 let DAYS = [];  // populated from the active trip (loadActiveTrip)
@@ -733,11 +448,8 @@ async function loadActions() {
       dayPlans = { ...dayPlans, ...(data.dayPlans || {}) };
       localStorage.setItem(DAYPLANS_KEY, JSON.stringify(dayPlans));
 
-      // Union manual items by name across local + server. The server copy wins for
-      // places present in both (it carries fixes like re-geocoded coordinates);
-      // local-only entries are preserved so nothing entered offline is lost.
-      const serverByName = new Map(serverManual.map(m => [m.name.toLowerCase(), m]));
-      const mergedManual = localManual.map(m => serverByName.get(m.name.toLowerCase()) || m);
+      // Union manual items by name across local + server.
+      const mergedManual = localManual.slice();
       const mnames = new Set(mergedManual.map(m => m.name.toLowerCase()));
       serverManual.forEach(item => {
         if (!mnames.has(item.name.toLowerCase())) { mergedManual.push(item); mnames.add(item.name.toLowerCase()); }
@@ -841,56 +553,22 @@ function buildActionSheet(){
     document.body.appendChild(ov);
   }
   const btn = 'text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;gap:8px';
-  const acts = Object.entries(ACTIONS).filter(([k,v])=>k!=='none' && !v.legacy).map(([k,v]) =>
+  const acts = Object.entries(ACTIONS).filter(([k])=>k!=='none').map(([k,v]) =>
     `<button onclick="asStatus('${k}')" style="${btn};${a.status===k?'border-color:var(--green);background:rgba(34,197,94,0.12)':''}">${v.icon} ${v.label}${a.status===k?' ✓':''}</button>`
   ).join('');
   const days = DAYS.map(dy =>
     `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:5px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer;line-height:1.2">${dy.n}<br><span style="font-size:9px;opacity:0.7">${esc((dy.d||'').split(' ').pop())}</span></button>`
   ).join('');
-  // Once a day is chosen, offer the time-of-day slots (drag-free, works on phones)
-  const curBlock = effectiveBlock(a);
-  const blockRow = a.day ? `
-       <div class="field-label" style="margin-top:14px">Time of day on Day ${a.day}${dayDate(a.day) ? ' · ' + esc(dayDate(a.day)) : ''}</div>
-       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">
-         ${DAY_BLOCKS.map(([k, label]) => {
-           const on = curBlock === k;
-           const [icon, ...rest] = label.split(' ');
-           return `<button onclick="asBlock('${k}')" style="padding:9px 3px;border-radius:9px;border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};background:${on ? 'rgba(94,162,255,0.18)' : 'transparent'};color:${on ? 'var(--accent)' : 'var(--text)'};font-size:15px;line-height:1.25;cursor:pointer">${icon}<br><span style="font-size:10px">${rest.join(' ')}</span></button>`;
-         }).join('')}
-       </div>
-       <div style="font-size:11px;color:var(--muted);margin-top:4px">A time slot makes it an anchor for the day; 🤔 Considering keeps it as an option.</div>` : '';
   const ctx = [place.category, place.neighborhood, place.city].filter(Boolean).join(' · ');
   const linkStyle = 'font-size:11px;background:rgba(34,211,238,0.12);border:1px solid #22d3ee;color:#22d3ee;border-radius:6px;padding:3px 8px;cursor:pointer;text-decoration:none;display:inline-block';
-  const sm = sourceMeta(place);
-  const igDate = place.ig_saved_date ? new Date(place.ig_saved_date) : null;
-  const igDateStr = igDate && !isNaN(igDate) ? igDate.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : '';
-  const link = place.ig_url || place.url || '';
-  const collections = Array.isArray(place.ig_collections) ? place.ig_collections.filter(Boolean).join(', ') : (place.ig_collections || '');
-  const provenance = sm ? `<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--card2)">
-      <div style="font-size:11px;color:${sm.color};font-weight:800">${sm.icon} Where this came from</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:3px">
-        ${esc(sm.label)}${igDateStr ? ' · saved ' + esc(igDateStr) : ''}${collections ? ' · collection “' + esc(collections) + '”' : ''}
-      </div>
-      ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener" style="font-size:11px;color:${sm.color}">View original ↗</a>` : ''}
-      ${place.ig_caption ? `<div style="font-size:11px;color:#d5dae2;line-height:1.45;margin-top:6px;max-height:96px;overflow-y:auto;white-space:pre-wrap">${esc(place.ig_caption)}</div>` : ''}
-    </div>` : '';
-  const attrs = [
-    place.family_fit ? `<span class="chip">👨‍👩‍👧 Family: ${esc(place.family_fit)}</span>` : '',
-    place.heat ? `<span class="chip">${esc(place.heat)}</span>` : '',
-    place.priority ? `<span class="chip">${'★'.repeat(place.priority)}${'☆'.repeat(Math.max(0,5-place.priority))}</span>` : '',
-    place.type && place.type !== place.category ? `<span class="chip">${esc(place.type)}</span>` : '',
-  ].filter(Boolean).join(' ');
-  const bookingLine = place.booking ? `<div style="font-size:12px;color:var(--amber);margin-top:6px">🎫 ${esc(place.booking)}</div>` : '';
   const placeInfo =
     (ctx ? `<div style="font-size:12px;color:var(--muted);margin-top:-6px">${esc(ctx)}${sourceBadge(place)}</div>` : '') +
-    (place.why ? `<div style="font-size:13px;color:#d5dae2;margin-top:5px;line-height:1.45">${esc(place.why)}</div>` : '') +
-    bookingLine +
-    (attrs ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">${attrs}</div>` : '') +
+    (place.why ? `<div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(place.why)}</div>` : '') +
     (place.address ? `<div style="font-size:12px;color:var(--muted);margin-top:3px">📍 ${esc(place.address)}${place.addressApprox ? ' <span style="font-size:10px;color:#f59e0b">approx</span>' : ''}</div>` : '') +
     (place.name ? `<div style="display:flex;gap:8px;margin:8px 0 10px">
        ${typeof place.lat === 'number' ? `<button onclick="viewOnMap()" style="${linkStyle}">🗺 View on map</button>` : ''}
        <a href="${gmapsUrl(place)}" target="_blank" rel="noopener" style="${linkStyle}">Google Maps ↗</a>
-     </div>` : '') + provenance;
+     </div>` : '');
   ov.innerHTML =
     `<div class="modal-box action-sheet-box">
        <div class="modal-title" style="font-size:16px">${esc(name)}</div>
@@ -899,7 +577,6 @@ function buildActionSheet(){
        <div style="font-size:11px;color:var(--muted);margin-top:6px">✅ <b>Booked</b> = reservation confirmed · 📌 <b>Planned</b> = on the itinerary, nothing to book. Set a day & time below for any of these.</div>
        <div class="field-label" style="margin-top:14px">Assign to day</div>
        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">${days}</div>
-       ${blockRow}
        <div class="field-label" style="margin-top:14px">Reservation / arrival time</div>
        <input type="time" id="as-time" class="search-input" style="width:100%" value="${parseTimeTo24(a.time)}">
        ${a.time && !parseTimeTo24(a.time) ? '<div style="font-size:10px;color:#f59e0b;margin-top:2px">Current note: "' + esc(a.time) + '" — picking a time replaces it</div>' : ''}
@@ -952,16 +629,6 @@ async function asLookup(){
     } else { alert(data.message || 'Lookup failed.'); if (btn){ btn.disabled=false; btn.textContent='✨ Look up details'; } }
   } catch(e){ alert('Lookup failed — server error.'); if (btn){ btn.disabled=false; btn.textContent='✨ Look up details'; } }
 }
-function asBlock(k){
-  const inp = asReadInputs();
-  const cur = getAction(sheetName);
-  // Committing to a time slot means it's planned; Considering leaves the decision open.
-  const status = (cur.status === 'none' && k !== 'unscheduled') ? 'assigned' : cur.status;
-  itemActions[sheetName] = { ...cur, status, block: k, notes: inp.notes, reserveDate: inp.reserveDate, time: inp.time,
-                             hours: inp.hours, cost: inp.cost, lead: inp.lead };
-  saveActions();
-  buildActionSheet();   // keep the sheet open so you can keep adjusting
-}
 function asStatus(k){
   const inp=asReadInputs(); asPersistInfo(inp, false); const a=getAction(sheetName);
   setAction(sheetName, k, a.day, inp.notes, inp.reserveDate, inp.time);
@@ -1004,99 +671,15 @@ function importActions(e) {
   };
   reader.readAsText(file);
 }
-// --- Yen ⇄ USD converter ------------------------------------------------
-const FX_KEY = 'fx-jpy-per-usd';
-const FX_STAMP_KEY = 'fx-updated';
-let fxRate = Number(localStorage.getItem(FX_KEY)) || 159;   // seeded from the trip's planning rate
-const fmtUsd = n => '$' + (n >= 1000 ? Math.round(n).toLocaleString() : n.toFixed(2));
-const fmtYen = n => '¥' + Math.round(n).toLocaleString();
-function openFx(){
-  document.getElementById('fx-rate').value = String(fxRate);
-  renderFx();
-  document.getElementById('fx-modal').classList.add('open');
-  const y = document.getElementById('fx-yen'); y.focus(); y.select();
-}
-function closeFx(){ document.getElementById('fx-modal').classList.remove('open'); }
-function fxSetRate(v){
-  const n = parseFloat(String(v).replace(/[^0-9.]/g,''));
-  if (!n || n <= 0) return;
-  fxRate = n;
-  try { localStorage.setItem(FX_KEY, String(n)); } catch(e){}
-  renderFx();
-  const yen = parseFloat((document.getElementById('fx-yen').value || '').replace(/[^0-9.]/g,''));
-  if (yen) fxCalc('yen');
-}
-function fxCalc(from){
-  const yEl = document.getElementById('fx-yen'), uEl = document.getElementById('fx-usd');
-  if (from === 'yen') {
-    const y = parseFloat((yEl.value || '').replace(/[^0-9.]/g,''));
-    uEl.value = isFinite(y) && y ? (y / fxRate).toFixed(2) : '';
-  } else {
-    const u = parseFloat((uEl.value || '').replace(/[^0-9.]/g,''));
-    yEl.value = isFinite(u) && u ? String(Math.round(u * fxRate)) : '';
-  }
-}
-function fxQuick(yen){
-  document.getElementById('fx-yen').value = String(yen);
-  fxCalc('yen');
-}
-function renderFx(){
-  const stamp = localStorage.getItem(FX_STAMP_KEY);
-  document.getElementById('fx-rate-line').textContent = `¥${fxRate} = $1${stamp ? ' · updated ' + stamp : ' · planning rate'}`;
-  document.getElementById('fx-quick').innerHTML = [500,1000,3000,5000,10000].map(y =>
-    `<button class="mini" onclick="fxQuick(${y})">${fmtYen(y)}</button>`).join('');
-  // Denominations you actually hand over, plus the dollar amounts you think in
-  const rows = [100,500,1000,2000,3000,5000,10000,20000].map(y =>
-    `<div style="display:flex;justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px">
-      <span>${fmtYen(y)}</span><b style="color:var(--green)">${fmtUsd(y / fxRate)}</b></div>`);
-  const back = [10,20,50,100].map(u =>
-    `<div style="display:flex;justify-content:space-between;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px">
-      <span>$${u}</span><b style="color:var(--cyan)">${fmtYen(u * fxRate)}</b></div>`);
-  document.getElementById('fx-table').innerHTML = rows.join('') + back.join('');
-}
-async function fxRefresh(){
-  const btn = document.getElementById('fx-refresh');
-  const line = document.getElementById('fx-rate-line');
-  btn.textContent = '↻ …';
-  try {
-    const j = await (await fetch('/api/fx')).json();
-    if (!j.ok || !j.rate) throw new Error(j.message || 'no rate');
-    fxRate = j.rate;
-    document.getElementById('fx-rate').value = String(fxRate);
-    try {
-      localStorage.setItem(FX_KEY, String(fxRate));
-      localStorage.setItem(FX_STAMP_KEY, j.date || new Date().toISOString().slice(0,10));
-    } catch(e){}
-    renderFx();
-  } catch(e) {
-    // Never block with a dialog — the saved rate still works offline.
-    line.innerHTML = line.textContent + ' <span style="color:var(--amber)">· live rate unavailable</span>';
-  }
-  btn.textContent = '↻ Live rate';
-}
-
-// Open the Add Place modal; optional dayN preselects the day pool.
-function openAddPlace(dayN){
-  const sel = document.getElementById('ap-city');
-  const cities = tripCities();
-  sel.innerHTML = (cities.length ? cities : ['']).map(c => '<option>' + esc(c) + '</option>').join('');
-  const dsel = document.getElementById('ap-day');
-  dsel.innerHTML = '<option value="">Unassigned (decide later)</option>' + DAYS.map(dy =>
-    `<option value="${dy.n}">Day ${dy.n} — ${esc(dy.d)}${dy.c ? ' · ' + esc(dy.c) : ''}</option>`).join('');
-  if (dayN) dsel.value = String(dayN);
-  document.getElementById('add-place-form').classList.add('open');
-  document.getElementById('ap-name').focus();
-}
 function resetFilters() {
-  activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All', assign: 'All' };
+  activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All' };
   searchTerm = '';
   const si = document.getElementById('search'); if (si) si.value = '';
-  const ls = document.getElementById('lib-status'); if (ls) ls.value = 'All';
   renderAll();
 }
 
 // State
-let activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All', assign: 'All' };
+let activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All' };
 let sortField = 'priority'; let sortDir = -1;
 let searchTerm = ''; let map = null; let markers = [];
 let openMenu = null;
@@ -1197,138 +780,68 @@ function setupNewTrip(){
 
 async function init() {
   await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
-  if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hide-bar'); });
-  placeTripSwitcher();
+  if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
   if (shareMode) document.querySelectorAll('.header-actions, .tabs').forEach(el => { el.style.display = 'none'; });
 }
 
-// v2 Saved Places: the research library (replaces the old table render)
-let libLimit = 100;
-function toggleInterested(name){
-  const a = getAction(name);
-  setAction(name, a.status === 'want' ? 'none' : 'want', a.day, a.notes, a.reserveDate, a.time);
-}
-function libShowMore(){ libLimit += 150; renderLibrary(); }
-function renderLibrary(){
-  const view = document.getElementById('table-view');
-  const list = getFiltered();
-  const shown = list.slice(0, libLimit);
-  const cards = shown.map(d => {
-    const a = getAction(d.name);
-    const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
-    const meta = [d.city, d.neighborhood, d.category].filter(Boolean).join(' · ');
-    const interested = a.status === 'want';
-    return `<div class="library-card">
-      <div style="min-width:0">
-        <div class="library-name" onclick="openSheetFor(${jn})">${esc(d.name)}${sourceBadge(d)}</div>
-        <div class="library-meta">${esc(meta)}</div>
-        ${d.why ? `<div class="library-desc">${esc(d.why)}</div>` : ''}
-      </div>
-      <div class="lib-side">
-        <div class="lib-chips">${statusChipV2(a)}</div>
-        <div class="lib-actions">
-          <button class="mini heart ${interested ? 'on' : ''}" onclick="toggleInterested(${jn})">${interested ? '♥ Interested' : '♡ Interested'}</button>
-          <button class="mini" onclick="openSheetFor(${jn})">Assign</button>
-          ${typeof d.lat === 'number' ? `<button class="mini" onclick="viewOnMap(${jn})">Map</button>` : ''}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-  view.innerHTML = `<div class="view-pad">
-    <div style="display:flex;justify-content:space-between;align-items:end;gap:10px;margin-bottom:12px">
-      <div><div class="eyebrow">Everything you loaded</div><div style="font-size:24px;font-weight:850;margin-top:2px">Saved Places</div>
-      <div class="side-sub">The research library. Flag what interests you, assign it to a day if useful, and leave the rest alone — saved is a perfectly good state.</div></div>
-      <span class="chip">${list.length} place${list.length === 1 ? '' : 's'}</span>
-    </div>
-    <div class="library">${cards || '<div class="side-sub">Nothing matches these filters.</div>'}</div>
-    ${list.length > libLimit ? `<div style="text-align:center;margin-top:14px"><button class="btn" onclick="libShowMore()">Show more (${list.length - libLimit} remaining)</button></div>` : ''}
-  </div>`;
-}
 function renderAll() {
   document.getElementById('item-count').textContent = DATA.length;
   updateHeader();
-  renderStats(); renderFilters(); renderLibrary();
-  if (document.getElementById('map-view').style.display !== 'none' && map) renderNearby();
+  renderStats(); renderFilters(); renderTable();
+  if (document.getElementById('map-view').style.display !== 'none' && map) renderMap();
   if (document.getElementById('day-view').style.display !== 'none') renderDays();
 }
 
 function renderStats() {
-  // v2: neutral library summary — counts are information, not a to-do list.
   const bar = document.getElementById('stats-bar');
-  let interested = 0, booked = 0, onDays = 0, hidden = 0;
-  DATA.forEach(d => {
-    const a = getAction(d.name);
-    if (a.status === 'want') interested++;
-    if (a.status === 'booked') booked++;
-    if (a.status === 'skip') hidden++;
-    if (a.day) onDays++;
-  });
-  const sel = v => (document.getElementById('lib-status') || {}).value === v ? 'active-stat' : '';
-  const card = (statusKey, label, value, color) =>
-    `<div class="stat ${sel(statusKey)}" onclick="const s=document.getElementById('lib-status'); if(s){s.value='${statusKey}';} libStatusChange('${statusKey}')">
-      <div class="label">${label}</div><div class="value"${color ? ` style="color:${color}"` : ''}>${value}</div></div>`;
-  const considering = DATA.filter(d => { const a = getAction(d.name); return a.day && a.status !== 'skip' && !isAnchor(d); }).length;
-  bar.innerHTML =
-    card('All', 'Saved places', DATA.length, '') +
-    card('Interested', '♥ Interested', interested, 'var(--pink)') +
-    card('Considering', '🤔 Considering', considering, 'var(--amber)') +
-    card('AssignedAny', '📅 On days', onDays, 'var(--accent)') +
-    card('Booked', '✓ Booked', booked, 'var(--green)') +
-    (hidden ? card('Hidden', 'Hidden', hidden, 'var(--muted)') : '');
+  const counts = { total: DATA.length, want: 0, flag: 0, research: 0, reserve: 0, booked: 0, assigned: 0, skip: 0 };
+  DATA.forEach(d => { const a = getAction(d.name).status; if (counts[a] !== undefined) counts[a]++; });
+  const unactioned = counts.total - counts.want - counts.flag - counts.research - counts.reserve - counts.booked - counts.assigned - counts.skip;
+  bar.innerHTML = `
+    <div class="stat ${activeFilters.action==='All'?'active-stat':''}" data-action-filter="All"><div class="label">Total</div><div class="value">${counts.total}</div></div>
+    <div class="stat ${activeFilters.action==='want'?'active-stat':''}" data-action-filter="want"><div class="label">💖 Want</div><div class="value" style="color:var(--pink)">${counts.want}</div></div>
+    <div class="stat ${activeFilters.action==='flag'?'active-stat':''}" data-action-filter="flag"><div class="label">🚩 Discuss</div><div class="value" style="color:var(--amber)">${counts.flag}</div></div>
+    <div class="stat ${activeFilters.action==='reserve'?'active-stat':''}" data-action-filter="reserve"><div class="label">🎫 Reserve</div><div class="value" style="color:var(--red)">${counts.reserve}</div></div>
+    <div class="stat ${activeFilters.action==='research'?'active-stat':''}" data-action-filter="research"><div class="label">🔍 Research</div><div class="value" style="color:var(--purple)">${counts.research}</div></div>
+    <div class="stat ${activeFilters.action==='booked'?'active-stat':''}" data-action-filter="booked"><div class="label">✅ Booked</div><div class="value" style="color:var(--green)">${counts.booked}</div></div>
+    <div class="stat ${activeFilters.action==='assigned'?'active-stat':''}" data-action-filter="assigned"><div class="label">📅 Assigned</div><div class="value" style="color:var(--accent)">${counts.assigned}</div></div>
+    <div class="stat ${activeFilters.action==='skip'?'active-stat':''}" data-action-filter="skip"><div class="label">✕ Skip</div><div class="value" style="color:#666">${counts.skip}</div></div>
+    <div class="stat ${activeFilters.action==='none'?'active-stat':''}" data-action-filter="none"><div class="label">Unactioned</div><div class="value">${unactioned}</div></div>
+  `;
 }
 
 function renderFilters() {
   const cities = ['All', ...new Set(DATA.map(d => d.city))];
   const cats = ['All', ...new Set(DATA.map(d => d.category))];
+  const actions = ['All', 'want', 'flag', 'research', 'reserve', 'booked', 'assigned', 'skip', 'none'];
 
-  const citySel = document.getElementById('lib-city');
-  citySel.innerHTML = cities.map(c => `<option value="${esc(c)}" ${activeFilters.city===c?'selected':''}>${c === 'All' ? 'All cities' : esc(c)}</option>`).join('');
-  const typeSel = document.getElementById('lib-type');
-  typeSel.innerHTML = cats.map(c => `<option value="${esc(c)}" ${activeFilters.category===c?'selected':''}>${c === 'All' ? 'All types' : esc(c)}</option>`).join('');
-
-  // Neighborhoods: scoped to selected city, sorted by count
+  // Neighborhoods: show only for selected city, min 3 items, sorted by count
   const hoodSource = activeFilters.city === 'All' ? DATA : DATA.filter(d => d.city === activeFilters.city);
   const hoodCounts = {};
   hoodSource.forEach(d => { const h = d.neighborhood || ''; if (h && !h.includes('Various') && h.length > 0) { hoodCounts[h] = (hoodCounts[h]||0) + 1; } });
   const hoods = ['All', ...Object.entries(hoodCounts).sort((a,b) => b[1]-a[1]).map(([h]) => h)];
+
+  const sourceChips = SOURCE_CHIPS.filter(s => DATA.some(d => d.source === s.source)).map(s =>
+    `<button class="filter-btn ${activeFilters.source===s.source?'active':''}" data-filter="source" data-value="${activeFilters.source===s.source?'All':s.source}" style="margin-left:8px;border-color:${s.color};color:${s.color}">${s.icon} ${s.label}</button>`
+  ).join('');
+  document.getElementById('city-filters').innerHTML = cities.map(c =>
+    `<button class="filter-btn ${activeFilters.city===c?'active':''}" data-filter="city" data-value="${c}">${c}</button>`
+  ).join('') + sourceChips;
   const hoodSelect = document.getElementById('hood-filters');
   hoodSelect.innerHTML = hoods.map(h =>
-    `<option value="${h}" ${activeFilters.neighborhood===h?'selected':''}>${h === 'All' ? 'All areas' : h + ' (' + hoodCounts[h] + ')'}</option>`
+    `<option value="${h}" ${activeFilters.neighborhood===h?'selected':''}>${h === 'All' ? 'All Areas' : h + ' (' + hoodCounts[h] + ')'}</option>`
   ).join('');
-
-  // "More filters" drawer: provenance chips + full legacy status chips
-  const sourceChips = SOURCE_CHIPS.filter(s => DATA.some(d => d.source === s.source)).map(s =>
-    `<button class="filter-btn ${activeFilters.source===s.source?'active':''}" data-filter="source" data-value="${activeFilters.source===s.source?'All':s.source}" style="border-color:${s.color};color:${s.color}">${s.icon} ${s.label}</button>`
+  document.getElementById('cat-filters').innerHTML = cats.map(c =>
+    `<button class="filter-btn ${activeFilters.category===c?'active':''}" data-filter="category" data-value="${c}">${c}</button>`
   ).join('');
-  document.getElementById('city-filters').innerHTML = sourceChips || '<span class="side-sub">—</span>';
+  document.getElementById('action-filters').innerHTML = actions.map(a => {
+    const info = ACTIONS[a] || {label:a,icon:''};
+    const label = a === 'All' ? 'All' : `${info.icon} ${info.label}`;
+    return `<button class="filter-btn ${activeFilters.action===a?'active':''}" data-filter="action" data-value="${a}">${label}</button>`;
+  }).join('');
+  // Reset-filters button only appears when something is actually filtering
   const rf = document.getElementById('reset-filters');
-  if (rf) rf.style.display = (searchTerm || activeFilters.assign !== 'All' || Object.entries(activeFilters).some(([k,v]) => k !== 'assign' && v !== 'All')) ? 'inline-block' : 'none';
-}
-// Every word must appear somewhere in the place — so "kanazawa market" finds Omicho Market.
-function placeHaystack(d){
-  const a = getAction(d.name);
-  return [d.name, d.city, d.neighborhood, d.category, d.why, d.address, d.source, d.type,
-          d.booking, d.family_fit, d.heat, d.ig_caption, d.ig_collections, a.notes]
-    .filter(Boolean).join(' ').toLowerCase();
-}
-function matchesSearch(d, q){
-  const hay = placeHaystack(d);
-  return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.includes(t));
-}
-function libFilterChange(key, val){ activeFilters[key] = val; if (key === 'city') activeFilters.neighborhood = 'All'; renderAll(); }
-function libStatusChange(val){
-  activeFilters.assign = 'All'; activeFilters.action = 'All';
-  if (val === 'Interested') activeFilters.action = 'want';
-  else if (val === 'Booked') activeFilters.action = 'booked';
-  else if (val === 'Hidden') activeFilters.action = 'skip';
-  else if (val === 'AssignedAny') activeFilters.assign = 'assigned';
-  else if (val === 'Considering') activeFilters.assign = 'considering';
-  else if (val === 'Unassigned') activeFilters.assign = 'unassigned';
-  renderAll();
-}
-function toggleMoreFilters(){
-  const el = document.getElementById('more-filters');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if (rf) rf.style.display = (searchTerm || Object.values(activeFilters).some(v => v !== 'All')) ? 'inline-block' : 'none';
 }
 
 function getFiltered() {
@@ -1337,16 +850,11 @@ function getFiltered() {
     if (activeFilters.source !== 'All' && d.source !== activeFilters.source) return false;
     if (activeFilters.neighborhood !== 'All' && (d.neighborhood||'') !== activeFilters.neighborhood) return false;
     if (activeFilters.category !== 'All' && d.category !== activeFilters.category) return false;
-    const act = getAction(d.name);
     if (activeFilters.action !== 'All') {
-      if (activeFilters.action !== act.status) return false;
-    } else if (act.status === 'skip') {
-      return false;   // v2: skipped places stay hidden unless explicitly filtered for
+      const s = getAction(d.name).status;
+      if (activeFilters.action !== s) return false;
     }
-    if (activeFilters.assign === 'assigned' && !act.day) return false;
-    if (activeFilters.assign === 'unassigned' && act.day) return false;
-    if (activeFilters.assign === 'considering' && !(act.day && !isAnchor(d))) return false;
-    if (searchTerm && !matchesSearch(d, searchTerm)) return false;
+    if (searchTerm && !JSON.stringify(d).toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   }).sort((a, b) => {
     let av, bv;
@@ -1399,17 +907,11 @@ function placeDetailsLine(a){
 }
 // Sources that get a colored provenance badge + filter chip (others stay unlabeled)
 const SOURCE_CHIPS = [
-  { source: 'Instagram',      label: 'Instagram',      short: 'Instagram', icon: '📷', color: '#ff5ba6', bg: 'rgba(255,91,166,0.14)' },
-  { source: "Brandon's List", label: "Brandon's List", short: 'Brandon',   icon: '★',  color: '#f3b84a', bg: 'rgba(243,184,74,0.16)' },
-  { source: 'FarEast',        label: 'FarEast map',    short: 'FarEast',   icon: '◆',  color: '#36d4e7', bg: 'rgba(54,212,231,0.14)' },
-  { source: 'Guide',          label: 'Japan guide',    short: 'Guide',     icon: '📖', color: '#a879ff', bg: 'rgba(168,121,255,0.14)' },
-  { source: 'Must-See',       label: 'Must-see list',  short: 'Must-see',  icon: '⭐', color: '#35d07f', bg: 'rgba(53,208,127,0.13)' },
-  { source: 'Itinerary',      label: 'Booked itinerary', short: 'Itinerary', icon: '📋', color: '#5ea2ff', bg: 'rgba(94,162,255,0.14)' },
-  { source: 'Manual',         label: 'Added by hand',  short: 'Manual',    icon: '✎',  color: '#98a2b0', bg: 'rgba(152,162,176,0.12)' },
+  { source: "Brandon's List", label: "Brandon's List", short: 'Brandon', icon: '★', color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
+  { source: 'FarEast', label: 'FarEast', short: 'FarEast', icon: '◆', color: '#22d3ee', bg: 'rgba(34,211,238,0.15)' },
 ];
-function sourceMeta(d){ return d && SOURCE_CHIPS.find(s => s.source === d.source); }
 function sourceBadge(d){
-  const s = sourceMeta(d);
+  const s = d && SOURCE_CHIPS.find(s => s.source === d.source);
   if (!s) return '';
   return ` <span title="From ${s.label}" style="font-size:10px;background:${s.bg};color:${s.color};border:1px solid ${s.color};border-radius:6px;padding:1px 6px;white-space:nowrap;vertical-align:1px">${s.icon} ${s.short}</span>`;
 }
@@ -1464,195 +966,28 @@ function gmapsUrl(d){
   const q = d.address ? `${d.name}, ${d.address}` : `${d.name}, ${d.city || ''}`;
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 }
-function gmapsDirUrl(d){
-  return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(typeof d.lat === 'number' ? d.lat + ',' + d.lng : d.name + ', ' + (d.city || ''));
-}
-// The trip day whose date is literally today — powers "+ add to today" while traveling.
-function todayDayN(){
-  const iso = new Date().toISOString().slice(0,10);
-  const dy = DAYS.find(x => x.date === iso);
-  return dy ? dy.n : null;
-}
 function mapPopupHtml(d){
   const a = getAction(d.name);
-  const s = displayStatus(a);
-  const dayTag = a.day ? ` · Day ${a.day}${dayDate(a.day) ? ' (' + dayDate(a.day) + ')' : ''}` : '';
-  const state = (s.label !== 'Saved' || a.day) ? `<br><b>${s.label}</b>${dayTag}` : '';
-  const addr = d.address ? `<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}${d.coordApprox ? ' <b style="color:#f3b84a">(area only)</b>' : ''}</span>` : '';
-  const km = nearbyCenter && typeof d.lat === 'number' ? haversine(nearbyCenter.lat, nearbyCenter.lng, d.lat, d.lng) : null;
-  const dist = km != null ? `<br><span style="color:#36d4e7;font-size:11px;font-weight:700">${km.toFixed(1)} km away</span>` : '';
-  const tn = todayDayN();
-  const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
-  const srcBit = d.source ? `<span style="color:#9ca3af;font-size:10px"> · ${d.source}</span>` : '';
-  const addToday = (tn && a.day !== tn)
-    ? `<button onclick="addToDayN(${jn}, ${tn})" style="margin-top:5px;border:1px solid #5ea2ff;background:rgba(94,162,255,.1);color:#5ea2ff;border-radius:7px;padding:3px 8px;font-size:11px;cursor:pointer">+ Today's considering</button>` : '';
-  return `<strong style="font-size:14px">${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.neighborhood || d.city}${srcBit}</span>${addr}${dist}${d.why ? '<br>' + d.why : ''}${state}<br>` +
-    `<div style="display:flex;gap:8px;margin-top:5px;align-items:center;flex-wrap:wrap">` +
-    `<a href="${gmapsDirUrl(d)}" target="_blank" rel="noopener" style="color:#36d4e7;font-size:12px;font-weight:700">Directions ↗</a>` +
-    `<a onclick="openSheetFor(${jn})" style="color:#9ca3af;font-size:11px;cursor:pointer">Details</a>${addToday}</div>`;
+  const dayTag = a.day ? ' · Day '+a.day+(dayDate(a.day)?' ('+dayDate(a.day)+')':'') : '';
+  const aLabel = (a.status!=='none' || a.day)
+    ? `<br><b>${a.status!=='none' ? ACTIONS[a.status].icon+' '+ACTIONS[a.status].label : '🤔 Considering'}</b>${dayTag}`
+    : '';
+  const addr = d.address?`<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}</span>`:'';
+  return `<strong>${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.city} · ${d.neighborhood}</span>${addr}<br>${'★'.repeat(d.priority)}${'☆'.repeat(5-d.priority)}<br>${d.why}${aLabel}<br><a href="${gmapsUrl(d)}" target="_blank" rel="noopener" style="color:#22d3ee;font-size:11px">Open in Google Maps ↗</a>`;
 }
-function addToDayN(name, n){
-  const a = getAction(name);
-  itemActions[name] = { ...a, status: a.status, day: n, block: a.block || '' };
-  saveActions(); renderAll();
-  if (map) map.closePopup();
-}
-// Jump to the Map tab centered on a place, popup open. No arg = the open sheet's place.
-function viewOnMap(name){
-  const place = DATA.find(d => d.name === (name || sheetName));
+// From the action sheet: jump to the Map tab centered on the place, popup open.
+function viewOnMap(){
+  const place = DATA.find(d => d.name === sheetName);
   if (!place || typeof place.lat !== 'number') return;
   closeActionSheet();
   setView('map', true);
   setTimeout(() => {
-    map.setView([place.lat, place.lng], 16, { animate: false });
+    map.setView([place.lat, place.lng], 16);
     const m = markers.find(mk => mk._placeName === place.name);
     if (m) m.openPopup();
     else L.popup({maxWidth:280}).setLatLng([place.lat, place.lng]).setContent(mapPopupHtml(place)).openOn(map);
   }, 250);
 }
-// --- v2 Nearby Map ---
-let nearbyCenter = null;   // {lat, lng, label} — user location or a chosen area
-let userMarker = null;
-// Places whose pin contradicts their own neighborhood (old geocode fallbacks).
-// UI-level flag only — never rewrites stored coords.
-let COORD_SUSPECT = new Set();
-function computeCoordSuspects(){
-  COORD_SUSPECT = new Set();
-  const hoods = {};
-  DATA.forEach(d => {
-    const h = d.neighborhood || '';
-    if (h && !h.includes('Various') && typeof d.lat === 'number') (hoods[h] = hoods[h] || []).push(d);
-  });
-  Object.values(hoods).forEach(ps => {
-    if (ps.length < 4) return;
-    const lats = ps.map(p => p.lat).sort((a,b) => a-b), lngs = ps.map(p => p.lng).sort((a,b) => a-b);
-    const mlat = lats[Math.floor(lats.length/2)], mlng = lngs[Math.floor(lngs.length/2)];
-    ps.forEach(p => { if (haversine(p.lat, p.lng, mlat, mlng) > 2.5) COORD_SUSPECT.add(p.name); });
-  });
-}
-function ensureMap(){
-  if (!map) {
-    map = L.map('map').setView(tripDefaultCoord(), 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map);
-    map.on('moveend', () => { if (currentView === 'map') renderNearbyList(); });
-  }
-}
-function nearbyPool(){
-  const f = (document.getElementById('nearby-filter') || {}).value || 'all';
-  let pool = DATA.filter(d => typeof d.lat === 'number' && getAction(d.name).status !== 'skip');
-  if (f === 'interested') pool = pool.filter(d => getAction(d.name).status === 'want');
-  else if (f === 'assigned') pool = pool.filter(d => getAction(d.name).day);
-  else if (f === 'considering') pool = pool.filter(d => getAction(d.name).day && !isAnchor(d));
-  else if (f === 'anchors') pool = pool.filter(d => getAction(d.name).day && isAnchor(d));
-  else if (f.startsWith('cat:')) pool = pool.filter(d => d.category === f.slice(4));
-  return pool;
-}
-function renderNearby(){
-  ensureMap();
-  // filter select (preserve selection across renders)
-  const fsel = document.getElementById('nearby-filter');
-  const cur = fsel.value || 'all';
-  const cats = [...new Set(DATA.map(d => d.category))].sort();
-  fsel.innerHTML = `<option value="all">All saved nearby</option>
-    <option value="interested">Only interested</option>
-    <option value="considering">🤔 Considering (in a day pool)</option>
-    <option value="anchors">📌 Anchors</option>
-    <option value="assigned">On any day</option>` +
-    cats.map(c => `<option value="cat:${esc(c)}">${esc(c)}</option>`).join('');
-  fsel.value = [...fsel.options].some(o => o.value === cur) ? cur : 'all';
-
-  // markers: every mappable saved place in the pool — never just the itinerary
-  markers.forEach(m => map.removeLayer(m)); markers = [];
-  const colors = {Food:'#ff6b6b',Attraction:'#5ea2ff',Experience:'#a879ff','Temple/Shrine':'#35d07f',Shopping:'#ff5ba6'};
-  if (!COORD_SUSPECT.size) computeCoordSuspects();
-  nearbyPool().forEach(d => {
-    const a = getAction(d.name);
-    const suspect = COORD_SUSPECT.has(d.name) || d.coordApprox;
-    const color = a.status==='booked' ? '#35d07f' : a.status==='want' ? '#ff5ba6' : colors[d.category] || '#f3b84a';
-    const m = L.circleMarker([d.lat, d.lng], { radius: a.day ? 8 : 5.5, fillColor: color, color: '#fff', weight: a.day ? 2 : 1, opacity: suspect ? .35 : .9, fillOpacity: suspect ? .25 : .75 }).addTo(map);
-    m.bindPopup(() => mapPopupHtml(d), { maxWidth: 300 });
-    m._placeName = d.name;
-    markers.push(m);
-  });
-  if (userMarker) userMarker.addTo(map);
-  renderAreaChips();
-  renderNearbyList();
-}
-function setNearbyMode(mode){
-  document.querySelector('.nearby-layout').classList.toggle('list-mode', mode === 'list');
-  document.querySelectorAll('#nearby-modes .nm').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-  if (mode === 'map' && map) setTimeout(() => { map.invalidateSize(); renderNearbyList(); }, 60);
-}
-function renderAreaChips(){
-  const clusters = areaClusters(6).slice(0, 10);
-  document.getElementById('area-switch').innerHTML = clusters.map(c =>
-    `<button class="area-chip ${nearbyCenter && nearbyCenter.label === c.name ? 'active' : ''}" onclick="setNearbyArea(${JSON.stringify(c.name).replace(/"/g,'&quot;')}, ${c.lat}, ${c.lng})">${esc(c.name)} · ${c.count}</button>`
-  ).join('');
-}
-function setNearbyArea(name, lat, lng){
-  nearbyCenter = { lat, lng, label: name };
-  document.getElementById('nearby-title').textContent = 'Near ' + name;
-  document.getElementById('nearby-sub').textContent = 'Saved places around this area, closest first.';
-  map.setView([lat, lng], 15, { animate: false });
-  renderAreaChips();
-}
-function useMyLocation(){
-  const btn = document.getElementById('locate-btn');
-  if (!navigator.geolocation) { alert('Location not available in this browser.'); return; }
-  btn.textContent = '◎ Locating…';
-  navigator.geolocation.getCurrentPosition(pos => {
-    btn.textContent = '◎ Use my location';
-    const { latitude: lat, longitude: lng } = pos.coords;
-    nearbyCenter = { lat, lng, label: 'you' };
-    if (userMarker) map.removeLayer(userMarker);
-    userMarker = L.circleMarker([lat, lng], { radius: 9, fillColor: '#5ea2ff', color: '#d6e7ff', weight: 3, fillOpacity: 1 }).addTo(map);
-    document.getElementById('nearby-title').textContent = 'Near you';
-    document.getElementById('nearby-sub').textContent = 'Everything you saved, closest first.';
-    map.setView([lat, lng], 15, { animate: false });
-    renderAreaChips();
-  }, err => {
-    btn.textContent = '◎ Use my location';
-    alert('Could not get your location: ' + err.message);
-  }, { enableHighAccuracy: true, timeout: 12000 });
-}
-function renderNearbyList(){
-  const el = document.getElementById('nearby-list');
-  if (!el || !map) return;
-  const b = map.getBounds();
-  const c = nearbyCenter || map.getCenter().wrap && { lat: map.getCenter().lat, lng: map.getCenter().lng } || null;
-  if (!COORD_SUSPECT.size) computeCoordSuspects();
-  const inView = nearbyPool().filter(d => b.contains([d.lat, d.lng]));
-  const good = inView.filter(d => !COORD_SUSPECT.has(d.name) && !d.coordApprox)
-    .map(d => ({ d, km: c ? haversine(c.lat, c.lng, d.lat, d.lng) : null }))
-    .sort((a, b2) => (a.km ?? 999) - (b2.km ?? 999)).slice(0, 60);
-  const iffy = inView.filter(d => COORD_SUSPECT.has(d.name) || d.coordApprox).slice(0, 20);
-  const row = (d, km) => {
-    const a = getAction(d.name);
-    const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
-    return `<div class="nearby-card" onclick="focusNearby(${jn})">
-      <div class="nearby-top">
-        <div style="min-width:0"><div class="library-name" style="font-size:13px">${esc(d.name)}${sourceBadge(d)}</div>
-        <div class="library-meta">${esc([d.category, d.neighborhood].filter(Boolean).join(' · '))}</div></div>
-        ${km != null ? `<div class="distance">${km < 10 ? km.toFixed(1) : Math.round(km)} km</div>` : ''}
-      </div>
-      <div class="nearby-actions">${statusChipV2(a)}
-        <a href="${gmapsDirUrl(d)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="mini dir" style="color:var(--cyan);text-decoration:none">Directions ↗</a>
-      </div>
-    </div>`;
-  };
-  el.innerHTML = (good.length ? good.map(r => row(r.d, r.km)).join('') :
-      '<div class="side-sub" style="margin-top:10px">No saved places in this view — zoom out or pick another area.</div>') +
-    (iffy.length ? `<div class="side-sub" style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)">📍 Area-level pin only — check Google Maps for the exact spot:</div>` +
-      iffy.map(d => row(d, null)).join('') : '');
-}
-function focusNearby(name){
-  const d = DATA.find(x => x.name === name);
-  if (!d || typeof d.lat !== 'number') return;
-  map.setView([d.lat, d.lng], Math.max(map.getZoom(), 16), { animate: false });
-  const m = markers.find(mk => mk._placeName === name);
-  if (m) m.openPopup();
-}
-
 function renderMap() {
   if (!map) { map = L.map('map').setView(tripDefaultCoord(), 7); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map); }
   markers.forEach(m => map.removeLayer(m)); markers = [];
@@ -1730,7 +1065,7 @@ function renderDayCard(d, borderStyle) {
         return '<div style="margin-bottom:4px">' + main + hotelLink + '</div>';
       })() : ''}
       <div class="dc-action-row" style="margin-top:8px">
-        ${Object.entries(ACTIONS).filter(([k,v])=>k!=='none' && !v.legacy).map(([k,v]) =>
+        ${Object.entries(ACTIONS).filter(([k])=>k!=='none').map(([k,v]) =>
           '<button class="dc-action-btn'+(a.status===k?' dc-active':'')+'" data-dc-action="'+k+'" data-dc-target="'+eName+'" onclick="event.stopPropagation();dcAction(this)">'+v.icon+' '+v.label+'</button>'
         ).join('')}
       </div>
@@ -1785,7 +1120,6 @@ async function loadActiveTrip(){
     }
     const trip = await res.json();
     DATA = (trip.base_places || []).slice();
-    COORD_SUSPECT = new Set();   // recompute per trip
     SEGMENTS = trip.segments || [];
     DAYS = SEGMENTS.map(s => ({ n: s.n, d: s.dateLabel || s.date || ('Day ' + s.n), date: s.date || null, c: s.city || '', t: s.theme || '' }));
     TRIP = { hotels:{}, dayHotel:{}, planned:{}, logistics:{}, openDecisions:[], travelers:null, loaded:true,
@@ -2224,180 +1558,46 @@ function dayStatusDots(dy){
   if (dayIsOpen(dy)) dots.push('<span title="open / needs planning" style="color:#f59e0b">⚠️</span>');
   return dots.join(' ');
 }
-// --- v2 presentation layer: anchors vs considering, friendly status labels ---
-// Anchor = we're committed: booked, placed in a time block, or has a fixed time.
-function isAnchor(d){ const a = getAction(d.name); return a.status === 'booked' || (a.block && a.block !== 'unscheduled') || !!a.time; }
-function dayBuckets(n){
-  const items = DATA.filter(d => getAction(d.name).day === n && getAction(d.name).status !== 'skip');
-  return { anchors: items.filter(isAnchor), consider: items.filter(d => !isAnchor(d)) };
-}
-// Old stored statuses stay untouched; this only decides how they read on screen.
-function displayStatus(a){
-  switch (a.status) {
-    case 'booked': return { label: 'Booked', chip: 'green' };
-    case 'want': return { label: 'Interested', chip: 'pink' };
-    case 'assigned': return { label: 'Planned', chip: 'blue' };
-    case 'reserve': return { label: 'To reserve', chip: 'amber' };
-    case 'research': return { label: 'Research', chip: 'amber' };
-    case 'flag': return { label: 'Discuss', chip: 'amber' };
-    case 'skip': return { label: 'Skipped', chip: '' };
-    default: return { label: 'Saved', chip: '' };
-  }
-}
-function statusChipV2(a){
-  const s = displayStatus(a);
-  const day = a.day ? `<span class="chip blue">Day ${a.day}${dayDate(a.day) ? ' · ' + esc(dayDate(a.day)) : ''}</span>` : '';
-  const st = (s.label === 'Saved' && a.day) ? '' : `<span class="chip ${s.chip}">${s.label}</span>`;
-  return st + day;
-}
-function openSheetFor(name){ sheetName = name; buildActionSheet(); document.getElementById('action-sheet').classList.add('open'); }
-// Top neighborhood clusters (with mappable places) — feeds Plan sidebar + Nearby areas
-function areaClusters(minCount){
-  const counts = {};
-  DATA.forEach(d => {
-    const h = d.neighborhood || '';
-    if (!h || h.includes('Various') || typeof d.lat !== 'number') return;
-    if (getAction(d.name).status === 'skip') return;
-    if (!counts[h]) counts[h] = { count: 0, lat: 0, lng: 0, city: d.city };
-    counts[h].count++; counts[h].lat += d.lat; counts[h].lng += d.lng;
-  });
-  return Object.entries(counts).filter(([,v]) => v.count >= (minCount || 6))
-    .map(([name, v]) => ({ name, count: v.count, city: v.city, lat: v.lat / v.count, lng: v.lng / v.count }))
-    .sort((a,b) => b.count - a.count);
-}
-function areaToMap(hood){
-  setView('map', true);
-  setTimeout(() => {
-    const c = areaClusters(3).find(x => x.name === hood);
-    if (c) setNearbyArea(c.name, c.lat, c.lng);
-  }, 300);
-}
-
 function renderDayOverview(){
   const container = document.getElementById('day-columns');
   container.style.display = 'block';
-  const total = DATA.length;
-  let interested = 0, withDay = 0;
-  DATA.forEach(d => { const a = getAction(d.name); if (a.status === 'want') interested++; if (a.day) withDay++; });
-  const daysWithIdeas = DAYS.filter(dy => dayBuckets(dy.n).anchors.length + dayBuckets(dy.n).consider.length > 0).length;
-
-  const ingest =
-    `<div class="builder-top">
-      <div class="panel ingest-panel">
-        <div class="eyebrow">Current workflow</div>
-        <div style="font-size:21px;font-weight:850;margin:3px 0">Keep feeding the trip</div>
-        <div class="side-sub">Add anything interesting. You don't need to decide now — get it in, loosely place it later.</div>
-        <div style="display:flex;gap:9px;margin-top:13px;flex-wrap:wrap">
-          <button class="btn pink" onclick="document.getElementById('capture-btn').click()">Instagram Import</button>
-          <button class="btn primary" onclick="openAddPlace()">Add a Place</button>
-          <button class="btn" onclick="setView('table', true)">Browse saved places</button>
-        </div>
-        <div class="ingest-stat">
-          <div><strong>${total}</strong><span>saved places</span></div>
-          <div><strong>${interested}</strong><span>interested</span></div>
-          <div><strong>${withDay}</strong><span>on days</span></div>
-          <div><strong>${total - withDay}</strong><span>unassigned — that's fine</span></div>
-        </div>
-      </div>
-      <div class="panel" style="padding:17px">
-        <div class="eyebrow">Loose plan</div>
-        <div style="font-size:19px;font-weight:850;margin:3px 0">Enough structure, not overplanned</div>
-        <div class="side-sub">Days are containers for ideas. The map is the decision tool once you're there.</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px">
-          <div style="background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:11px"><strong style="font-size:18px;display:block">${DAYS.length}</strong><span style="font-size:10px;color:var(--muted)">trip days</span></div>
-          <div style="background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:11px"><strong style="font-size:18px;display:block">${daysWithIdeas}</strong><span style="font-size:10px;color:var(--muted)">days with ideas</span></div>
-          <div style="background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:11px"><strong style="font-size:18px;display:block">${DAYS.length - daysWithIdeas}</strong><span style="font-size:10px;color:var(--muted)">flexible days</span></div>
-        </div>
-      </div>
-    </div>`;
-
-  const cards = DAYS.map(dy => {
-    const b = dayBuckets(dy.n);
-    const travel = !!travelDayInfo(dy.n);
-    const anchorRows = b.anchors.slice(0,2).map(d => `<div class="day-item2">📌 ${esc(d.name)}</div>`).join('');
-    const considerRows = b.consider.slice(0, b.anchors.length >= 2 ? 2 : 4 - Math.min(b.anchors.length,2) - 0).slice(0,3).map(d => `<div class="day-item2" style="color:var(--muted)">＋ ${esc(d.name)}</div>`).join('');
-    const empty = !b.anchors.length && !b.consider.length
-      ? `<div class="day-item2" style="color:var(--muted);font-style:italic">${travel ? '✈️ ' + esc(travelDayInfo(dy.n)) : 'Open day'}</div>` : '';
-    return `<div class="v2-day-card ${travel ? 'travel' : ''}" onclick="openDay(${dy.n})">
-      <div style="display:flex;justify-content:space-between;gap:7px">
-        <div><div class="day-n">DAY ${dy.n}</div><div class="day-date2">${esc(dy.d || '')}</div></div>
-        <span class="chip">${esc(dy.c || '')}</span>
-      </div>
-      ${dy.t ? `<div class="day-theme2">${esc(dy.t)}</div>` : '<div class="day-theme2" style="color:var(--muted)">—</div>'}
-      <div class="day-items2">${anchorRows}${considerRows}${empty}</div>
-      <div class="day-foot">
-        <span class="chip blue">${b.anchors.length} anchor${b.anchors.length === 1 ? '' : 's'}</span>
-        <span class="chip pink">${b.consider.length} considering</span>
-      </div>
-    </div>`;
-  }).join('');
-
-  const unassignedInterests = DATA.filter(d => { const a = getAction(d.name); return a.status === 'want' && !a.day; }).slice(0, 8);
-  const clusters = areaClusters(6).slice(0, 6);
+  const open = DAYS.filter(dayIsOpen);
+  const banner = open.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ '+open.length+' day(s) still open: '+open.map(d=>'Day '+d.n+' ('+esc(d.d||'')+')').join(', ')+'</div>' : '';
   const decs = (TRIP.openDecisions || []).filter(o => o && (o.priority === 'high' || o.priority === 'medium'));
-  const todos = decs.length ? `<div class="panel" style="padding:13px;margin-top:11px">
-      <div class="side-title" style="color:var(--muted)">Logistics to sort</div>
-      ${decs.map(o => {
-        const m = String((o.item || '') + ' ' + (o.notes || '')).match(/Day (\d+)/i);
-        const dayLink = m ? ` <a onclick="openDay(${m[1]})" style="cursor:pointer;color:var(--accent)">(Day ${m[1]}${dayDate(m[1]) ? ' · ' + esc(dayDate(m[1])) : ''})</a>` : '';
-        return `<div style="font-size:11px;padding:3px 0;color:#d5dae2">${o.priority === 'high' ? '🔴' : '·'} ${esc(o.item || '')}${dayLink}</div>`;
-      }).join('')}
-    </div>` : '';
-
-  container.innerHTML = ingest +
-    `<div class="days-wrap">
-      <div class="panel" style="padding:15px">
-        <div style="display:flex;justify-content:space-between;align-items:end;gap:10px">
-          <div><div class="eyebrow">Trip builder</div><div style="font-size:20px;font-weight:850;margin-top:3px">Assign ideas to days</div><div class="side-sub">A day can have a few anchors plus a larger considering pool.</div></div>
-          <span class="chip blue">Loose itinerary</span>
-        </div>
-        <div class="days-grid">${cards}</div>
-      </div>
-      <aside class="side-stack">
-        <div class="panel" style="padding:13px">
-          <div class="side-title">Unassigned interests</div>
-          <div class="side-sub">Things you liked but haven't dropped onto a day yet.</div>
-          <div class="area-list">${unassignedInterests.length ? unassignedInterests.map(d =>
-            `<div class="area-row"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</span><button onclick="openSheetFor(${JSON.stringify(d.name).replace(/"/g,'&quot;')})">Assign →</button></div>`).join('')
-            : '<div class="side-sub">Nothing waiting. Flag places you like in Saved Places.</div>'}</div>
-        </div>
-        <div class="panel" style="padding:13px">
-          <div class="side-title">Useful area clusters</div>
-          <div class="side-sub">These get valuable once you're walking around.</div>
-          <div class="area-list">${clusters.map(c =>
-            `<div class="area-row"><span>${esc(c.name)} <span class="chip">${c.count}</span></span><button onclick="areaToMap(${JSON.stringify(c.name).replace(/"/g,'&quot;')})">Map →</button></div>`).join('')}</div>
-        </div>
-        ${todos}
-      </aside>
-    </div>`;
+  const todos = decs.length ? '<div style="margin:0 0 12px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px"><div style="font-weight:600;margin-bottom:4px">📌 To book / decide</div>' +
+    decs.map(o => {
+      const m = String((o.item || '') + ' ' + (o.notes || '')).match(/Day (\d+)/i);
+      const dayLink = m ? ' <a onclick="openDay(' + m[1] + ')" style="cursor:pointer;color:#3b82f6">(Day ' + m[1] + (dayDate(m[1]) ? ' · ' + esc(dayDate(m[1])) : '') + ')</a>' : '';
+      return '<div style="padding:2px 0">' + (o.priority === 'high' ? '🔴' : '🟡') + ' ' + esc(o.item || '') + dayLink + '</div>';
+    }).join('') + '</div>' : '';
+  const blockOrder = { morning:0, afternoon:1, evening:2, unscheduled:3 };
+  container.innerHTML = banner + todos + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' +
+    DAYS.map(dy => {
+      const hotel = hotelForDay(dy.n);
+      // Assigned/booked items on this day, ordered by time block
+      const items = DATA.filter(d => getAction(d.name).day === dy.n)
+        .sort((a,b) => (blockOrder[effectiveBlock(getAction(a.name))] - blockOrder[effectiveBlock(getAction(b.name))]) || (b.priority - a.priority));
+      const itemList = items.length
+        ? '<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">' + items.map(d => {
+            const a = getAction(d.name);
+            const t = a.time ? '<span style="color:var(--muted)"> · ' + esc(fmtTime(a.time)) + '</span>' : '';
+            return '<div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + statusChip(a.status) + esc(d.name) + t + '</div>';
+          }).join('') + '</div>'
+        : '<div style="margin-top:8px;font-size:11px;color:var(--muted);font-style:italic">' + (travelDayInfo(dy.n) ? '✈️ ' + esc(travelDayInfo(dy.n)) : 'Nothing planned yet') + '</div>';
+      return '<div onclick="openDay('+dy.n+')" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--card)" onmouseover="this.style.borderColor=\'#3b82f6\'" onmouseout="this.style.borderColor=\'var(--border)\'">' +
+        '<div style="font-weight:700;font-size:13px">Day '+dy.n+' · '+esc(dy.c)+'</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin:2px 0 6px">'+esc(dy.d)+(dy.t?' · '+esc(dy.t):'')+'</div>' +
+        (hotel ? '<div style="font-size:11px;color:var(--muted)">🏨 '+esc(hotel.name)+'</div>' : '') +
+        itemList +
+        '<div style="margin-top:8px;font-size:12px;min-height:0">'+dayStatusDots(dy)+'</div>' +
+      '</div>';
+    }).join('') + '</div>';
 }
 function openDay(n){ selectedDay = n; renderDays(); window.scrollTo(0,0); updateURL(true); }
 function backToOverview(){ selectedDay = null; renderDays(); updateURL(true); }
 
 // --- Deep-linkable URLs (trip + view + open day) ---
-let currentView = 'days';
-// The trip switcher lives in the header on desktop, inside the ••• menu on phones.
-function placeTripSwitcher(){
-  const sel = document.getElementById('trip-switcher');
-  const menu = document.getElementById('more-menu');
-  const actions = document.querySelector('.header-actions');
-  if (!sel || !menu || !actions) return;
-  if (window.matchMedia('(max-width: 768px)').matches) {
-    if (sel.parentElement !== menu) menu.insertBefore(sel, menu.firstChild);
-    sel.classList.add('in-menu');
-  } else {
-    if (sel.parentElement !== actions) actions.insertBefore(sel, actions.firstChild);
-    sel.classList.remove('in-menu');
-  }
-}
-window.addEventListener('resize', placeTripSwitcher);
-window.addEventListener('scroll', () => {
-  const tb = document.querySelector('.topbar');
-  if (tb) tb.classList.toggle('compact', window.scrollY > 70);
-}, { passive: true });
-function toggleMoreMenu(e){ e.stopPropagation(); const m = document.getElementById('more-menu'); m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
-function closeMoreMenu(){ document.getElementById('more-menu').style.display = 'none'; }
-document.addEventListener('click', () => closeMoreMenu());
+let currentView = 'table';
 function setView(v, push){
   currentView = v;
   document.querySelectorAll('.tab[data-view]').forEach(t => t.classList.toggle('active', t.dataset.view === v));
@@ -2406,10 +1606,8 @@ function setView(v, push){
   document.getElementById('day-view').style.display = v==='days'?'block':'none';
   document.getElementById('calendar-view').style.display = v==='calendar'?'block':'none';
   document.getElementById('itin-view').style.display = v==='itinerary'?'block':'none';
-  // v2: search/filter bar and status counts belong to Saved Places only
-  document.getElementById('controls').style.display = v==='table'?'flex':'none';
-  document.getElementById('stats-bar').classList.toggle('hide-bar', v !== 'table');
-  if (v==='map') setTimeout(()=>{ensureMap();map.invalidateSize();renderNearby();},100);
+  document.getElementById('controls').style.display = v==='itinerary'?'none':'flex';
+  if (v==='map') setTimeout(()=>{if(!map)renderMap();else{map.invalidateSize();renderMap();}},100);
   if (v==='days') renderDays();
   if (v==='calendar') renderCalendar();
   if (v==='itinerary') renderItinerary();
@@ -2430,7 +1628,7 @@ async function applyUrlState(){
   if (t && t !== activeTripId) { await switchTrip(t); }
   const d = p.get('day');
   selectedDay = (d != null && d !== '') ? Number(d) : null;
-  setView(shareMode ? 'itinerary' : (p.get('view') || 'days'), false);
+  setView(shareMode ? 'itinerary' : (p.get('view') || 'table'), false);
 }
 window.addEventListener('popstate', () => { applyUrlState(); });
 function renderDays(){
@@ -2449,144 +1647,25 @@ function renderDays(){
     (tdi ? '<span style="font-size:12px;color:#f59e0b">✈️ '+esc(tdi)+'</span>' : '') +
     '</div>';
   container.style.display = 'block';
+  const openPrompt = dayIsOpen(dy) ? '<div style="margin-bottom:12px;padding:8px 12px;border:1px solid #f59e0b;border-radius:8px;background:rgba(245,158,11,0.1);font-size:13px">⚠️ This day is open — set a focus area, drag options into the time blocks, or hit ✨ Plan day with AI.</div>' : '';
   const hotel = hotelForDay(dy.n);
   const hid = hotelIdForDay(dy.n);
   const times = hotelTimesStr(hotel);
-  const hotelBit = hotel
-    ? `<span>🏨 ${esc(hotel.name)}${times ? ' · ' + esc(times) : ''} <span onclick="editHotelTimes('${esc(hid)}')" style="cursor:pointer;color:var(--accent)">✎</span></span>`
+  const hotelLine = hotel
+    ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">🏨 ' + esc(hotel.name) +
+        (times ? ' · ' + esc(times) : '') +
+        ' <span onclick="editHotelTimes(\'' + esc(hid) + '\')" style="cursor:pointer;color:#3b82f6;font-size:11px">✎ ' + (times ? 'edit times' : 'add check-in/out') + '</span></div>'
     : '';
-  const b = dayBuckets(dy.n);
-  const hero =
-    `<div class="detail-hero">
-      <div>
-        <div class="eyebrow">${esc((dy.c || '').toUpperCase())}${tdi ? ' · ✈️ ' + esc(tdi) : ''}</div>
-        <h2>Day ${dy.n} · ${esc(dy.t || dy.c || '')}
-          <span onclick="editDayTitle(${dy.n})" title="Edit title" style="cursor:pointer;color:var(--accent);font-size:14px;vertical-align:3px">✎</span>
-          <span id="ai-title-btn" onclick="aiDayTitle(${dy.n})" title="AI title from this day's pool" style="cursor:pointer;color:var(--purple);font-size:14px;vertical-align:3px">✨</span></h2>
-        <div class="side-sub">${esc(dy.d || '')}</div>
-        <div class="hero-meta">${hotelBit}<span>💡 Keep options loose; decide based on energy, heat and location.</span></div>
-      </div>
-      <div style="display:flex;gap:7px;align-items:flex-start;flex-wrap:wrap">
-        <button class="btn" onclick="openDayOnMap(${dy.n})">Open this day on map</button>
-        <button class="btn primary" onclick="openAddPlace(${dy.n})">+ Add idea</button>
-      </div>
-    </div>`;
-
-  const miniRow = (d, kind) => {
-    const a = getAction(d.name);
-    const time = a.time ? ` · ⏰ ${esc(fmtTime(a.time))}` : '';
-    const meta = [d.neighborhood, d.category].filter(Boolean).join(' · ');
-    const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
-    return `<div class="place-mini">
-      <div style="min-width:0">
-        <div class="place-mini-name">${kind === 'anchor' ? '📌 ' : ''}${esc(d.name)}${sourceBadge(d)}</div>
-        <div class="place-mini-meta">${esc(meta)}${time}</div>
-      </div>
-      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">${statusChipV2(a)}<button class="icon-btn" onclick="openSheetFor(${jn})">•••</button></div>
-    </div>`;
-  };
-  const buckets =
-    `<div class="panel">
-      <div class="bucket">
-        <div class="bucket-head"><div><div class="bucket-title">ANCHORS</div><div class="side-sub">Things you're fairly sure about — booked or given a time.</div></div></div>
-        ${b.anchors.length ? b.anchors.map(d => miniRow(d, 'anchor')).join('') : '<div class="side-sub">No fixed anchors. That is okay.</div>'}
-      </div>
-      <div class="bucket">
-        <div class="bucket-head"><div><div class="bucket-title">CONSIDERING</div><div class="side-sub">The loose pool. Decide later based on location, energy, weather.</div></div></div>
-        ${b.consider.length ? b.consider.map(d => miniRow(d, 'consider')).join('') : '<div class="side-sub">Nothing added yet — pull ideas in from the right.</div>'}
-      </div>
-      <div class="bucket" style="padding:10px 14px">
-        <span onclick="toggleAdvancedDay()" style="cursor:pointer;font-size:11px;color:var(--muted)">${advancedDayOpen ? '▾' : '▸'} Schedule details — time blocks & AI day plan</span>
-      </div>
-    </div>`;
-
+  const header = '<h3 style="margin:0 0 2px">Day ' + dy.n + ' · ' + esc(dy.d || '') + (dy.t ? ' — ' + esc(dy.t) : '') +
+    ' <span onclick="editDayTitle(' + dy.n + ')" title="Edit title" style="cursor:pointer;color:#3b82f6;font-size:13px;vertical-align:2px">✎</span>' +
+    ' <span id="ai-title-btn" onclick="aiDayTitle(' + dy.n + ')" title="AI title from this day\'s pool" style="cursor:pointer;color:#a855f7;font-size:13px;vertical-align:2px">✨</span></h3>' +
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">' + esc(dy.c) + '</div>' + hotelLine;
   const plan = getDayPlan(dy.n);
-  const advanced = advancedDayOpen
-    ? `<div class="panel" style="padding:14px;margin-top:12px">${renderDayControls(dy)}${renderAiPlan(dy.n, plan.ai)}
-        <div class="day-builder"><div>${renderDayBuilt(dy)}</div><div>${renderDayOptions(dy, filtered)}</div></div>
-      </div>`
-    : '';
-
-  container.innerHTML = nav + hero +
-    `<div class="loose-layout">
-      <div>${buckets}${advanced}</div>
-      <div class="panel rec-panel">
-        <div class="side-title">Add places to this day</div>
-        <div class="side-sub">Search everything you've saved, then drop it into Considering or mark it Booked.</div>
-        <input type="text" id="rec-search" class="search-input" style="width:100%;margin-top:9px" placeholder="Search all ${DATA.length} saved places…"
-               value="${esc(recSearch)}" oninput="recSearchChange(this.value)">
-        <div class="rec-tabs">
-          ${[['all','All saved'],['interested','Interested'],['nearby','Near this day']].map(([t,label]) =>
-            `<button class="rec-tab ${recTab === t ? 'active' : ''}" data-tab="${t}" onclick="setRecTab('${t}')">${label}</button>`).join('')}
-        </div>
-        <div id="day-recs">${renderDayRecsList(dy)}</div>
-      </div>
-    </div>`;
-}
-
-// --- v2 day-detail helpers ---
-let advancedDayOpen = false;
-let recTab = 'all';          // searching everything is the default way to fill a day
-let recSearch = '';
-function toggleAdvancedDay(){ advancedDayOpen = !advancedDayOpen; renderDays(); }
-// Update only the results list so the search box keeps focus while typing.
-function refreshRecs(){
-  const dy = DAYS.find(d => d.n === selectedDay);
-  const el = document.getElementById('day-recs');
-  if (dy && el) el.innerHTML = renderDayRecsList(dy);
-}
-function recSearchChange(v){ recSearch = v; refreshRecs(); }
-function setRecTab(t){
-  recTab = t;
-  document.querySelectorAll('.rec-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
-  refreshRecs();
-}
-function addConsidering(name){ addToDayBlock(name, 'unscheduled'); }
-function addBooked(name){
-  const a = getAction(name);
-  setAction(name, 'booked', selectedDay, a.notes, a.reserveDate, a.time);
-}
-function openDayOnMap(n){
-  const hotel = hotelForDay(n);
-  setView('map', true);
-  if (hotel && typeof hotel.lat === 'number') setTimeout(() => {
-    nearbyCenter = { lat: hotel.lat, lng: hotel.lng, label: hotel.name };
-    document.getElementById('nearby-title').textContent = 'Near ' + hotel.name;
-    if (map) map.setView([hotel.lat, hotel.lng], 14, { animate: false });
-  }, 350);
-}
-function renderDayRecsList(dy){
-  const hotel = hotelForDay(dy.n);
-  const distOf = d => (hotel && typeof d.lat === 'number') ? haversine(hotel.lat, hotel.lng, d.lat, d.lng) : null;
-  const q = recSearch.trim().toLowerCase();
-  let pool = DATA.filter(d => { const a = getAction(d.name); return a.day !== dy.n && a.status !== 'skip'; });
-  if (recTab === 'interested') pool = pool.filter(d => getAction(d.name).status === 'want');
-  else if (recTab === 'nearby') pool = pool.filter(d => d.city === dy.c && typeof d.lat === 'number');
-  if (q) pool = pool.filter(d => matchesSearch(d, q));
-  if (recTab === 'nearby') pool.sort((a,b) => (distOf(a) ?? 9999) - (distOf(b) ?? 9999));
-  else pool.sort((a,b) => (a.city === dy.c ? 0 : 1) - (b.city === dy.c ? 0 : 1) || b.priority - a.priority);
-  const total = pool.length;
-  const shown = pool.slice(0, 40);
-  if (!shown.length) return `<div class="side-sub" style="margin-top:8px">No matches${q ? ' for “' + esc(recSearch) + '”' : ''}. Try a different search or tab.</div>`;
-  const header = `<div class="side-sub" style="margin:8px 0 4px">${total} match${total === 1 ? '' : 'es'}${total > 40 ? ' — showing first 40, keep typing to narrow' : ''}</div>`;
-  return header + shown.map(d => {
-    const a = getAction(d.name);
-    const km = distOf(d);
-    const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
-    const meta = [d.city !== dy.c ? d.city : null, d.neighborhood, d.category].filter(Boolean).join(' · ');
-    return `<div class="rec-card">
-      <div class="rec-top">
-        <div style="min-width:0"><div class="rec-name">${esc(d.name)}${sourceBadge(d)}</div><div class="rec-meta">${esc(meta)}${km != null && d.city === dy.c ? ' · ' + km.toFixed(1) + ' km from hotel' : ''}</div></div>
-        ${statusChipV2(a)}
-      </div>
-      ${d.why ? `<div class="rec-why">${esc(d.why)}</div>` : ''}
-      <div class="rec-actions">
-        <button class="mini add" onclick="addConsidering(${jn})">＋ Considering</button>
-        <button class="mini" style="color:var(--green);border-color:rgba(53,208,127,.3)" onclick="addBooked(${jn})">✅ Booked</button>
-        <button class="mini" onclick="openSheetFor(${jn})">Details</button>
-      </div>
-    </div>`;
-  }).join('');
+  container.innerHTML = nav + openPrompt + header + renderDayControls(dy) + renderAiPlan(dy.n, plan.ai) +
+    '<div class="day-builder">' +
+      '<div>' + renderDayBuilt(dy) + '</div>' +
+      '<div>' + renderDayOptions(dy, filtered) + '</div>' +
+    '</div>';
 }
 
 function dcAction(btn) {
@@ -2668,11 +1747,9 @@ function renderItineraryGeneric() {
     if (hotel) html += '<div class="itin-hotel"><div class="itin-hotel-name">🏨 ' + esc(hotel.name) + '</div>' +
       (hotel.address ? '<div class="itin-hotel-detail">' + esc(hotel.address) + '</div>' : '') +
       (hotelTimesStr(hotel) ? '<div class="itin-hotel-detail" style="color:var(--green)">' + esc(hotelTimesStr(hotel)) + '</div>' : '') + '</div>';
-    const anchorsItin = assigned.filter(d => isAnchor(d) && getAction(d.name).status !== 'skip');
-    const considerItin = assigned.filter(d => !isAnchor(d) && getAction(d.name).status !== 'skip');
-    if (anchorsItin.length || considerItin.length) {
-      if (anchorsItin.length) html += '<div class="itin-section-label">📌 Anchors</div>';
-      anchorsItin.forEach(d => {
+    if (assigned.length) {
+      html += '<div class="itin-section-label">Planned</div>';
+      assigned.forEach(d => {
         const a = getAction(d.name);
         html += '<div class="itin-activity"><div class="itin-time">' + esc(fmtTime(a.time || '')) + '</div><div class="itin-act-body">';
         html += '<div class="itin-act-name">' + (a.status==='booked'?'✅ ':'') + esc(d.name) + '</div>';
@@ -2680,21 +1757,12 @@ function renderItineraryGeneric() {
         if (d.why) html += '<div class="itin-act-why">' + esc(d.why) + '</div>';
         html += placeDetailsLine(a);
         html += '<div class="itin-act-tags"><span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + esc(d.category) + '</span>';
-        if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(53,208,127,0.15);color:var(--green)">Confirmed</span>';
-        if (a.status==='reserve') html += '<span class="itin-act-tag" style="background:rgba(255,107,107,0.15);color:#fca5a5">Needs booking</span>';
+        if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(34,197,94,0.15);color:var(--green)">Confirmed</span>';
+        if (a.status==='reserve') html += '<span class="itin-act-tag" style="background:rgba(239,68,68,0.15);color:#fca5a5">Needs booking</span>';
         html += '</div>';
         if (a.notes) html += '<div style="font-size:12px;color:var(--muted);margin-top:4px;font-style:italic">' + esc(a.notes) + '</div>';
         html += '</div></div>';
       });
-      if (considerItin.length) {
-        html += '<div class="itin-section-label" style="margin-top:10px">＋ Considering — options, not commitments</div>';
-        considerItin.forEach(d => {
-          html += '<div class="itin-activity" style="opacity:.78"><div class="itin-time"></div><div class="itin-act-body">';
-          html += '<div class="itin-act-name" style="font-weight:600">＋ ' + esc(d.name) + '</div>';
-          html += '<div class="itin-act-hood">' + esc([d.neighborhood, d.category].filter(Boolean).join(' · ')) + '</div>';
-          html += '</div></div>';
-        });
-      }
     } else {
       html += '<div class="itin-empty">' + (hotel ? 'Day at ' + esc(hotel.name) : 'Nothing planned yet') + (day.t ? ' — ' + esc(day.t) : '') + '</div>';
     }
@@ -2723,10 +1791,17 @@ function renderItineraryJapan() {
     const transit = TRANSIT[day.n];
     const isNewHotel = day.n === 1 || hotelForDay(day.n).name !== (prevHotel(day.n)||{}).name;
 
-    // v2: anchors = committed (booked / timed / scheduled); considering = the rest of the day pool
-    const dayPool = DATA.filter(d => getAction(d.name).day === day.n && getAction(d.name).status !== 'skip');
-    const assigned = dayPool.filter(isAnchor).sort((a,b) => b.priority - a.priority);
-    const wants = dayPool.filter(d => !isAnchor(d)).sort((a,b) => b.priority - a.priority);
+    // Get assigned activities for this day
+    const assigned = DATA.filter(d => getAction(d.name).day === day.n)
+      .sort((a,b) => b.priority - a.priority);
+
+    // Get "want" items that match this day but aren't assigned
+    const wants = DATA.filter(d => {
+      const a = getAction(d.name);
+      if (a.day === day.n) return false;
+      if (a.status !== 'want' && a.status !== 'reserve' && a.status !== 'booked') return false;
+      return dayMatchesDayNum(d.days, day.n);
+    }).sort((a,b) => b.priority - a.priority).slice(0, 4);
 
     html += '<div class="itin-day">';
 
@@ -2760,11 +1835,11 @@ function renderItineraryJapan() {
 
     // Assigned activities
     if (assigned.length) {
-      html += '<div class="itin-section-label">📌 Anchors</div>';
+      html += '<div class="itin-section-label">Planned</div>';
       assigned.forEach(d => {
         const a = getAction(d.name);
         html += '<div class="itin-activity">';
-        html += '<div class="itin-time">' + (a.time ? esc(fmtTime(a.time)) : (d.heat.toLowerCase().includes('early') ? 'Morning' : d.heat.toLowerCase().includes('evening') ? 'Evening' : 'Flexible')) + '</div>';
+        html += '<div class="itin-time">' + (d.heat.toLowerCase().includes('early') ? 'Morning' : d.heat.toLowerCase().includes('evening') ? 'Evening' : d.heat.toLowerCase().includes('indoor') ? 'Flexible' : '') + '</div>';
         html += '<div class="itin-act-body">';
         html += '<div class="itin-act-name">' + (a.status === 'booked' ? '✅ ' : '') + d.name + '</div>';
         if (d.neighborhood) html += '<div class="itin-act-hood">' + d.neighborhood + '</div>';
@@ -2782,15 +1857,17 @@ function renderItineraryJapan() {
       });
     }
 
-    // Considering — options for the day, explicitly not commitments
+    // Considering
     if (wants.length) {
-      html += '<div class="itin-section-label">＋ Considering — options, not commitments</div>';
+      html += '<div class="itin-section-label">Considering</div>';
       wants.forEach(d => {
-        html += '<div class="itin-activity" style="opacity:0.72">';
+        const a = getAction(d.name);
+        html += '<div class="itin-activity" style="opacity:0.6">';
         html += '<div class="itin-time"></div>';
         html += '<div class="itin-act-body">';
-        html += '<div class="itin-act-name" style="font-weight:600">＋ ' + esc(d.name) + '</div>';
-        html += '<div class="itin-act-hood">' + esc([d.neighborhood, d.category].filter(Boolean).join(' · ')) + '</div>';
+        html += '<div class="itin-act-name">' + ACTIONS[a.status].icon + ' ' + d.name + '</div>';
+        if (d.neighborhood) html += '<div class="itin-act-hood">' + d.neighborhood + '</div>';
+        html += '<div class="itin-act-why">' + d.why + '</div>';
         html += '</div></div>';
       });
     }
@@ -3053,7 +2130,8 @@ function setupListeners() {
     if (e.target.classList.contains('reserve-date-input') || e.target.classList.contains('dc-resdate')) {
       const name = e.target.dataset.resdateFor;
       const current = getAction(name);
-      setAction(name, current.status, current.day, current.notes, e.target.value);
+      const newStatus = current.status === 'none' ? 'reserve' : current.status;
+      setAction(name, newStatus, current.day, current.notes, e.target.value);
     }
   });
   document.addEventListener('focusout', e => {
@@ -3077,28 +2155,32 @@ function setupListeners() {
     th.addEventListener('click', () => {
       const f = th.dataset.sort;
       if (sortField===f) sortDir*=-1; else { sortField=f; sortDir=f==='priority'?-1:1; }
-      renderLibrary();
+      renderTable();
     });
   });
 
   // Search
-  document.getElementById('search').addEventListener('input', e => {
-    searchTerm = e.target.value;
-    libLimit = 100;                       // a new query starts from the top
-    renderLibrary(); renderFilters();
-    if (map && currentView === 'map') renderNearby();
-  });
+  document.getElementById('search').addEventListener('input', e => { searchTerm=e.target.value; renderTable(); if(map)renderMap(); });
 
   // Add place (modal)
-  document.getElementById('add-place-tab').addEventListener('click', e => { e.stopPropagation(); openAddPlace(); });
+  document.getElementById('add-place-tab').addEventListener('click', e => {
+    e.stopPropagation();
+    // Populate the city dropdown from the active trip's cities (not hardcoded Japan).
+    const sel = document.getElementById('ap-city');
+    const cities = tripCities();
+    sel.innerHTML = (cities.length ? cities : ['']).map(c => '<option>' + esc(c) + '</option>').join('');
+    // Day pool: picking a day drops the place into that day's Unscheduled block.
+    const dsel = document.getElementById('ap-day');
+    dsel.innerHTML = '<option value="">Unassigned (decide later)</option>' + DAYS.map(dy =>
+      `<option value="${dy.n}">Day ${dy.n} — ${esc(dy.d)}${dy.c ? ' · ' + esc(dy.c) : ''}</option>`).join('');
+    document.getElementById('add-place-form').classList.add('open');
+    document.getElementById('ap-name').focus();
+  });
   document.getElementById('ap-cancel').addEventListener('click', () => {
     document.getElementById('add-place-form').classList.remove('open');
   });
   document.getElementById('add-place-form').addEventListener('click', e => {
     if (e.target.id === 'add-place-form') e.currentTarget.classList.remove('open');
-  });
-  document.getElementById('fx-modal').addEventListener('click', e => {
-    if (e.target.id === 'fx-modal') closeFx();
   });
   document.getElementById('ap-submit').addEventListener('click', async () => {
     const name = document.getElementById('ap-name').value.trim();
