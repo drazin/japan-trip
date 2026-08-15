@@ -970,7 +970,7 @@ function importActions(e) {
 const FX_KEY = 'fx-jpy-per-usd';
 const FX_STAMP_KEY = 'fx-updated';
 let fxRate = Number(localStorage.getItem(FX_KEY)) || 159;   // seeded from the trip's planning rate
-const fmtUsd = n => '$' + (n >= 100 ? Math.round(n).toLocaleString() : n.toFixed(2));
+const fmtUsd = n => '$' + (n >= 1000 ? Math.round(n).toLocaleString() : n.toFixed(2));
 const fmtYen = n => '¥' + Math.round(n).toLocaleString();
 function openFx(){
   document.getElementById('fx-rate').value = String(fxRate);
