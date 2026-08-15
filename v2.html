@@ -3047,12 +3047,17 @@ function setupListeners() {
     th.addEventListener('click', () => {
       const f = th.dataset.sort;
       if (sortField===f) sortDir*=-1; else { sortField=f; sortDir=f==='priority'?-1:1; }
-      renderTable();
+      renderLibrary();
     });
   });
 
   // Search
-  document.getElementById('search').addEventListener('input', e => { searchTerm=e.target.value; renderTable(); if(map)renderMap(); });
+  document.getElementById('search').addEventListener('input', e => {
+    searchTerm = e.target.value;
+    libLimit = 100;                       // a new query starts from the top
+    renderLibrary(); renderFilters();
+    if (map && currentView === 'map') renderNearby();
+  });
 
   // Add place (modal)
   document.getElementById('add-place-tab').addEventListener('click', e => { e.stopPropagation(); openAddPlace(); });
