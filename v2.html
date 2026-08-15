@@ -715,8 +715,11 @@ async function loadActions() {
       dayPlans = { ...dayPlans, ...(data.dayPlans || {}) };
       localStorage.setItem(DAYPLANS_KEY, JSON.stringify(dayPlans));
 
-      // Union manual items by name across local + server.
-      const mergedManual = localManual.slice();
+      // Union manual items by name across local + server. The server copy wins for
+      // places present in both (it carries fixes like re-geocoded coordinates);
+      // local-only entries are preserved so nothing entered offline is lost.
+      const serverByName = new Map(serverManual.map(m => [m.name.toLowerCase(), m]));
+      const mergedManual = localManual.map(m => serverByName.get(m.name.toLowerCase()) || m);
       const mnames = new Set(mergedManual.map(m => m.name.toLowerCase()));
       serverManual.forEach(item => {
         if (!mnames.has(item.name.toLowerCase())) { mergedManual.push(item); mnames.add(item.name.toLowerCase()); }
@@ -1324,7 +1327,7 @@ function mapPopupHtml(d){
   const s = displayStatus(a);
   const dayTag = a.day ? ` · Day ${a.day}${dayDate(a.day) ? ' (' + dayDate(a.day) + ')' : ''}` : '';
   const state = (s.label !== 'Saved' || a.day) ? `<br><b>${s.label}</b>${dayTag}` : '';
-  const addr = d.address ? `<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}</span>` : '';
+  const addr = d.address ? `<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}${d.coordApprox ? ' <b style="color:#f3b84a">(area only)</b>' : ''}</span>` : '';
   const km = nearbyCenter && typeof d.lat === 'number' ? haversine(nearbyCenter.lat, nearbyCenter.lng, d.lat, d.lng) : null;
   const dist = km != null ? `<br><span style="color:#36d4e7;font-size:11px;font-weight:700">${km.toFixed(1)} km away</span>` : '';
   const tn = todayDayN();
@@ -1413,7 +1416,7 @@ function renderNearby(){
   if (!COORD_SUSPECT.size) computeCoordSuspects();
   nearbyPool().forEach(d => {
     const a = getAction(d.name);
-    const suspect = COORD_SUSPECT.has(d.name);
+    const suspect = COORD_SUSPECT.has(d.name) || d.coordApprox;
     const color = a.status==='booked' ? '#35d07f' : a.status==='want' ? '#ff5ba6' : colors[d.category] || '#f3b84a';
     const m = L.circleMarker([d.lat, d.lng], { radius: a.day ? 8 : 5.5, fillColor: color, color: '#fff', weight: a.day ? 2 : 1, opacity: suspect ? .35 : .9, fillOpacity: suspect ? .25 : .75 }).addTo(map);
     m.bindPopup(() => mapPopupHtml(d), { maxWidth: 300 });
@@ -1468,10 +1471,10 @@ function renderNearbyList(){
   const c = nearbyCenter || map.getCenter().wrap && { lat: map.getCenter().lat, lng: map.getCenter().lng } || null;
   if (!COORD_SUSPECT.size) computeCoordSuspects();
   const inView = nearbyPool().filter(d => b.contains([d.lat, d.lng]));
-  const good = inView.filter(d => !COORD_SUSPECT.has(d.name))
+  const good = inView.filter(d => !COORD_SUSPECT.has(d.name) && !d.coordApprox)
     .map(d => ({ d, km: c ? haversine(c.lat, c.lng, d.lat, d.lng) : null }))
     .sort((a, b2) => (a.km ?? 999) - (b2.km ?? 999)).slice(0, 60);
-  const iffy = inView.filter(d => COORD_SUSPECT.has(d.name)).slice(0, 20);
+  const iffy = inView.filter(d => COORD_SUSPECT.has(d.name) || d.coordApprox).slice(0, 20);
   const row = (d, km) => {
     const a = getAction(d.name);
     const jn = JSON.stringify(d.name).replace(/"/g, '&quot;');
@@ -1488,7 +1491,7 @@ function renderNearbyList(){
   };
   el.innerHTML = (good.length ? good.map(r => row(r.d, r.km)).join('') :
       '<div class="side-sub" style="margin-top:10px">No saved places in this view — zoom out or pick another area.</div>') +
-    (iffy.length ? `<div class="side-sub" style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)">📍 Pin unverified — double-check in Google Maps before walking:</div>` +
+    (iffy.length ? `<div class="side-sub" style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)">📍 Area-level pin only — check Google Maps for the exact spot:</div>` +
       iffy.map(d => row(d, null)).join('') : '');
 }
 function focusNearby(name){
