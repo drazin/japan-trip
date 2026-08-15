@@ -34,13 +34,9 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .btn.primary { background: var(--accent2); border-color: var(--accent2); font-weight: 800; color: #fff; }
   .btn.ghost { background: transparent; color: var(--muted); }
   .btn.pink { border-color: rgba(255,91,166,.35); color: var(--pink); background: rgba(255,91,166,.06); }
-  .mobile-nav { display: none; }
   .hide-bar, .stats-bar.hide-bar { display: none !important; }
   .mm-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font-size: 13px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
   .mm-item:hover { background: var(--card2); }
-  .mnav { border: 0; background: transparent; color: var(--muted); font-size: 10px; padding: 6px 10px; cursor: pointer; }
-  .mnav strong { display: block; font-size: 17px; margin-bottom: 2px; }
-  .mnav.active { color: var(--accent); }
   /* v2 Plan view */
   .builder-top { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin-bottom: 16px; }
   .ingest-panel { padding: 17px; background: linear-gradient(135deg,#152037,#12161e 70%); }
@@ -466,11 +462,13 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     /* Itinerary breathing room */
     .itin { padding: 0 12px 90px; }
 
-    /* Phone: tabs give way to a fixed bottom nav */
-    .tabs { display: none; }
-    .mobile-nav { display: flex; position: fixed; z-index: 70; left: 0; right: 0; bottom: 0; background: rgba(11,13,18,.97); border-top: 1px solid var(--border); padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); justify-content: space-around; }
-    .content, .table-view, .day-columns { padding-bottom: 84px; }
-    body { padding-bottom: 70px; }
+    /* Phone: the same top tabs as desktop — one nav pattern everywhere.
+       The header scrolls away and the tabs stay pinned. */
+    .topbar { position: sticky; top: 0; }
+    .topbar.compact .header { display: none; }
+    .tabs { display: flex; padding: 0 6px; gap: 0; }
+    .tab { flex: 1; text-align: center; padding: 13px 4px; font-size: 13px; white-space: nowrap; }
+    .content, .table-view, .day-columns { padding-bottom: 24px; }
     /* Action menu becomes a bottom sheet so it's never off-screen */
     .action-menu { position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; min-width: 0; max-height: 72vh; overflow-y: auto; box-shadow: 0 -8px 40px rgba(0,0,0,0.7); }
     .day-columns { grid-template-columns: 1fr; }
@@ -540,12 +538,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
 
 <div class="stats-bar" id="stats-bar"></div>
 
-<div class="mobile-nav" id="mobile-nav">
-  <button class="mnav" data-view="days" onclick="setView('days', true)"><strong>▦</strong>Plan</button>
-  <button class="mnav" data-view="table" onclick="setView('table', true)"><strong>★</strong>Saved</button>
-  <button class="mnav" data-view="map" onclick="setView('map', true)"><strong>◎</strong>Nearby</button>
-  <button class="mnav" data-view="itinerary" onclick="setView('itinerary', true)"><strong>☷</strong>Itinerary</button>
-</div>
+
 
 <div id="fx-modal" class="modal-overlay">
   <div class="modal-box" style="width:min(460px,94vw)">
@@ -1206,7 +1199,7 @@ async function init() {
   await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
   if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hide-bar'); });
   placeTripSwitcher();
-  if (shareMode) document.querySelectorAll('.header-actions, .tabs, .mobile-nav').forEach(el => { el.style.display = 'none'; });
+  if (shareMode) document.querySelectorAll('.header-actions, .tabs').forEach(el => { el.style.display = 'none'; });
 }
 
 // v2 Saved Places: the research library (replaces the old table render)
@@ -2398,12 +2391,16 @@ function placeTripSwitcher(){
   }
 }
 window.addEventListener('resize', placeTripSwitcher);
+window.addEventListener('scroll', () => {
+  const tb = document.querySelector('.topbar');
+  if (tb) tb.classList.toggle('compact', window.scrollY > 70);
+}, { passive: true });
 function toggleMoreMenu(e){ e.stopPropagation(); const m = document.getElementById('more-menu'); m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
 function closeMoreMenu(){ document.getElementById('more-menu').style.display = 'none'; }
 document.addEventListener('click', () => closeMoreMenu());
 function setView(v, push){
   currentView = v;
-  document.querySelectorAll('.tab[data-view], .mnav[data-view]').forEach(t => t.classList.toggle('active', t.dataset.view === v));
+  document.querySelectorAll('.tab[data-view]').forEach(t => t.classList.toggle('active', t.dataset.view === v));
   document.getElementById('table-view').style.display = v==='table'?'block':'none';
   document.getElementById('map-view').style.display = v==='map'?'block':'none';
   document.getElementById('day-view').style.display = v==='days'?'block':'none';
