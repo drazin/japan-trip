@@ -619,6 +619,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     <option value="AssignedAny">On a day</option>
     <option value="Considering">Considering</option>
     <option value="Visited">✓ Visited</option>
+    <option value="Multi">◎ On 2+ lists</option>
     <option value="Unassigned">Unassigned</option>
     <option value="Booked">Booked</option>
     <option value="Hidden">Hidden / skipped</option>
@@ -896,6 +897,7 @@ function buildActionSheet(){
       <div style="font-size:12px;color:var(--muted);margin-top:3px">
         ${esc(sm.label)}${igDateStr ? ' · saved ' + esc(igDateStr) : ''}${collections ? ' · collection “' + esc(collections) + '”' : ''}
       </div>
+      ${mentionCount(place) > 1 ? `<div style="font-size:12px;color:var(--amber);margin-top:4px">◎ Also on: ${esc((place.sources || []).filter(x => x !== place.source).join(', '))}</div>` : ''}
       ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener" style="font-size:11px;color:${sm.color}">View original ↗</a>` : ''}
       ${place.ig_caption ? `<div style="font-size:11px;color:#d5dae2;line-height:1.45;margin-top:6px;max-height:96px;overflow-y:auto;white-space:pre-wrap">${esc(place.ig_caption)}</div>` : ''}
     </div>` : '';
@@ -1518,7 +1520,7 @@ function renderLibrary(){
     const interested = a.status === 'want';
     return `<div class="library-card">
       <div style="min-width:0">
-        <div class="library-name" onclick="openSheetFor(${jn})">${esc(d.name)}${sourceBadge(d)}</div>
+        <div class="library-name" onclick="openSheetFor(${jn})">${esc(d.name)}${sourceBadge(d)}${mentionChip(d)}</div>
         <div class="library-meta">${esc(meta)}</div>
         ${d.why ? `<div class="library-desc">${esc(d.why)}</div>` : ''}
       </div>
@@ -1624,6 +1626,7 @@ function libStatusChange(val){
   else if (val === 'AssignedAny') activeFilters.assign = 'assigned';
   else if (val === 'Considering') activeFilters.assign = 'considering';
   else if (val === 'Visited') activeFilters.assign = 'visited';
+  else if (val === 'Multi') activeFilters.assign = 'multi';
   else if (val === 'Unassigned') activeFilters.assign = 'unassigned';
   renderAll();
 }
@@ -1648,6 +1651,7 @@ function getFiltered() {
     if (activeFilters.assign === 'unassigned' && act.day) return false;
     if (activeFilters.assign === 'considering' && !(act.day && !isAnchor(d))) return false;
     if (activeFilters.assign === 'visited' && !act.visited) return false;
+    if (activeFilters.assign === 'multi' && mentionCount(d) < 2) return false;
     if (searchTerm && !matchesSearch(d, searchTerm)) return false;
     return true;
   }).sort((a, b) => {
@@ -1710,6 +1714,14 @@ const SOURCE_CHIPS = [
   { source: 'Manual',         label: 'Added by hand',  short: 'Manual',    icon: '✎',  color: '#98a2b0', bg: 'rgba(152,162,176,0.12)' },
 ];
 function sourceMeta(d){ return d && SOURCE_CHIPS.find(s => s.source === d.source); }
+// How many independent lists recommended this place. The only ranking signal we
+// trust: three different sources naming the same spot means something.
+function mentionCount(d){ return (d && Array.isArray(d.sources)) ? d.sources.length : 1; }
+function mentionChip(d){
+  const n = mentionCount(d);
+  if (n < 2) return '';
+  return ` <span class="chip amber" title="On ${n} of your lists: ${esc((d.sources||[]).join(', '))}">◎ ${n} lists</span>`;
+}
 function sourceBadge(d){
   const s = sourceMeta(d);
   if (!s) return '';
@@ -2897,7 +2909,8 @@ function renderDayRecsList(dy){
   else if (recTab === 'nearby') pool = pool.filter(d => d.city === dy.c && typeof d.lat === 'number');
   if (q) pool = pool.filter(d => matchesSearch(d, q));
   if (recTab === 'nearby') pool.sort((a,b) => (distOf(a) ?? 9999) - (distOf(b) ?? 9999));
-  else pool.sort((a,b) => (a.city === dy.c ? 0 : 1) - (b.city === dy.c ? 0 : 1) || a.name.localeCompare(b.name));
+  else pool.sort((a,b) => (a.city === dy.c ? 0 : 1) - (b.city === dy.c ? 0 : 1)
+      || mentionCount(b) - mentionCount(a) || a.name.localeCompare(b.name));
   const total = pool.length;
   const shown = pool.slice(0, 40);
   if (!shown.length) return `<div class="side-sub" style="margin-top:8px">No matches${q ? ' for “' + esc(recSearch) + '”' : ''}. Try a different search or tab.</div>`;
@@ -2909,7 +2922,7 @@ function renderDayRecsList(dy){
     const meta = [d.city !== dy.c ? d.city : null, d.neighborhood, d.category].filter(Boolean).join(' · ');
     return `<div class="rec-card">
       <div class="rec-top">
-        <div style="min-width:0"><div class="rec-name">${esc(d.name)}${sourceBadge(d)}</div><div class="rec-meta">${esc(meta)}${km != null && d.city === dy.c ? ' · ' + km.toFixed(1) + ' km from hotel' : ''}</div></div>
+        <div style="min-width:0"><div class="rec-name">${esc(d.name)}${sourceBadge(d)}${mentionChip(d)}</div><div class="rec-meta">${esc(meta)}${km != null && d.city === dy.c ? ' · ' + km.toFixed(1) + ' km from hotel' : ''}</div></div>
         ${statusChipV2(a)}
       </div>
       ${d.why ? `<div class="rec-why">${esc(d.why)}</div>` : ''}
