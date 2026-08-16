@@ -1151,6 +1151,7 @@ function openLightbox(id){
   let ov = document.getElementById('lightbox');
   if (!ov) {
     ov = document.createElement('div'); ov.id = 'lightbox'; ov.className = 'modal-overlay';
+    ov.dataset.clearOnClose = '';
     document.body.appendChild(ov);
   }
   drawLightbox();
@@ -1158,7 +1159,7 @@ function openLightbox(id){
 }
 function closeLightbox(){
   const o = document.getElementById('lightbox');
-  if (o) { o.classList.remove('open'); o.innerHTML = ''; }   // drop the decoded image
+  if (o) closeOverlay(o);
   lightboxId = null;
 }
 function lightboxStep(delta){
@@ -1330,12 +1331,18 @@ async function switchTrip(id){
 }
 function openNewTrip(){ document.getElementById('nt-error').textContent=''; document.getElementById('newtrip-modal').classList.add('open'); }
 function closeNewTrip(){ document.getElementById('newtrip-modal').classList.remove('open'); }
-// Escape or backdrop-click closes any open modal
+// Escape or backdrop-click closes any open modal. Overlays marked
+// data-clear-on-close also drop their contents (the lightbox holds a decoded
+// full-size bitmap that would otherwise stay in memory).
+function closeOverlay(m){
+  m.classList.remove('open');
+  if (m.dataset.clearOnClose !== undefined) m.innerHTML = '';
+}
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(closeOverlay);
 });
 document.addEventListener('click', e => {
-  if (e.target.classList && e.target.classList.contains('modal-overlay')) e.target.classList.remove('open');
+  if (e.target.classList && e.target.classList.contains('modal-overlay')) closeOverlay(e.target);
 });
 
 async function ntGeocode(){
