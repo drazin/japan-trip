@@ -617,6 +617,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
     <option value="Interested">Interested</option>
     <option value="AssignedAny">On a day</option>
     <option value="Considering">Considering</option>
+    <option value="Visited">✓ Visited</option>
     <option value="Unassigned">Unassigned</option>
     <option value="Booked">Booked</option>
     <option value="Hidden">Hidden / skipped</option>
@@ -1047,6 +1048,13 @@ function setRating(name, n){
 function stars(n, size){
   return '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
 }
+// Rendered in the itinerary, including the family's read-only view
+function visitLine(a){
+  if (!a || (!a.visited && !a.rating && !a.memory)) return '';
+  const rate = a.rating ? `<span style="color:var(--amber);font-weight:700">${stars(a.rating)}</span>` : '<span style="color:var(--green);font-weight:700">✓ We went</span>';
+  const mem = a.memory ? `<span style="color:#d5dae2"> — ${esc(a.memory)}</span>` : '';
+  return `<div style="font-size:12px;margin-top:5px;line-height:1.45">${rate}${mem}</div>`;
+}
 function ratingChip(a){
   if (!a.rating) return a.visited ? '<span class="chip green">✓ Visited</span>' : '';
   return `<span class="chip amber">${stars(a.rating)}</span>`;
@@ -1408,7 +1416,7 @@ function renderLibrary(){
         ${d.why ? `<div class="library-desc">${esc(d.why)}</div>` : ''}
       </div>
       <div class="lib-side">
-        <div class="lib-chips">${statusChipV2(a)}</div>
+        <div class="lib-chips">${ratingChip(a)}${statusChipV2(a)}</div>
         <div class="lib-actions">
           <button class="mini heart ${interested ? 'on' : ''}" onclick="toggleInterested(${jn})">${interested ? '♥ Interested' : '♡ Interested'}</button>
           <button class="mini" onclick="openSheetFor(${jn})">Assign</button>
@@ -1451,12 +1459,14 @@ function renderStats() {
     `<div class="stat ${sel(statusKey)}" onclick="const s=document.getElementById('lib-status'); if(s){s.value='${statusKey}';} libStatusChange('${statusKey}')">
       <div class="label">${label}</div><div class="value"${color ? ` style="color:${color}"` : ''}>${value}</div></div>`;
   const considering = DATA.filter(d => { const a = getAction(d.name); return a.day && a.status !== 'skip' && !isAnchor(d); }).length;
+  const visited = DATA.filter(d => getAction(d.name).visited).length;
   bar.innerHTML =
     card('All', 'Saved places', DATA.length, '') +
     card('Interested', '♥ Interested', interested, 'var(--pink)') +
     card('Considering', '🤔 Considering', considering, 'var(--amber)') +
     card('AssignedAny', '📅 On days', onDays, 'var(--accent)') +
     card('Booked', '✓ Booked', booked, 'var(--green)') +
+    (visited ? card('Visited', '⭐ Visited', visited, 'var(--amber)') : '') +
     (hidden ? card('Hidden', 'Hidden', hidden, 'var(--muted)') : '');
 }
 
@@ -1506,6 +1516,7 @@ function libStatusChange(val){
   else if (val === 'Hidden') activeFilters.action = 'skip';
   else if (val === 'AssignedAny') activeFilters.assign = 'assigned';
   else if (val === 'Considering') activeFilters.assign = 'considering';
+  else if (val === 'Visited') activeFilters.assign = 'visited';
   else if (val === 'Unassigned') activeFilters.assign = 'unassigned';
   renderAll();
 }
@@ -1529,6 +1540,7 @@ function getFiltered() {
     if (activeFilters.assign === 'assigned' && !act.day) return false;
     if (activeFilters.assign === 'unassigned' && act.day) return false;
     if (activeFilters.assign === 'considering' && !(act.day && !isAnchor(d))) return false;
+    if (activeFilters.assign === 'visited' && !act.visited) return false;
     if (searchTerm && !matchesSearch(d, searchTerm)) return false;
     return true;
   }).sort((a, b) => {
@@ -1661,6 +1673,7 @@ function mapPopupHtml(d){
   const s = displayStatus(a);
   const dayTag = a.day ? ` · Day ${a.day}${dayDate(a.day) ? ' (' + dayDate(a.day) + ')' : ''}` : '';
   const state = (s.label !== 'Saved' || a.day) ? `<br><b>${s.label}</b>${dayTag}` : '';
+  const visitedBit = (a.visited || a.rating) ? `<br><b style="color:#f3b84a">${a.rating ? stars(a.rating) : '✓ We went'}</b>${a.memory ? ' ' + esc(a.memory) : ''}` : '';
   const addr = d.address ? `<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}${d.coordApprox ? ' <b style="color:#f3b84a">(area only)</b>' : ''}</span>` : '';
   const km = nearbyCenter && typeof d.lat === 'number' ? haversine(nearbyCenter.lat, nearbyCenter.lng, d.lat, d.lng) : null;
   const dist = km != null ? `<br><span style="color:#36d4e7;font-size:11px;font-weight:700">${km.toFixed(1)} km away</span>` : '';
@@ -1669,7 +1682,7 @@ function mapPopupHtml(d){
   const srcBit = d.source ? `<span style="color:#9ca3af;font-size:10px"> · ${d.source}</span>` : '';
   const addToday = (tn && a.day !== tn)
     ? `<button onclick="addToDayN(${jn}, ${tn})" style="margin-top:5px;border:1px solid #5ea2ff;background:rgba(94,162,255,.1);color:#5ea2ff;border-radius:7px;padding:3px 8px;font-size:11px;cursor:pointer">+ Today's considering</button>` : '';
-  return `<strong style="font-size:14px">${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.neighborhood || d.city}${srcBit}</span>${addr}${dist}${d.why ? '<br>' + d.why : ''}${state}<br>` +
+  return `<strong style="font-size:14px">${d.name}</strong><br><span style="color:#9ca3af;font-size:11px">${d.category} · ${d.neighborhood || d.city}${srcBit}</span>${addr}${dist}${d.why ? '<br>' + d.why : ''}${state}${visitedBit}<br>` +
     `<div style="display:flex;gap:8px;margin-top:5px;align-items:center;flex-wrap:wrap">` +
     `<a href="${gmapsDirUrl(d)}" target="_blank" rel="noopener" style="color:#36d4e7;font-size:12px;font-weight:700">Directions ↗</a>` +
     `<a onclick="openSheetFor(${jn})" style="color:#9ca3af;font-size:11px;cursor:pointer">Details</a>${addToday}</div>`;
@@ -1751,7 +1764,7 @@ function renderNearby(){
   nearbyPool().forEach(d => {
     const a = getAction(d.name);
     const suspect = COORD_SUSPECT.has(d.name) || d.coordApprox;
-    const color = a.status==='booked' ? '#35d07f' : a.status==='want' ? '#ff5ba6' : colors[d.category] || '#f3b84a';
+    const color = a.visited ? '#f3b84a' : a.status==='booked' ? '#35d07f' : a.status==='want' ? '#ff5ba6' : colors[d.category] || '#f3b84a';
     const m = L.circleMarker([d.lat, d.lng], { radius: a.day ? 8 : 5.5, fillColor: color, color: '#fff', weight: a.day ? 2 : 1, opacity: suspect ? .35 : .9, fillOpacity: suspect ? .25 : .75 }).addTo(map);
     m.bindPopup(() => mapPopupHtml(d), { maxWidth: 300 });
     m._placeName = d.name;
@@ -2665,7 +2678,9 @@ function renderDays(){
         <div class="place-mini-name">${kind === 'anchor' ? '📌 ' : ''}${esc(d.name)}${sourceBadge(d)}</div>
         <div class="place-mini-meta">${esc(meta)}${time}</div>
       </div>
-      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">${statusChipV2(a)}<button class="icon-btn" onclick="openSheetFor(${jn})">•••</button></div>
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">${ratingChip(a)}${statusChipV2(a)}
+        <button class="icon-btn" title="${a.visited ? 'Visited' : 'Mark visited'}" style="${a.visited ? 'color:var(--green);border-color:rgba(53,208,127,.4)' : ''}" onclick="toggleVisited(${jn})">✓</button>
+        <button class="icon-btn" onclick="openSheetFor(${jn})">•••</button></div>
     </div>`;
   };
   const buckets =
@@ -2871,6 +2886,7 @@ function renderItineraryGeneric() {
         if (d.neighborhood) html += '<div class="itin-act-hood">' + esc(d.neighborhood) + (d.city?' · '+esc(d.city):'') + '</div>';
         if (d.why) html += '<div class="itin-act-why">' + esc(d.why) + '</div>';
         html += placeDetailsLine(a);
+        html += visitLine(a);
         html += photoGrid(photosForPlace(d.name), {size: 92});
         html += '<div class="itin-act-tags"><span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + esc(d.category) + '</span>';
         if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(53,208,127,0.15);color:var(--green)">Confirmed</span>';
@@ -2965,6 +2981,7 @@ function renderItineraryJapan() {
         if (d.neighborhood) html += '<div class="itin-act-hood">' + d.neighborhood + '</div>';
         if (d.why) html += '<div class="itin-act-why">' + d.why + '</div>';
         html += placeDetailsLine(a);
+        html += visitLine(a);
         html += photoGrid(photosForPlace(d.name), {size: 92});
         html += '<div class="itin-act-tags">';
         html += '<span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + d.category + '</span>';
