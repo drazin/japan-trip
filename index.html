@@ -2530,8 +2530,16 @@ function dayStatusDots(dy){
 // --- v2 presentation layer: anchors vs considering, friendly status labels ---
 // Anchor = we're committed: booked, placed in a time block, or has a fixed time.
 function isAnchor(d){ const a = getAction(d.name); return a.status === 'booked' || (a.block && a.block !== 'unscheduled') || !!a.time; }
+// Sort key for a day's items: a real time wins; otherwise the time block stands
+// in for one, so a "morning" place still lands before an "evening" one.
+const BLOCK_TIME = { morning: '08:00', afternoon: '13:00', evening: '18:00', unscheduled: '99:98' };
+function timeRank(a){ return parseTimeTo24(a.time) || BLOCK_TIME[effectiveBlock(a)] || '99:99'; }
+function byTimeThenPriority(x, y){
+  return timeRank(getAction(x.name)).localeCompare(timeRank(getAction(y.name))) || (y.priority - x.priority);
+}
 function dayBuckets(n){
-  const items = DATA.filter(d => getAction(d.name).day === n && getAction(d.name).status !== 'skip');
+  const items = DATA.filter(d => getAction(d.name).day === n && getAction(d.name).status !== 'skip')
+    .sort(byTimeThenPriority);
   return { anchors: items.filter(isAnchor), consider: items.filter(d => !isAnchor(d)) };
 }
 // Old stored statuses stay untouched; this only decides how they read on screen.
@@ -2980,7 +2988,7 @@ function renderItineraryGeneric() {
 
   DAYS.forEach(day => {
     const hotel = hotelForDay(day.n);
-    const assigned = DATA.filter(d => getAction(d.name).day === day.n).sort((a,b)=>b.priority-a.priority);
+    const assigned = DATA.filter(d => getAction(d.name).day === day.n).sort(byTimeThenPriority);
     html += '<div class="itin-day">';
     html += '<div class="itin-day-header"><div class="itin-day-num">Day ' + day.n + '</div>' +
       '<div class="itin-day-title">' + esc(day.t || day.c || '') + '</div>' +
@@ -3059,8 +3067,8 @@ function renderItineraryJapan() {
     const dayPixJ = photosForDay(day.n);
     // v2: anchors = committed (booked / timed / scheduled); considering = the rest of the day pool
     const dayPool = DATA.filter(d => getAction(d.name).day === day.n && getAction(d.name).status !== 'skip');
-    const assigned = dayPool.filter(isAnchor).sort((a,b) => b.priority - a.priority);
-    const wants = dayPool.filter(d => !isAnchor(d)).sort((a,b) => b.priority - a.priority);
+    const assigned = dayPool.filter(isAnchor).sort(byTimeThenPriority);
+    const wants = dayPool.filter(d => !isAnchor(d)).sort(byTimeThenPriority);
 
     html += '<div class="itin-day">';
 
