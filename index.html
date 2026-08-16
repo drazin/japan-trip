@@ -847,6 +847,20 @@ function buildActionSheet(){
   const days = DAYS.map(dy =>
     `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:5px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer;line-height:1.2">${dy.n}<br><span style="font-size:9px;opacity:0.7">${esc((dy.d||'').split(' ').pop())}</span></button>`
   ).join('');
+  // What we actually did — rating + memory, shown to family in the itinerary
+  const visitBlock = shareMode ? '' : `
+       <div style="margin-top:14px;padding:12px;border:1px solid ${a.visited ? 'rgba(53,208,127,.45)' : 'var(--border)'};border-radius:12px;background:${a.visited ? 'rgba(53,208,127,.07)' : 'var(--card2)'}">
+         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+           <div style="font-size:12px;font-weight:800">${a.visited ? '✓ We went here' : 'Been here?'}${a.visitedAt ? ` <span style="font-weight:400;color:var(--muted)">· ${esc(a.visitedAt)}</span>` : ''}</div>
+           <button class="mini" style="${a.visited ? 'color:var(--green);border-color:rgba(53,208,127,.4)' : ''}" onclick="toggleVisited(${JSON.stringify(name).replace(/"/g,'&quot;')})">${a.visited ? 'Undo' : '✓ Mark visited'}</button>
+         </div>
+         <div style="display:flex;gap:4px;margin-top:8px">
+           ${[1,2,3,4,5].map(n => `<button onclick="setRating(${JSON.stringify(name).replace(/"/g,'&quot;')}, ${n})" title="${n} star${n>1?'s':''}"
+              style="flex:1;min-height:40px;font-size:20px;line-height:1;border:1px solid ${a.rating >= n ? 'var(--amber)' : 'var(--border)'};background:${a.rating >= n ? 'rgba(243,184,74,.14)' : 'transparent'};color:${a.rating >= n ? 'var(--amber)' : 'var(--muted)'};border-radius:9px;cursor:pointer">${a.rating >= n ? '★' : '☆'}</button>`).join('')}
+         </div>
+         <textarea id="as-memory" class="search-input" style="width:100%;height:60px;resize:vertical;font-family:inherit;border-radius:10px;margin-top:8px"
+           placeholder="What did we eat / do? Anything to remember…">${esc(a.memory || '')}</textarea>
+       </div>`;
   // Once a day is chosen, offer the time-of-day slots (drag-free, works on phones)
   const curBlock = effectiveBlock(a);
   const blockRow = a.day ? `
@@ -897,6 +911,7 @@ function buildActionSheet(){
        ${placeInfo}
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${acts}</div>
        <div style="font-size:11px;color:var(--muted);margin-top:6px">✅ <b>Booked</b> = reservation confirmed · 📌 <b>Planned</b> = on the itinerary, nothing to book. Set a day & time below for any of these.</div>
+       ${visitBlock}
        <div class="field-label" style="margin-top:14px">Assign to day</div>
        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">${days}</div>
        ${blockRow}
@@ -930,11 +945,12 @@ function buildActionSheet(){
 }
 function asReadInputs(){
   const g=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
-  return { reserveDate: (document.getElementById('as-res')||{}).value||'', notes: (document.getElementById('as-notes')||{}).value||'', time: g('as-time'), hours: g('as-hours'), cost: g('as-cost'), lead: g('as-lead') };
+  return { reserveDate: (document.getElementById('as-res')||{}).value||'', notes: (document.getElementById('as-notes')||{}).value||'', time: g('as-time'), hours: g('as-hours'), cost: g('as-cost'), lead: g('as-lead'),
+           memory: (document.getElementById('as-memory')||{}).value||'' };
 }
 // Persist the place-detail fields (hours/cost/lead) from the sheet inputs. clearEstimate=true marks them user-confirmed.
 function asPersistInfo(inp, clearEstimate){
-  const fields = { hours: inp.hours, cost: inp.cost, lead: inp.lead };
+  const fields = { hours: inp.hours, cost: inp.cost, lead: inp.lead, memory: inp.memory };
   if (clearEstimate) fields.infoEstimated = false;
   setPlaceInfo(sheetName, fields, false);
 }
@@ -1009,6 +1025,33 @@ function importActions(e) {
   };
   reader.readAsText(file);
 }
+// --- Visits: what we actually did, kept apart from planning status --------
+function setVisit(name, fields){
+  const cur = getAction(name);
+  itemActions[name] = { ...cur, ...fields };
+  saveActions();
+}
+function toggleVisited(name){
+  const a = getAction(name);
+  const now = !a.visited;
+  setVisit(name, { visited: now, visitedAt: now ? new Date().toISOString().slice(0,10) : '' });
+  if (currentView === 'days') renderDays();
+  if (sheetName === name) buildActionSheet();
+}
+function setRating(name, n){
+  const a = getAction(name);
+  setVisit(name, { rating: a.rating === n ? 0 : n, visited: true });
+  if (sheetName === name) buildActionSheet();
+  if (currentView === 'days') renderDays();
+}
+function stars(n, size){
+  return '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
+}
+function ratingChip(a){
+  if (!a.rating) return a.visited ? '<span class="chip green">✓ Visited</span>' : '';
+  return `<span class="chip amber">${stars(a.rating)}</span>`;
+}
+
 // --- Trip photos ---------------------------------------------------------
 // Shrunk in the browser before upload: smaller/faster for family on cell data,
 // and re-encoding through canvas drops EXIF (including GPS) automatically.
