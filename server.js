@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '12mb' }));   // photo uploads arrive as base64
 app.use(express.static(__dirname));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -79,6 +79,20 @@ async function initDb() {
       created_at  TIMESTAMPTZ DEFAULT now()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS photos (
+      id         SERIAL PRIMARY KEY,
+      trip_id    TEXT NOT NULL,
+      day        INTEGER,
+      place      TEXT,
+      mime       TEXT NOT NULL,
+      data       BYTEA NOT NULL,
+      thumb      BYTEA,
+      caption    TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT now()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS photos_trip_idx ON photos(trip_id)`);
   await pool.query(`ALTER TABLE app_state ADD COLUMN IF NOT EXISTS trip_id TEXT`);
   await pool.query(`ALTER TABLE captures ADD COLUMN IF NOT EXISTS trip_id TEXT`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS app_state_trip_uidx ON app_state(trip_id)`);
@@ -619,6 +633,112 @@ app.put('/api/trips/:id', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Failed to update trip' });
   }
+});
+
+// --- Trip photos ---------------------------------------------------------
+// Images are shrunk in the browser before upload (which also strips EXIF/GPS).
+const memPhotos = [];   // dev-only fallback when DATABASE_URL is unset
+let memPhotoId = 1;
+
+function decodeDataUrl(dataUrl) {
+  const m = /^data:([\w/+.-]+);base64,(.+)$/.exec(dataUrl || '');
+  if (!m) return null;
+  return { mime: m[1], buf: Buffer.from(m[2], 'base64') };
+}
+
+app.post('/api/photos', async (req, res) => {
+  const { tripId, day, place, dataUrl, thumbUrl, caption } = req.body || {};
+  const img = decodeDataUrl(dataUrl);
+  if (!tripId || !img) return res.status(400).json({ ok: false, message: 'tripId and image required' });
+  if (img.buf.length > 8 * 1024 * 1024) return res.status(413).json({ ok: false, message: 'Image too large' });
+  const thumb = decodeDataUrl(thumbUrl);
+  const dayNum = Number.isFinite(Number(day)) && day !== null && day !== '' ? Number(day) : null;
+  try {
+    if (pool) {
+      const { rows } = await pool.query(
+        `INSERT INTO photos (trip_id, day, place, mime, data, thumb, caption)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
+        [tripId, dayNum, place || null, img.mime, img.buf, thumb ? thumb.buf : null, caption || '']
+      );
+      return res.json({ ok: true, id: rows[0].id, created_at: rows[0].created_at });
+    }
+    const rec = { id: memPhotoId++, trip_id: tripId, day: dayNum, place: place || null,
+                  mime: img.mime, data: img.buf, thumb: thumb ? thumb.buf : null,
+                  caption: caption || '', created_at: new Date().toISOString() };
+    memPhotos.push(rec);
+    res.json({ ok: true, id: rec.id, created_at: rec.created_at });
+  } catch (err) {
+    console.error('photo upload failed', err);
+    res.status(500).json({ ok: false, message: 'Upload failed' });
+  }
+});
+
+// Metadata only — the bytes come from /api/photos/:id
+app.get('/api/photos', async (req, res) => {
+  const trip = req.query.trip;
+  if (!trip) return res.json({ ok: true, photos: [] });
+  try {
+    if (pool) {
+      const { rows } = await pool.query(
+        `SELECT id, day, place, caption, created_at FROM photos WHERE trip_id = $1 ORDER BY created_at`, [trip]);
+      return res.json({ ok: true, photos: rows });
+    }
+    res.json({ ok: true, photos: memPhotos.filter(p => p.trip_id === trip)
+      .map(({ id, day, place, caption, created_at }) => ({ id, day, place, caption, created_at })) });
+  } catch (err) {
+    console.error('photo list failed', err);
+    res.status(500).json({ ok: false, photos: [] });
+  }
+});
+
+app.get('/api/photos/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const wantThumb = req.query.size === 'thumb';
+  try {
+    let row;
+    if (pool) {
+      const { rows } = await pool.query('SELECT mime, data, thumb FROM photos WHERE id = $1', [id]);
+      row = rows[0];
+    } else {
+      row = memPhotos.find(p => p.id === id);
+    }
+    if (!row) return res.status(404).end();
+    const buf = (wantThumb && row.thumb) ? row.thumb : row.data;
+    res.set('Content-Type', row.mime || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(buf);
+  } catch (err) {
+    console.error('photo fetch failed', err);
+    res.status(500).end();
+  }
+});
+
+app.delete('/api/photos/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    if (pool) await pool.query('DELETE FROM photos WHERE id = $1', [id]);
+    else {
+      const i = memPhotos.findIndex(p => p.id === id);
+      if (i >= 0) memPhotos.splice(i, 1);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('photo delete failed', err);
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.patch('/api/photos/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const { caption } = req.body || {};
+  try {
+    if (pool) await pool.query('UPDATE photos SET caption = $1 WHERE id = $2', [caption || '', id]);
+    else {
+      const p = memPhotos.find(x => x.id === id);
+      if (p) p.caption = caption || '';
+    }
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ ok: false }); }
 });
 
 // --- Geocoding proxy (free OpenStreetMap Nominatim) ---------------------

@@ -916,6 +916,11 @@ function buildActionSheet(){
        </div>
        <div class="field-label" style="margin-top:8px">📅 Reservation lead time</div>
        <input type="text" id="as-lead" class="search-input" style="width:100%" placeholder="e.g. reserve 2–4 weeks ahead" value="${esc(a.lead||'')}">
+       <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
+         <div class="field-label" style="margin:0">📷 Photos</div>
+         ${addPhotoBtn(a.day || null, name, 'Add')}
+       </div>
+       ${photoGrid(photosForPlace(name)) || '<div class="side-sub">None yet.</div>'}
        <div class="field-label" style="margin-top:10px">Notes</div>
        <textarea id="as-notes" class="search-input" style="width:100%;height:60px;resize:vertical;font-family:inherit;border-radius:12px">${esc(a.notes||'')}</textarea>
        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
@@ -1004,6 +1009,141 @@ function importActions(e) {
   };
   reader.readAsText(file);
 }
+// --- Trip photos ---------------------------------------------------------
+// Shrunk in the browser before upload: smaller/faster for family on cell data,
+// and re-encoding through canvas drops EXIF (including GPS) automatically.
+let PHOTOS = [];
+async function loadPhotos(){
+  try {
+    const r = await fetch('/api/photos?trip=' + encodeURIComponent(activeTripId));
+    const j = await r.json();
+    PHOTOS = j.photos || [];
+  } catch(e) { PHOTOS = []; }
+}
+function photosForDay(n){ return PHOTOS.filter(p => p.day === n && !p.place); }
+function photosForPlace(name){ return PHOTOS.filter(p => p.place === name); }
+function photoCountForDay(n){ return PHOTOS.filter(p => p.day === n).length; }
+
+function shrinkImage(file, maxEdge, quality){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const draw = (edge, q) => {
+        const scale = Math.min(1, edge / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        return c.toDataURL('image/jpeg', q);
+      };
+      resolve({ full: draw(maxEdge || 1600, quality || 0.82), thumb: draw(420, 0.7) });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
+    img.src = url;
+  });
+}
+
+// dayN and/or placeName decide where the photo hangs
+async function uploadPhotos(fileList, dayN, placeName, statusEl){
+  const files = [...fileList].filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name));
+  if (!files.length) return;
+  let done = 0, failed = 0;
+  for (const f of files) {
+    if (statusEl) statusEl.textContent = `Uploading ${done + 1} of ${files.length}…`;
+    try {
+      const { full, thumb } = await shrinkImage(f);
+      const r = await fetch('/api/photos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tripId: activeTripId, day: dayN ?? null, place: placeName || null, dataUrl: full, thumbUrl: thumb }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.message || 'upload failed');
+      PHOTOS.push({ id: j.id, day: dayN ?? null, place: placeName || null, caption: '', created_at: j.created_at });
+      done++;
+    } catch(e) { failed++; }
+  }
+  if (statusEl) statusEl.textContent = failed ? `${done} added, ${failed} failed` : '';
+  renderAll();
+  if (selectedDay != null && currentView === 'days') renderDays();
+  if (sheetName && document.getElementById('action-sheet').classList.contains('open')) buildActionSheet();
+}
+function pickPhotos(dayN, placeName){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+  inp.onchange = () => uploadPhotos(inp.files, dayN, placeName, document.getElementById('photo-status'));
+  inp.click();
+}
+function photoGrid(list, opts){
+  if (!list.length) return '';
+  const size = (opts && opts.size) || 84;
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">` + list.map(p =>
+    `<img src="/api/photos/${p.id}?size=thumb" loading="lazy" onclick="openLightbox(${p.id})"
+          style="width:${size}px;height:${size}px;object-fit:cover;border-radius:9px;border:1px solid var(--border);cursor:pointer">`
+  ).join('') + `</div>`;
+}
+function addPhotoBtn(dayN, placeName, label){
+  if (shareMode) return '';
+  return `<button class="mini" onclick="pickPhotos(${dayN ?? 'null'}, ${placeName ? JSON.stringify(placeName).replace(/"/g,'&quot;') : 'null'})">📷 ${label || 'Add photos'}</button>
+          <span id="photo-status" style="font-size:11px;color:var(--muted);margin-left:6px"></span>`;
+}
+// --- Lightbox ---
+let lightboxId = null;
+function openLightbox(id){
+  lightboxId = id;
+  let ov = document.getElementById('lightbox');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'lightbox';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px';
+    ov.addEventListener('click', e => { if (e.target === ov) closeLightbox(); });
+    document.body.appendChild(ov);
+  }
+  drawLightbox();
+  ov.style.display = 'flex';
+}
+function closeLightbox(){ const o = document.getElementById('lightbox'); if (o) o.style.display = 'none'; lightboxId = null; }
+function lightboxStep(delta){
+  const sibs = lightboxSiblings();
+  const i = sibs.findIndex(p => p.id === lightboxId);
+  const next = sibs[i + delta];
+  if (next) { lightboxId = next.id; drawLightbox(); }
+}
+function lightboxSiblings(){
+  const cur = PHOTOS.find(p => p.id === lightboxId);
+  if (!cur) return PHOTOS;
+  return PHOTOS.filter(p => p.day === cur.day && p.place === cur.place);
+}
+function drawLightbox(){
+  const ov = document.getElementById('lightbox');
+  const p = PHOTOS.find(x => x.id === lightboxId);
+  if (!ov || !p) return;
+  const sibs = lightboxSiblings();
+  const i = sibs.findIndex(x => x.id === lightboxId);
+  const where = [p.place, p.day ? 'Day ' + p.day + (dayDate(p.day) ? ' · ' + dayDate(p.day) : '') : ''].filter(Boolean).join(' · ');
+  ov.innerHTML =
+    `<div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;max-width:900px">
+       <div style="font-size:12px;color:#d5dae2">${esc(where)}${sibs.length > 1 ? ` · ${i+1}/${sibs.length}` : ''}</div>
+       <button class="mini" onclick="closeLightbox()">✕ Close</button>
+     </div>
+     <img src="/api/photos/${p.id}" style="max-width:100%;max-height:72vh;object-fit:contain;border-radius:10px;margin:10px 0">
+     <div style="width:100%;max-width:900px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+       ${sibs.length > 1 ? `<button class="mini" onclick="lightboxStep(-1)">‹ Prev</button><button class="mini" onclick="lightboxStep(1)">Next ›</button>` : ''}
+       ${shareMode ? (p.caption ? `<span style="font-size:12px;color:#d5dae2">${esc(p.caption)}</span>` : '')
+         : `<input id="lb-caption" class="search-input" style="flex:1;min-width:160px" placeholder="Add a caption…" value="${esc(p.caption || '')}" onchange="saveCaption(${p.id}, this.value)">
+            <button class="mini" style="color:var(--red);border-color:rgba(255,107,107,.4)" onclick="deletePhoto(${p.id})">Delete</button>`}
+     </div>`;
+}
+async function saveCaption(id, text){
+  const p = PHOTOS.find(x => x.id === id); if (p) p.caption = text;
+  try { await fetch('/api/photos/' + id, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ caption: text }) }); } catch(e){}
+}
+async function deletePhoto(id){
+  if (!confirm('Delete this photo? This cannot be undone.')) return;
+  try { await fetch('/api/photos/' + id, { method: 'DELETE' }); } catch(e){}
+  PHOTOS = PHOTOS.filter(p => p.id !== id);
+  closeLightbox(); renderAll();
+  if (currentView === 'days') renderDays();
+  if (currentView === 'itinerary') renderItinerary();
+}
+
 // --- Yen ⇄ USD converter ------------------------------------------------
 const FX_KEY = 'fx-jpy-per-usd';
 const FX_STAMP_KEY = 'fx-updated';
@@ -1196,7 +1336,7 @@ function setupNewTrip(){
 }
 
 async function init() {
-  await loadActiveTrip(); restoreManual(); await loadActions(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
+  await loadActiveTrip(); restoreManual(); await loadActions(); await loadPhotos(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
   if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hide-bar'); });
   placeTripSwitcher();
   if (shareMode) document.querySelectorAll('.header-actions, .tabs').forEach(el => { el.style.display = 'none'; });
@@ -2327,7 +2467,7 @@ function renderDayOverview(){
       <div class="day-items2">${anchorRows}${considerRows}${empty}</div>
       <div class="day-foot">
         <span class="chip blue">${b.anchors.length} anchor${b.anchors.length === 1 ? '' : 's'}</span>
-        <span class="chip pink">${b.consider.length} considering</span>
+        <span style="display:flex;gap:5px">${photoCountForDay(dy.n) ? `<span class="chip green">📷 ${photoCountForDay(dy.n)}</span>` : ''}<span class="chip pink">${b.consider.length} considering</span></span>
       </div>
     </div>`;
   }).join('');
@@ -2494,6 +2634,13 @@ function renderDays(){
       <div class="bucket">
         <div class="bucket-head"><div><div class="bucket-title">CONSIDERING</div><div class="side-sub">The loose pool. Decide later based on location, energy, weather.</div></div></div>
         ${b.consider.length ? b.consider.map(d => miniRow(d, 'consider')).join('') : '<div class="side-sub">Nothing added yet — pull ideas in from the right.</div>'}
+      </div>
+      <div class="bucket">
+        <div class="bucket-head">
+          <div><div class="bucket-title">📷 PHOTOS</div><div class="side-sub">From the day itself — these show up in the shared itinerary.</div></div>
+          <div>${addPhotoBtn(dy.n, null, 'Add photos')}</div>
+        </div>
+        ${photoGrid(photosForDay(dy.n)) || '<div class="side-sub">No photos yet.</div>'}
       </div>
       <div class="bucket" style="padding:10px 14px">
         <span onclick="toggleAdvancedDay()" style="cursor:pointer;font-size:11px;color:var(--muted)">${advancedDayOpen ? '▾' : '▸'} Schedule details — time blocks & AI day plan</span>
@@ -2668,6 +2815,8 @@ function renderItineraryGeneric() {
     if (hotel) html += '<div class="itin-hotel"><div class="itin-hotel-name">🏨 ' + esc(hotel.name) + '</div>' +
       (hotel.address ? '<div class="itin-hotel-detail">' + esc(hotel.address) + '</div>' : '') +
       (hotelTimesStr(hotel) ? '<div class="itin-hotel-detail" style="color:var(--green)">' + esc(hotelTimesStr(hotel)) + '</div>' : '') + '</div>';
+    const dayPix = photosForDay(day.n);
+    if (dayPix.length) html += '<div class="itin-section-label">📷 Photos</div>' + photoGrid(dayPix, {size: 104});
     const anchorsItin = assigned.filter(d => isAnchor(d) && getAction(d.name).status !== 'skip');
     const considerItin = assigned.filter(d => !isAnchor(d) && getAction(d.name).status !== 'skip');
     if (anchorsItin.length || considerItin.length) {
@@ -2679,6 +2828,7 @@ function renderItineraryGeneric() {
         if (d.neighborhood) html += '<div class="itin-act-hood">' + esc(d.neighborhood) + (d.city?' · '+esc(d.city):'') + '</div>';
         if (d.why) html += '<div class="itin-act-why">' + esc(d.why) + '</div>';
         html += placeDetailsLine(a);
+        html += photoGrid(photosForPlace(d.name), {size: 92});
         html += '<div class="itin-act-tags"><span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + esc(d.category) + '</span>';
         if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(53,208,127,0.15);color:var(--green)">Confirmed</span>';
         if (a.status==='reserve') html += '<span class="itin-act-tag" style="background:rgba(255,107,107,0.15);color:#fca5a5">Needs booking</span>';
@@ -2723,6 +2873,7 @@ function renderItineraryJapan() {
     const transit = TRANSIT[day.n];
     const isNewHotel = day.n === 1 || hotelForDay(day.n).name !== (prevHotel(day.n)||{}).name;
 
+    const dayPixJ = photosForDay(day.n);
     // v2: anchors = committed (booked / timed / scheduled); considering = the rest of the day pool
     const dayPool = DATA.filter(d => getAction(d.name).day === day.n && getAction(d.name).status !== 'skip');
     const assigned = dayPool.filter(isAnchor).sort((a,b) => b.priority - a.priority);
@@ -2759,6 +2910,7 @@ function renderItineraryJapan() {
     }
 
     // Assigned activities
+    if (dayPixJ.length) html += '<div class="itin-section-label">📷 Photos</div>' + photoGrid(dayPixJ, {size: 104});
     if (assigned.length) {
       html += '<div class="itin-section-label">📌 Anchors</div>';
       assigned.forEach(d => {
@@ -2770,6 +2922,7 @@ function renderItineraryJapan() {
         if (d.neighborhood) html += '<div class="itin-act-hood">' + d.neighborhood + '</div>';
         if (d.why) html += '<div class="itin-act-why">' + d.why + '</div>';
         html += placeDetailsLine(a);
+        html += photoGrid(photosForPlace(d.name), {size: 92});
         html += '<div class="itin-act-tags">';
         html += '<span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + d.category + '</span>';
         html += '<span class="itin-act-tag heat-tag heat-' + getHeatCls(d.heat) + '">' + d.heat + '</span>';
