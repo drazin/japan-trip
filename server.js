@@ -7,7 +7,8 @@ const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-app.use(express.json({ limit: '12mb' }));   // photo uploads arrive as base64
+app.use('/api/photos', express.json({ limit: '12mb' }));   // photos arrive as base64
+app.use(express.json({ limit: '2mb' }));
 app.use(express.static(__dirname));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -637,9 +638,6 @@ app.put('/api/trips/:id', async (req, res) => {
 
 // --- Trip photos ---------------------------------------------------------
 // Images are shrunk in the browser before upload (which also strips EXIF/GPS).
-const memPhotos = [];   // dev-only fallback when DATABASE_URL is unset
-let memPhotoId = 1;
-
 function decodeDataUrl(dataUrl) {
   const m = /^data:([\w/+.-]+);base64,(.+)$/.exec(dataUrl || '');
   if (!m) return null;
@@ -647,44 +645,33 @@ function decodeDataUrl(dataUrl) {
 }
 
 app.post('/api/photos', async (req, res) => {
-  const { tripId, day, place, dataUrl, thumbUrl, caption } = req.body || {};
+  if (!pool) return res.status(400).json({ ok: false, message: 'no db' });
+  const { tripId, day, place, dataUrl, thumbUrl } = req.body || {};
   const img = decodeDataUrl(dataUrl);
   if (!tripId || !img) return res.status(400).json({ ok: false, message: 'tripId and image required' });
   if (img.buf.length > 8 * 1024 * 1024) return res.status(413).json({ ok: false, message: 'Image too large' });
   const thumb = decodeDataUrl(thumbUrl);
-  const dayNum = Number.isFinite(Number(day)) && day !== null && day !== '' ? Number(day) : null;
   try {
-    if (pool) {
-      const { rows } = await pool.query(
-        `INSERT INTO photos (trip_id, day, place, mime, data, thumb, caption)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
-        [tripId, dayNum, place || null, img.mime, img.buf, thumb ? thumb.buf : null, caption || '']
-      );
-      return res.json({ ok: true, id: rows[0].id, created_at: rows[0].created_at });
-    }
-    const rec = { id: memPhotoId++, trip_id: tripId, day: dayNum, place: place || null,
-                  mime: img.mime, data: img.buf, thumb: thumb ? thumb.buf : null,
-                  caption: caption || '', created_at: new Date().toISOString() };
-    memPhotos.push(rec);
-    res.json({ ok: true, id: rec.id, created_at: rec.created_at });
+    const { rows } = await pool.query(
+      `INSERT INTO photos (trip_id, day, place, mime, data, thumb)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, created_at`,
+      [tripId, Number.isInteger(day) ? day : null, place || null, img.mime, img.buf, thumb ? thumb.buf : null]
+    );
+    res.json({ ok: true, id: rows[0].id, created_at: rows[0].created_at });
   } catch (err) {
     console.error('photo upload failed', err);
-    res.status(500).json({ ok: false, message: 'Upload failed' });
+    res.status(500).json({ ok: false, message: 'Upload failed: ' + (err.message || 'error') });
   }
 });
 
 // Metadata only — the bytes come from /api/photos/:id
 app.get('/api/photos', async (req, res) => {
   const trip = req.query.trip;
-  if (!trip) return res.json({ ok: true, photos: [] });
+  if (!trip || !pool) return res.json({ ok: true, photos: [] });
   try {
-    if (pool) {
-      const { rows } = await pool.query(
-        `SELECT id, day, place, caption, created_at FROM photos WHERE trip_id = $1 ORDER BY created_at`, [trip]);
-      return res.json({ ok: true, photos: rows });
-    }
-    res.json({ ok: true, photos: memPhotos.filter(p => p.trip_id === trip)
-      .map(({ id, day, place, caption, created_at }) => ({ id, day, place, caption, created_at })) });
+    const { rows } = await pool.query(
+      `SELECT id, day, place, caption, created_at FROM photos WHERE trip_id = $1 ORDER BY created_at`, [trip]);
+    res.json({ ok: true, photos: rows });
   } catch (err) {
     console.error('photo list failed', err);
     res.status(500).json({ ok: false, photos: [] });
@@ -692,18 +679,16 @@ app.get('/api/photos', async (req, res) => {
 });
 
 app.get('/api/photos/:id', async (req, res) => {
+  if (!pool) return res.status(404).end();
   const id = Number(req.params.id);
   const wantThumb = req.query.size === 'thumb';
   try {
-    let row;
-    if (pool) {
-      const { rows } = await pool.query('SELECT mime, data, thumb FROM photos WHERE id = $1', [id]);
-      row = rows[0];
-    } else {
-      row = memPhotos.find(p => p.id === id);
-    }
+    // Grid tiles must not drag the full-size image out of the database.
+    const { rows } = await pool.query(
+      `SELECT mime, ${wantThumb ? 'COALESCE(thumb, data)' : 'data'} AS bytes FROM photos WHERE id = $1`, [id]);
+    const row = rows[0];
     if (!row) return res.status(404).end();
-    const buf = (wantThumb && row.thumb) ? row.thumb : row.data;
+    const buf = row.bytes;
     res.set('Content-Type', row.mime || 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
     res.send(buf);
@@ -714,13 +699,10 @@ app.get('/api/photos/:id', async (req, res) => {
 });
 
 app.delete('/api/photos/:id', async (req, res) => {
+  if (!pool) return res.status(400).json({ ok: false, message: 'no db' });
   const id = Number(req.params.id);
   try {
-    if (pool) await pool.query('DELETE FROM photos WHERE id = $1', [id]);
-    else {
-      const i = memPhotos.findIndex(p => p.id === id);
-      if (i >= 0) memPhotos.splice(i, 1);
-    }
+    await pool.query('DELETE FROM photos WHERE id = $1', [id]);
     res.json({ ok: true });
   } catch (err) {
     console.error('photo delete failed', err);
@@ -729,16 +711,14 @@ app.delete('/api/photos/:id', async (req, res) => {
 });
 
 app.patch('/api/photos/:id', async (req, res) => {
-  const id = Number(req.params.id);
-  const { caption } = req.body || {};
+  if (!pool) return res.status(400).json({ ok: false, message: 'no db' });
   try {
-    if (pool) await pool.query('UPDATE photos SET caption = $1 WHERE id = $2', [caption || '', id]);
-    else {
-      const p = memPhotos.find(x => x.id === id);
-      if (p) p.caption = caption || '';
-    }
+    await pool.query('UPDATE photos SET caption = $1 WHERE id = $2', [(req.body || {}).caption || '', Number(req.params.id)]);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ ok: false }); }
+  } catch (err) {
+    console.error('photo caption failed', err);
+    res.status(500).json({ ok: false });
+  }
 });
 
 // --- Geocoding proxy (free OpenStreetMap Nominatim) ---------------------

@@ -35,6 +35,7 @@ let DATA = [];  // populated from the active trip (loadActiveTrip)
   .btn.ghost { background: transparent; color: var(--muted); }
   .btn.pink { border-color: rgba(255,91,166,.35); color: var(--pink); background: rgba(255,91,166,.06); }
   .hide-bar, .stats-bar.hide-bar { display: none !important; }
+  #lightbox.open { z-index: 2000; background: rgba(0,0,0,.92); flex-direction: column; align-items: center; justify-content: center; padding: 12px; }
   .mm-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text); font-size: 13px; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
   .mm-item:hover { background: var(--card2); }
   /* v2 Plan view */
@@ -849,21 +850,21 @@ function buildActionSheet(){
     `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:5px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer;line-height:1.2">${dy.n}<br><span style="font-size:9px;opacity:0.7">${esc((dy.d||'').split(' ').pop())}</span></button>`
   ).join('');
   // What we actually did — rating + memory, shown to family in the itinerary
-  const visitBlock = shareMode ? photoGrid(photosForPlace(name)) : `
+  const visitBlock = `
        <div style="margin-top:14px;padding:12px;border:1px solid ${a.visited ? 'rgba(53,208,127,.45)' : 'var(--border)'};border-radius:12px;background:${a.visited ? 'rgba(53,208,127,.07)' : 'var(--card2)'}">
          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
            <div style="font-size:12px;font-weight:800">${a.visited ? '✓ We went here' : 'Been here?'}${a.visitedAt ? ` <span style="font-weight:400;color:var(--muted)">· ${esc(a.visitedAt)}</span>` : ''}</div>
-           <button class="mini" style="${a.visited ? 'color:var(--green);border-color:rgba(53,208,127,.4)' : ''}" onclick="toggleVisited(${JSON.stringify(name).replace(/"/g,'&quot;')})">${a.visited ? 'Undo' : '✓ Mark visited'}</button>
+           <button class="mini" style="${a.visited ? 'color:var(--green);border-color:rgba(53,208,127,.4)' : ''}" onclick="toggleVisited(${jsq(name)})">${a.visited ? 'Undo' : '✓ Mark visited'}</button>
          </div>
          <div style="display:flex;gap:4px;margin-top:8px">
-           ${[1,2,3,4,5].map(n => `<button onclick="setRating(${JSON.stringify(name).replace(/"/g,'&quot;')}, ${n})" title="${n} star${n>1?'s':''}"
+           ${[1,2,3,4,5].map(n => `<button onclick="setRating(${jsq(name)}, ${n})" title="${n} star${n>1?'s':''}"
               style="flex:1;min-height:40px;font-size:20px;line-height:1;border:1px solid ${a.rating >= n ? 'var(--amber)' : 'var(--border)'};background:${a.rating >= n ? 'rgba(243,184,74,.14)' : 'transparent'};color:${a.rating >= n ? 'var(--amber)' : 'var(--muted)'};border-radius:9px;cursor:pointer">${a.rating >= n ? '★' : '☆'}</button>`).join('')}
          </div>
          <textarea id="as-memory" class="search-input" style="width:100%;height:60px;resize:vertical;font-family:inherit;border-radius:10px;margin-top:8px"
            placeholder="What did we eat / do? Anything to remember…">${esc(a.memory || '')}</textarea>
          <div style="display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap">
            <span class="field-label" style="margin:0">📷 Photos here</span>
-           ${addPhotoBtn(a.day || null, name, 'Add photos')}
+           ${addPhotoBtn(a.day || null, name)}
          </div>
          ${photoGrid(photosForPlace(name))}
        </div>`;
@@ -897,7 +898,7 @@ function buildActionSheet(){
   const attrs = [
     place.family_fit ? `<span class="chip">👨‍👩‍👧 Family: ${esc(place.family_fit)}</span>` : '',
     place.heat ? `<span class="chip">${esc(place.heat)}</span>` : '',
-    place.priority ? `<span class="chip">${'★'.repeat(place.priority)}${'☆'.repeat(Math.max(0,5-place.priority))}</span>` : '',
+    place.priority ? `<span class="chip">${stars(place.priority)}</span>` : '',
     place.type && place.type !== place.category ? `<span class="chip">${esc(place.type)}</span>` : '',
   ].filter(Boolean).join(' ');
   const bookingLine = place.booking ? `<div style="font-size:12px;color:var(--amber);margin-top:6px">🎫 ${esc(place.booking)}</div>` : '';
@@ -1027,27 +1028,24 @@ function importActions(e) {
   reader.readAsText(file);
 }
 // --- Visits: what we actually did, kept apart from planning status --------
-function setVisit(name, fields){
-  const cur = getAction(name);
-  itemActions[name] = { ...cur, ...fields };
-  saveActions();
-}
+const jsq = s => JSON.stringify(String(s)).replace(/"/g, '&quot;');
+const sheetOpenFor = name => sheetName === name && document.getElementById('action-sheet') &&
+  document.getElementById('action-sheet').classList.contains('open');
+// Tapping a star rebuilds the sheet from stored state, so flush the textarea first.
+function keepSheetEdits(name){ if (sheetOpenFor(name)) asPersistInfo(asReadInputs(), false); }
 function toggleVisited(name){
-  const a = getAction(name);
-  const now = !a.visited;
-  setVisit(name, { visited: now, visitedAt: now ? new Date().toISOString().slice(0,10) : '' });
-  if (currentView === 'days') renderDays();
-  if (sheetName === name) buildActionSheet();
+  keepSheetEdits(name);
+  const now = !getAction(name).visited;
+  setPlaceInfo(name, { visited: now, visitedAt: now ? new Date().toISOString().slice(0,10) : '' });
+  if (sheetOpenFor(name)) buildActionSheet();
 }
 function setRating(name, n){
+  keepSheetEdits(name);
   const a = getAction(name);
-  setVisit(name, { rating: a.rating === n ? 0 : n, visited: true });
-  if (sheetName === name) buildActionSheet();
-  if (currentView === 'days') renderDays();
+  setPlaceInfo(name, { rating: a.rating === n ? 0 : n, visited: true });
+  if (sheetOpenFor(name)) buildActionSheet();
 }
-function stars(n, size){
-  return '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
-}
+function stars(n){ return '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n)); }
 // Rendered in the itinerary, including the family's read-only view
 function visitLine(a){
   if (!a || (!a.visited && !a.rating && !a.memory)) return '';
@@ -1071,11 +1069,14 @@ async function loadPhotos(){
     PHOTOS = j.photos || [];
   } catch(e) { PHOTOS = []; }
 }
+// Itinerary strip: day-only, since place photos render under their place.
 function photosForDay(n){ return PHOTOS.filter(p => p.day === n && !p.place); }
 function photosForPlace(name){ return PHOTOS.filter(p => p.place === name); }
-function photoCountForDay(n){ return PHOTOS.filter(p => p.day === n).length; }
+// Your own day view: everything taken that day, so a photo is never stranded
+// when its place gets unassigned or hidden.
+function photosOnDay(n){ return PHOTOS.filter(p => p.day === n); }
 
-function shrinkImage(file, maxEdge, quality){
+function shrinkImage(file){
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -1088,7 +1089,7 @@ function shrinkImage(file, maxEdge, quality){
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         return c.toDataURL('image/jpeg', q);
       };
-      resolve({ full: draw(maxEdge || 1600, quality || 0.82), thumb: draw(420, 0.7) });
+      resolve({ full: draw(1600, 0.82), thumb: draw(420, 0.7) });
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
     img.src = url;
@@ -1099,6 +1100,7 @@ function shrinkImage(file, maxEdge, quality){
 async function uploadPhotos(fileList, dayN, placeName, statusEl){
   const files = [...fileList].filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name));
   if (!files.length) return;
+  keepSheetEdits(placeName);
   let done = 0, failed = 0;
   for (const f of files) {
     if (statusEl) statusEl.textContent = `Uploading ${done + 1} of ${files.length}…`;
@@ -1113,28 +1115,34 @@ async function uploadPhotos(fileList, dayN, placeName, statusEl){
     } catch(e) { failed++; }
   }
   if (statusEl) statusEl.textContent = failed ? `${done} added, ${failed} failed` : '';
-  renderAll();
-  if (selectedDay != null && currentView === 'days') renderDays();
-  if (sheetName && document.getElementById('action-sheet').classList.contains('open')) buildActionSheet();
+  refreshPhotoViews();
 }
-function pickPhotos(dayN, placeName){
+function refreshPhotoViews(){
+  if (currentView === 'days') renderDays();
+  else if (currentView === 'itinerary') renderItinerary();
+  if (sheetOpenFor(sheetName)) buildActionSheet();
+}
+// The status element is passed in, not looked up — the same button markup can be
+// on screen twice (day bucket + open sheet).
+function pickPhotos(btn, dayN, placeName){
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
-  inp.onchange = () => uploadPhotos(inp.files, dayN, placeName, document.getElementById('photo-status'));
+  const statusEl = btn && btn.parentElement ? btn.parentElement.querySelector('.photo-status') : null;
+  inp.onchange = () => uploadPhotos(inp.files, dayN, placeName, statusEl);
   inp.click();
 }
-function photoGrid(list, opts){
+function photoGrid(list, size){
   if (!list.length) return '';
-  const size = (opts && opts.size) || 84;
+  size = size || 84;
   return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">` + list.map(p =>
     `<img src="/api/photos/${p.id}?size=thumb" loading="lazy" onclick="openLightbox(${p.id})"
           style="width:${size}px;height:${size}px;object-fit:cover;border-radius:9px;border:1px solid var(--border);cursor:pointer">`
   ).join('') + `</div>`;
 }
-function addPhotoBtn(dayN, placeName, label){
+function addPhotoBtn(dayN, placeName){
   if (shareMode) return '';
-  return `<button class="mini" onclick="pickPhotos(${dayN ?? 'null'}, ${placeName ? JSON.stringify(placeName).replace(/"/g,'&quot;') : 'null'})">📷 ${label || 'Add photos'}</button>
-          <span id="photo-status" style="font-size:11px;color:var(--muted);margin-left:6px"></span>`;
+  return `<button class="mini" onclick="pickPhotos(this, ${dayN ?? 'null'}, ${placeName ? jsq(placeName) : 'null'})">📷 Add photos</button>
+          <span class="photo-status" style="font-size:11px;color:var(--muted);margin-left:6px"></span>`;
 }
 // --- Lightbox ---
 let lightboxId = null;
@@ -1142,15 +1150,17 @@ function openLightbox(id){
   lightboxId = id;
   let ov = document.getElementById('lightbox');
   if (!ov) {
-    ov = document.createElement('div'); ov.id = 'lightbox';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px';
-    ov.addEventListener('click', e => { if (e.target === ov) closeLightbox(); });
+    ov = document.createElement('div'); ov.id = 'lightbox'; ov.className = 'modal-overlay';
     document.body.appendChild(ov);
   }
   drawLightbox();
-  ov.style.display = 'flex';
+  ov.classList.add('open');
 }
-function closeLightbox(){ const o = document.getElementById('lightbox'); if (o) o.style.display = 'none'; lightboxId = null; }
+function closeLightbox(){
+  const o = document.getElementById('lightbox');
+  if (o) { o.classList.remove('open'); o.innerHTML = ''; }   // drop the decoded image
+  lightboxId = null;
+}
 function lightboxStep(delta){
   const sibs = lightboxSiblings();
   const i = sibs.findIndex(p => p.id === lightboxId);
@@ -1190,9 +1200,7 @@ async function deletePhoto(id){
   if (!confirm('Delete this photo? This cannot be undone.')) return;
   try { await fetch('/api/photos/' + id, { method: 'DELETE' }); } catch(e){}
   PHOTOS = PHOTOS.filter(p => p.id !== id);
-  closeLightbox(); renderAll();
-  if (currentView === 'days') renderDays();
-  if (currentView === 'itinerary') renderItinerary();
+  closeLightbox(); refreshPhotoViews();
 }
 
 // --- Yen ⇄ USD converter ------------------------------------------------
@@ -1307,13 +1315,15 @@ async function populateTripSwitcher(){
     };
   } catch(e){}
 }
+// Everything scoped to one trip loads here, so a new per-trip store can't be
+// forgotten when switching.
 async function switchTrip(id){
   activeTripId = id;
   try { localStorage.setItem('active-trip', id); } catch(e){}
   setTripKeys();
   await loadActiveTrip();
   restoreManual();
-  await loadActions();
+  await Promise.all([loadActions(), loadPhotos()]);
   renderAll();
   if(typeof loadPending === 'function') loadPending();
   if(typeof updateURL === 'function') updateURL();
@@ -1387,7 +1397,7 @@ function setupNewTrip(){
 }
 
 async function init() {
-  await loadActiveTrip(); restoreManual(); await loadActions(); await loadPhotos(); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
+  await loadActiveTrip(); restoreManual(); await Promise.all([loadActions(), loadPhotos()]); renderAll(); setupListeners(); populateTripSwitcher(); await applyUrlState();
   if (shareMode) ['stats-bar','controls'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hide-bar'); });
   placeTripSwitcher();
   if (shareMode) document.querySelectorAll('.header-actions, .tabs').forEach(el => { el.style.display = 'none'; });
@@ -1673,7 +1683,7 @@ function mapPopupHtml(d){
   const s = displayStatus(a);
   const dayTag = a.day ? ` · Day ${a.day}${dayDate(a.day) ? ' (' + dayDate(a.day) + ')' : ''}` : '';
   const state = (s.label !== 'Saved' || a.day) ? `<br><b>${s.label}</b>${dayTag}` : '';
-  const visitedBit = (a.visited || a.rating) ? `<br><b style="color:#f3b84a">${a.rating ? stars(a.rating) : '✓ We went'}</b>${a.memory ? ' ' + esc(a.memory) : ''}` : '';
+  const visitedBit = visitLine(a);
   const addr = d.address ? `<br><span style="color:#9ca3af;font-size:11px">📍 ${d.address}${d.coordApprox ? ' <b style="color:#f3b84a">(area only)</b>' : ''}</span>` : '';
   const km = nearbyCenter && typeof d.lat === 'number' ? haversine(nearbyCenter.lat, nearbyCenter.lng, d.lat, d.lng) : null;
   const dist = km != null ? `<br><span style="color:#36d4e7;font-size:11px;font-weight:700">${km.toFixed(1)} km away</span>` : '';
@@ -2510,6 +2520,7 @@ function renderDayOverview(){
   const cards = DAYS.map(dy => {
     const b = dayBuckets(dy.n);
     const travel = !!travelDayInfo(dy.n);
+    const nPix = photosOnDay(dy.n).length;
     const anchorRows = b.anchors.slice(0,2).map(d => `<div class="day-item2">📌 ${esc(d.name)}</div>`).join('');
     const considerRows = b.consider.slice(0, b.anchors.length >= 2 ? 2 : 4 - Math.min(b.anchors.length,2) - 0).slice(0,3).map(d => `<div class="day-item2" style="color:var(--muted)">＋ ${esc(d.name)}</div>`).join('');
     const empty = !b.anchors.length && !b.consider.length
@@ -2523,7 +2534,7 @@ function renderDayOverview(){
       <div class="day-items2">${anchorRows}${considerRows}${empty}</div>
       <div class="day-foot">
         <span class="chip blue">${b.anchors.length} anchor${b.anchors.length === 1 ? '' : 's'}</span>
-        <span style="display:flex;gap:5px">${photoCountForDay(dy.n) ? `<span class="chip green">📷 ${photoCountForDay(dy.n)}</span>` : ''}<span class="chip pink">${b.consider.length} considering</span></span>
+        <span style="display:flex;gap:5px">${nPix ? `<span class="chip green">📷 ${nPix}</span>` : ''}<span class="chip pink">${b.consider.length} considering</span></span>
       </div>
     </div>`;
   }).join('');
@@ -2696,9 +2707,9 @@ function renderDays(){
       <div class="bucket">
         <div class="bucket-head">
           <div><div class="bucket-title">📷 PHOTOS</div><div class="side-sub">From the day itself — these show up in the shared itinerary.</div></div>
-          <div>${addPhotoBtn(dy.n, null, 'Add photos')}</div>
+          <div>${addPhotoBtn(dy.n, null)}</div>
         </div>
-        ${photoGrid(photosForDay(dy.n)) || '<div class="side-sub">No photos yet.</div>'}
+        ${photoGrid(photosOnDay(dy.n)) || '<div class="side-sub">No photos yet.</div>'}
       </div>
       <div class="bucket" style="padding:10px 14px">
         <span onclick="toggleAdvancedDay()" style="cursor:pointer;font-size:11px;color:var(--muted)">${advancedDayOpen ? '▾' : '▸'} Schedule details — time blocks & AI day plan</span>
@@ -2874,7 +2885,7 @@ function renderItineraryGeneric() {
       (hotel.address ? '<div class="itin-hotel-detail">' + esc(hotel.address) + '</div>' : '') +
       (hotelTimesStr(hotel) ? '<div class="itin-hotel-detail" style="color:var(--green)">' + esc(hotelTimesStr(hotel)) + '</div>' : '') + '</div>';
     const dayPix = photosForDay(day.n);
-    if (dayPix.length) html += '<div class="itin-section-label">📷 Photos</div>' + photoGrid(dayPix, {size: 104});
+    if (dayPix.length) html += '<div class="itin-section-label">📷 Photos</div>' + photoGrid(dayPix, 104);
     const anchorsItin = assigned.filter(d => isAnchor(d) && getAction(d.name).status !== 'skip');
     const considerItin = assigned.filter(d => !isAnchor(d) && getAction(d.name).status !== 'skip');
     if (anchorsItin.length || considerItin.length) {
@@ -2887,7 +2898,7 @@ function renderItineraryGeneric() {
         if (d.why) html += '<div class="itin-act-why">' + esc(d.why) + '</div>';
         html += placeDetailsLine(a);
         html += visitLine(a);
-        html += photoGrid(photosForPlace(d.name), {size: 92});
+        html += photoGrid(photosForPlace(d.name), 92);
         html += '<div class="itin-act-tags"><span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + esc(d.category) + '</span>';
         if (a.status==='booked') html += '<span class="itin-act-tag" style="background:rgba(53,208,127,0.15);color:var(--green)">Confirmed</span>';
         if (a.status==='reserve') html += '<span class="itin-act-tag" style="background:rgba(255,107,107,0.15);color:#fca5a5">Needs booking</span>';
@@ -2898,9 +2909,12 @@ function renderItineraryGeneric() {
       if (considerItin.length) {
         html += '<div class="itin-section-label" style="margin-top:10px">＋ Considering — options, not commitments</div>';
         considerItin.forEach(d => {
-          html += '<div class="itin-activity" style="opacity:.78"><div class="itin-time"></div><div class="itin-act-body">';
-          html += '<div class="itin-act-name" style="font-weight:600">＋ ' + esc(d.name) + '</div>';
+          const ca = getAction(d.name);
+          html += '<div class="itin-activity" style="opacity:' + (ca.visited ? '1' : '.78') + '"><div class="itin-time"></div><div class="itin-act-body">';
+          html += '<div class="itin-act-name" style="font-weight:600">' + (ca.visited ? '' : '＋ ') + esc(d.name) + '</div>';
           html += '<div class="itin-act-hood">' + esc([d.neighborhood, d.category].filter(Boolean).join(' · ')) + '</div>';
+          html += visitLine(ca);
+          html += photoGrid(photosForPlace(d.name), 92);
           html += '</div></div>';
         });
       }
@@ -2969,7 +2983,7 @@ function renderItineraryJapan() {
     }
 
     // Assigned activities
-    if (dayPixJ.length) html += '<div class="itin-section-label">📷 Photos</div>' + photoGrid(dayPixJ, {size: 104});
+    if (dayPixJ.length) html += '<div class="itin-section-label">📷 Photos</div>' + photoGrid(dayPixJ, 104);
     if (assigned.length) {
       html += '<div class="itin-section-label">📌 Anchors</div>';
       assigned.forEach(d => {
@@ -2982,7 +2996,7 @@ function renderItineraryJapan() {
         if (d.why) html += '<div class="itin-act-why">' + d.why + '</div>';
         html += placeDetailsLine(a);
         html += visitLine(a);
-        html += photoGrid(photosForPlace(d.name), {size: 92});
+        html += photoGrid(photosForPlace(d.name), 92);
         html += '<div class="itin-act-tags">';
         html += '<span class="itin-act-tag badge badge-' + getCls(d.category) + '">' + d.category + '</span>';
         html += '<span class="itin-act-tag heat-tag heat-' + getHeatCls(d.heat) + '">' + d.heat + '</span>';
@@ -2999,11 +3013,14 @@ function renderItineraryJapan() {
     if (wants.length) {
       html += '<div class="itin-section-label">＋ Considering — options, not commitments</div>';
       wants.forEach(d => {
-        html += '<div class="itin-activity" style="opacity:0.72">';
+        const wa = getAction(d.name);
+        html += '<div class="itin-activity" style="opacity:' + (wa.visited ? '1' : '0.72') + '">';
         html += '<div class="itin-time"></div>';
         html += '<div class="itin-act-body">';
-        html += '<div class="itin-act-name" style="font-weight:600">＋ ' + esc(d.name) + '</div>';
+        html += '<div class="itin-act-name" style="font-weight:600">' + (wa.visited ? '' : '＋ ') + esc(d.name) + '</div>';
         html += '<div class="itin-act-hood">' + esc([d.neighborhood, d.category].filter(Boolean).join(' · ')) + '</div>';
+        html += visitLine(wa);
+        html += photoGrid(photosForPlace(d.name), 92);
         html += '</div></div>';
       });
     }
