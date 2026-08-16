@@ -849,7 +849,7 @@ function buildActionSheet(){
     `<button onclick="asDay(${dy.n})" title="${esc(dy.t||'')}" style="padding:5px 0;border-radius:8px;border:1px solid ${a.day===dy.n?'var(--accent)':'var(--border)'};background:${a.day===dy.n?'rgba(59,130,246,0.18)':'transparent'};color:${a.day===dy.n?'var(--accent)':'var(--text)'};font-size:13px;cursor:pointer;line-height:1.2">${dy.n}<br><span style="font-size:9px;opacity:0.7">${esc((dy.d||'').split(' ').pop())}</span></button>`
   ).join('');
   // What we actually did — rating + memory, shown to family in the itinerary
-  const visitBlock = shareMode ? '' : `
+  const visitBlock = shareMode ? photoGrid(photosForPlace(name)) : `
        <div style="margin-top:14px;padding:12px;border:1px solid ${a.visited ? 'rgba(53,208,127,.45)' : 'var(--border)'};border-radius:12px;background:${a.visited ? 'rgba(53,208,127,.07)' : 'var(--card2)'}">
          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
            <div style="font-size:12px;font-weight:800">${a.visited ? '✓ We went here' : 'Been here?'}${a.visitedAt ? ` <span style="font-weight:400;color:var(--muted)">· ${esc(a.visitedAt)}</span>` : ''}</div>
@@ -861,6 +861,11 @@ function buildActionSheet(){
          </div>
          <textarea id="as-memory" class="search-input" style="width:100%;height:60px;resize:vertical;font-family:inherit;border-radius:10px;margin-top:8px"
            placeholder="What did we eat / do? Anything to remember…">${esc(a.memory || '')}</textarea>
+         <div style="display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap">
+           <span class="field-label" style="margin:0">📷 Photos here</span>
+           ${addPhotoBtn(a.day || null, name, 'Add photos')}
+         </div>
+         ${photoGrid(photosForPlace(name))}
        </div>`;
   // Once a day is chosen, offer the time-of-day slots (drag-free, works on phones)
   const curBlock = effectiveBlock(a);
@@ -932,11 +937,6 @@ function buildActionSheet(){
        </div>
        <div class="field-label" style="margin-top:8px">📅 Reservation lead time</div>
        <input type="text" id="as-lead" class="search-input" style="width:100%" placeholder="e.g. reserve 2–4 weeks ahead" value="${esc(a.lead||'')}">
-       <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
-         <div class="field-label" style="margin:0">📷 Photos</div>
-         ${addPhotoBtn(a.day || null, name, 'Add')}
-       </div>
-       ${photoGrid(photosForPlace(name)) || '<div class="side-sub">None yet.</div>'}
        <div class="field-label" style="margin-top:10px">Notes</div>
        <textarea id="as-notes" class="search-input" style="width:100%;height:60px;resize:vertical;font-family:inherit;border-radius:12px">${esc(a.notes||'')}</textarea>
        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
