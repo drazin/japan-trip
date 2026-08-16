@@ -142,10 +142,10 @@ app.get('/api/state', async (req, res) => {
 });
 
 app.post('/api/state', async (req, res) => {
-  const { actions, manual, dayPlans, tripId } = req.body;
+  const { actions, manual, dayPlans, logistics, tripId } = req.body;
   if (!actions) return res.status(400).json({ error: 'Missing actions' });
   try {
-    await writeActions(tripId, { actions, manual: manual || [], dayPlans: dayPlans || {} });
+    await writeActions(tripId, { actions, manual: manual || [], dayPlans: dayPlans || {}, logistics: logistics || {} });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

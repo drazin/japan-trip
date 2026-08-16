@@ -698,6 +698,7 @@ const ACTIONS = {
 
 let DAYS = [];  // populated from the active trip (loadActiveTrip)
 let SEGMENTS = [];  // raw trip segments — kept so day-title edits can PUT back
+let LOGISTICS_KEY = 'trip-logistics';
 
 // Persistence — shared server with localStorage fallback
 let STORAGE_KEY = 'drazin-japan-actions';
@@ -716,6 +717,7 @@ async function loadActions() {
   // Seed from this browser's local copy first so nothing already entered is ever dropped.
   try { itemActions = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { itemActions = {}; }
   try { dayPlans = JSON.parse(localStorage.getItem(DAYPLANS_KEY)) || {}; } catch(e) { dayPlans = {}; }
+  try { LOGISTICS = JSON.parse(localStorage.getItem(LOGISTICS_KEY)) || {}; } catch(e) { LOGISTICS = {}; }
   let localManual = [];
   try { localManual = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]'); } catch(e) { localManual = []; }
 
@@ -733,6 +735,8 @@ async function loadActions() {
 
       // Day plans: server wins per day, local-only days preserved.
       dayPlans = { ...dayPlans, ...(data.dayPlans || {}) };
+      LOGISTICS = { ...LOGISTICS, ...(data.logistics || {}) };
+      try { localStorage.setItem(LOGISTICS_KEY, JSON.stringify(LOGISTICS)); } catch(e){}
       localStorage.setItem(DAYPLANS_KEY, JSON.stringify(dayPlans));
 
       // Union manual items by name across local + server. The server copy wins for
@@ -770,7 +774,7 @@ function saveActions() {
     fetch('/api/state', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ actions: itemActions, manual, dayPlans, tripId: activeTripId })
+      body: JSON.stringify({ actions: itemActions, manual, dayPlans, logistics: LOGISTICS, tripId: activeTripId })
     }).catch(() => {});
   }, 500);
 }
@@ -1027,6 +1031,92 @@ function importActions(e) {
   };
   reader.readAsText(file);
 }
+// --- Logistics: bookings that aren't places (trains, transfers, tickets) ---
+// Kept in their own per-day store: they have times and confirmations but no
+// location, status, or map pin, so forcing them into the places list is wrong.
+let LOGISTICS = {};                       // { [dayNumber]: [item, ...] }
+function logisticsFor(n){ return (LOGISTICS[n] || []).slice().sort((a,b) => (parseTimeTo24(a.time) || '99').localeCompare(parseTimeTo24(b.time) || '99')); }
+function logisticsCount(){ return Object.values(LOGISTICS).reduce((n, arr) => n + arr.length, 0); }
+function saveLogistics(){ try { localStorage.setItem(LOGISTICS_KEY, JSON.stringify(LOGISTICS)); } catch(e){} saveActions(); }
+
+let logEditing = null;    // {day, id} while the modal is open
+function openLogistics(day, id){
+  const item = id ? (LOGISTICS[day] || []).find(x => x.id === id) : null;
+  logEditing = { day, id: id || null };
+  const f = (v) => esc(v || '');
+  let ov = document.getElementById('log-modal');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'log-modal'; ov.className = 'modal-overlay'; document.body.appendChild(ov); }
+  ov.innerHTML = `<div class="modal-box">
+      <div class="modal-title">${item ? '✎ Edit' : '➕ Add'} logistics</div>
+      <div style="font-size:12px;color:var(--muted);margin:-8px 0 12px">Trains, transfers, tickets, check-ins — anything booked that isn't a place.</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div><div class="field-label">What is it? *</div>
+          <input id="log-title" class="search-input" style="width:100%" placeholder="e.g. Klook: Shinkansen Tokyo → Kyoto" value="${f(item && item.title)}"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px"><div class="field-label">Day</div>
+            <select id="log-day" class="search-input" style="width:100%">${DAYS.map(d => `<option value="${d.n}" ${Number(day) === d.n ? 'selected' : ''}>Day ${d.n} — ${esc(d.d)}</option>`).join('')}</select></div>
+          <div style="flex:1;min-width:110px"><div class="field-label">Time</div>
+            <input type="time" id="log-time" class="search-input" style="width:100%" value="${parseTimeTo24(item && item.time)}"></div>
+        </div>
+        <div><div class="field-label">Details</div>
+          <textarea id="log-detail" class="search-input" style="width:100%;height:56px;resize:vertical;font-family:inherit;border-radius:10px" placeholder="Meeting point, seats, who's included…">${f(item && item.detail)}</textarea></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:130px"><div class="field-label">Confirmation #</div>
+            <input id="log-ref" class="search-input" style="width:100%" placeholder="booking ref" value="${f(item && item.ref)}"></div>
+          <div style="flex:1;min-width:130px"><div class="field-label">Link</div>
+            <input id="log-url" class="search-input" style="width:100%" placeholder="voucher / booking URL" value="${f(item && item.url)}"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px">
+        <div>${item ? `<button class="btn" style="color:var(--red);border-color:rgba(255,107,107,.4)" onclick="deleteLogistics(${day}, '${item.id}')">Delete</button>` : ''}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn ghost" onclick="closeOverlay(document.getElementById('log-modal'))">Cancel</button>
+          <button class="btn primary" onclick="saveLogisticsItem()">Save</button>
+        </div>
+      </div>
+    </div>`;
+  ov.classList.add('open');
+  document.getElementById('log-title').focus();
+}
+function saveLogisticsItem(){
+  const title = document.getElementById('log-title').value.trim();
+  if (!title) { document.getElementById('log-title').style.borderColor = 'var(--red)'; return; }
+  const day = Number(document.getElementById('log-day').value);
+  const item = {
+    id: logEditing.id || ('log' + Date.now().toString(36)),
+    title,
+    time: document.getElementById('log-time').value || '',
+    detail: document.getElementById('log-detail').value.trim(),
+    ref: document.getElementById('log-ref').value.trim(),
+    url: document.getElementById('log-url').value.trim(),
+  };
+  // Remove from wherever it was, then add to the chosen day (handles day changes)
+  Object.keys(LOGISTICS).forEach(k => { LOGISTICS[k] = (LOGISTICS[k] || []).filter(x => x.id !== item.id); });
+  (LOGISTICS[day] = LOGISTICS[day] || []).push(item);
+  saveLogistics();
+  closeOverlay(document.getElementById('log-modal'));
+  if (currentView === 'days') renderDays(); else if (currentView === 'itinerary') renderItinerary();
+}
+function deleteLogistics(day, id){
+  if (!confirm('Remove this logistics item?')) return;
+  LOGISTICS[day] = (LOGISTICS[day] || []).filter(x => x.id !== id);
+  saveLogistics();
+  closeOverlay(document.getElementById('log-modal'));
+  if (currentView === 'days') renderDays(); else if (currentView === 'itinerary') renderItinerary();
+}
+// Shared rendering — the itinerary (including the family's copy) and the day view
+function logisticsRows(n, editable){
+  const list = logisticsFor(n);
+  if (!list.length) return '';
+  return list.map(it => `<div class="itin-transit" style="margin-bottom:8px">
+      <div class="itin-transit-title">${it.time ? esc(fmtTime(it.time)) + ' · ' : ''}${esc(it.title)}
+        ${editable && !shareMode ? `<span onclick="openLogistics(${n}, '${it.id}')" style="cursor:pointer;color:var(--accent);font-size:12px;font-weight:400"> ✎</span>` : ''}</div>
+      ${it.detail ? `<div class="itin-transit-detail">${esc(it.detail)}</div>` : ''}
+      ${it.ref ? `<div class="itin-transit-luggage">Confirmation ${esc(it.ref)}</div>` : ''}
+      ${it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--cyan)">Open booking ↗</a>` : ''}
+    </div>`).join('');
+}
+
 // --- Visits: what we actually did, kept apart from planning status --------
 const jsq = s => JSON.stringify(String(s)).replace(/"/g, '&quot;');
 const sheetOpenFor = name => sheetName === name && document.getElementById('action-sheet') &&
@@ -2538,7 +2628,7 @@ function renderDayOverview(){
         <span class="chip">${esc(dy.c || '')}</span>
       </div>
       ${dy.t ? `<div class="day-theme2">${esc(dy.t)}</div>` : '<div class="day-theme2" style="color:var(--muted)">—</div>'}
-      <div class="day-items2">${anchorRows}${considerRows}${empty}</div>
+      <div class="day-items2">${logisticsFor(dy.n).slice(0,2).map(it => `<div class="day-item2" style="color:var(--amber)">🎫 ${esc(it.title)}</div>`).join('')}${anchorRows}${considerRows}${empty}</div>
       <div class="day-foot">
         <span class="chip blue">${b.anchors.length} anchor${b.anchors.length === 1 ? '' : 's'}</span>
         <span style="display:flex;gap:5px">${nPix ? `<span class="chip green">📷 ${nPix}</span>` : ''}<span class="chip pink">${b.consider.length} considering</span></span>
@@ -2703,6 +2793,13 @@ function renderDays(){
   };
   const buckets =
     `<div class="panel">
+      <div class="bucket">
+        <div class="bucket-head">
+          <div><div class="bucket-title">🎫 LOGISTICS</div><div class="side-sub">Trains, transfers, tickets — booked things that aren't places.</div></div>
+          ${shareMode ? '' : `<button class="mini add" onclick="openLogistics(${dy.n})">＋ Add</button>`}
+        </div>
+        ${logisticsRows(dy.n, true) || '<div class="side-sub">Nothing booked for this day.</div>'}
+      </div>
       <div class="bucket">
         <div class="bucket-head"><div><div class="bucket-title">ANCHORS</div><div class="side-sub">Things you're fairly sure about — booked or given a time.</div></div></div>
         ${b.anchors.length ? b.anchors.map(d => miniRow(d, 'anchor')).join('') : '<div class="side-sub">No fixed anchors. That is okay.</div>'}
@@ -2891,6 +2988,7 @@ function renderItineraryGeneric() {
     if (hotel) html += '<div class="itin-hotel"><div class="itin-hotel-name">🏨 ' + esc(hotel.name) + '</div>' +
       (hotel.address ? '<div class="itin-hotel-detail">' + esc(hotel.address) + '</div>' : '') +
       (hotelTimesStr(hotel) ? '<div class="itin-hotel-detail" style="color:var(--green)">' + esc(hotelTimesStr(hotel)) + '</div>' : '') + '</div>';
+    html += logisticsRows(day.n, false);
     const dayPix = photosForDay(day.n);
     if (dayPix.length) html += '<div class="itin-section-label">📷 Photos</div>' + photoGrid(dayPix, 104);
     const anchorsItin = assigned.filter(d => isAnchor(d) && getAction(d.name).status !== 'skip');
@@ -2973,6 +3071,7 @@ function renderItineraryJapan() {
     html += '<div class="itin-day-date">' + esc(day.date || seg.d || '') + '</div>';
     html += '</div>';
 
+    html += logisticsRows(day.n, false);
     // Transit (if applicable)
     if (transit) {
       html += '<div class="itin-transit">';
@@ -3037,7 +3136,7 @@ function renderItineraryJapan() {
       });
     }
 
-    if (!assigned.length && !wants.length && !transit) {
+    if (!assigned.length && !wants.length && !transit && !logisticsFor(day.n).length) {
       html += '<div class="itin-empty">Day at ' + esc(hotel.name) + (title ? ' — ' + esc(title) : '') + '</div>';
     }
 
