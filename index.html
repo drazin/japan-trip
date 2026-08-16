@@ -2942,10 +2942,9 @@ function renderItineraryJapan() {
 
   // Cover
   html += '<div class="itin-cover">';
-  html += '<h1>' + esc(TRIP.name || 'Drazin Family Japan Journey') + '</h1>';
-  const coverDates = fmtDateRange();
-  html += '<div class="itin-dates">' + esc(coverDates || 'August 17 — 30, 2026') + '</div>';
-  html += '<div class="itin-route">' + esc((TRIP.route || []).join(' · ') || 'Tokyo · Hakone · Kyoto · Kanazawa · Tokyo') + '</div>';
+  html += '<h1>Drazin Family<br>Japan Journey</h1>';
+  html += '<div class="itin-dates">August 17 — 30, 2026</div>';
+  html += '<div class="itin-route">Tokyo · Hakone · Kyoto · Kanazawa · Tokyo</div>';
   html += '<div class="itin-family">Matt, wife, and two children (ages 9 and 13)</div>';
   html += '</div>';
 
