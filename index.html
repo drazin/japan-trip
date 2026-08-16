@@ -902,7 +902,7 @@ function buildActionSheet(){
   const attrs = [
     place.family_fit ? `<span class="chip">👨‍👩‍👧 Family: ${esc(place.family_fit)}</span>` : '',
     place.heat ? `<span class="chip">${esc(place.heat)}</span>` : '',
-    place.priority ? `<span class="chip">${stars(place.priority)}</span>` : '',
+    '',
     place.type && place.type !== place.category ? `<span class="chip">${esc(place.type)}</span>` : '',
   ].filter(Boolean).join(' ');
   const bookingLine = place.booking ? `<div style="font-size:12px;color:var(--amber);margin-top:6px">🎫 ${esc(place.booking)}</div>` : '';
@@ -1387,7 +1387,7 @@ function resetFilters() {
 
 // State
 let activeFilters = { city: 'All', category: 'All', neighborhood: 'All', action: 'All', source: 'All', assign: 'All' };
-let sortField = 'priority'; let sortDir = -1;
+let sortField = 'name'; let sortDir = 1;
 let searchTerm = ''; let map = null; let markers = [];
 let openMenu = null;
 
@@ -1964,7 +1964,7 @@ function renderMap() {
     if (!d.lat) return;
     const a = getAction(d.name);
     const color = a.status==='skip'?'#444':a.status==='booked'?'#22c55e':a.status==='want'?'#ec4899':colors[d.category]||'#f59e0b';
-    const m = L.circleMarker([d.lat,d.lng],{radius:4+d.priority*1.5,fillColor:color,color:'#fff',weight:1,opacity:0.8,fillOpacity:0.7}).addTo(map);
+    const m = L.circleMarker([d.lat,d.lng],{radius:6,fillColor:color,color:'#fff',weight:1,opacity:0.8,fillOpacity:0.7}).addTo(map);
     m.bindPopup(mapPopupHtml(d),{maxWidth:280});
     m._placeName = d.name;
     markers.push(m);
@@ -2005,8 +2005,8 @@ function groupByNeighborhood(items) {
     groups[hood].push(d);
   });
   return Object.entries(groups).sort((a,b) => {
-    const aPri = Math.max(...a[1].map(d=>d.priority));
-    const bPri = Math.max(...b[1].map(d=>d.priority));
+    const aPri = a[1].length;
+    const bPri = b[1].length;
     return bPri - aPri;
   });
 }
@@ -2018,7 +2018,7 @@ function renderDayCard(d, borderStyle) {
   const igUrl = d.ig_url || '';
   const eName = esc(d.name);
   return `<div class="day-card" data-dc-name="${eName}" style="${borderStyle}">
-    <div class="dc-name">${icon} ${'★'.repeat(d.priority)} ${d.name}${sourceBadge(d)}</div>
+    <div class="dc-name">${icon} ${d.name}${sourceBadge(d)}</div>
     <div class="dc-meta">${d.category} · ${d.heat}${statusLabel ? ' · '+statusLabel : ''}${a.notes ? ' · <em>'+esc(a.notes)+'</em>' : ''}</div>
     <div class="dc-details">
       <div class="dc-why">${d.why}</div>
@@ -2257,7 +2257,7 @@ function recsForAnchor(city, anchor, limit){
   return DATA
     .filter(d => d.city === city && typeof d.lat === 'number' && getAction(d.name).status !== 'skip')
     .map(d => ({ d, km: haversine(anchor.lat, anchor.lng, d.lat, d.lng) }))
-    .sort((a, b) => (a.km - b.km) || (b.d.priority - a.d.priority))
+    .sort((a, b) => a.km - b.km)
     .slice(0, limit || 12);
 }
 
@@ -2430,7 +2430,7 @@ function renderBuiltCard(d){
   const dest = (typeof d.lat === 'number') ? (d.lat + ',' + d.lng) : null;
   const dir = dest ? '<a href="https://www.google.com/maps/dir/?api=1&destination=' + dest + '&travelmode=transit" target="_blank" style="color:#3b82f6;font-size:11px">🧭 Directions</a>' + (hotel ? ' · <a href="https://www.google.com/maps/dir/?api=1&origin=' + hotel.lat + ',' + hotel.lng + '&destination=' + dest + '&travelmode=transit" target="_blank" style="color:var(--muted);font-size:11px">from hotel</a>' : '') : '';
   return '<div class="built-card" draggable="true" data-name="' + eName + '" ondragstart="dayDragStart(event)" style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;background:var(--card);cursor:grab">' +
-    '<div style="font-size:13px;font-weight:600">' + statusChip(a.status) + '★'.repeat(d.priority) + ' ' + esc(d.name) + sourceBadge(d) + '</div>' +
+    '<div style="font-size:13px;font-weight:600">' + statusChip(a.status) + esc(d.name) + sourceBadge(d) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">' + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
     placeDetailsLine(a) +
     '<div style="margin-top:4px;font-size:11px">⏰ <span data-name="' + eName + '" onclick="editTime(this)" style="cursor:pointer;color:#3b82f6">' + (a.time ? esc(fmtTime(a.time)) : 'set time') + '</span></div>' +
@@ -2459,7 +2459,7 @@ function renderOptionCard(d, km){
   const eName = esc(d.name);
   const badge = (km != null) ? '<span style="font-size:10px;color:var(--muted)">' + distBadge(km) + '</span> ' : '';
   return '<div class="opt-card" draggable="true" data-name="' + eName + '" ondragstart="dayDragStart(event)" style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;background:var(--card);cursor:grab">' +
-    '<div style="font-size:13px">' + '★'.repeat(d.priority) + ' ' + esc(d.name) + sourceBadge(d) + '</div>' +
+    '<div style="font-size:13px">' + esc(d.name) + sourceBadge(d) + '</div>' +
     '<div style="font-size:11px;color:var(--muted)">' + badge + esc(d.category) + (d.neighborhood ? ' · ' + esc(d.neighborhood) : '') + '</div>' +
     '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">' + blockBtns(d.name) + '</div>' +
   '</div>';
@@ -2478,7 +2478,7 @@ function recommendedOptions(dy){
     });
   } else {
     recs = DATA.filter(d => d.city === dy.c && getAction(d.name).status !== 'skip')
-      .sort((a,b) => (b.priority - a.priority) || ((distOf(a) || 999) - (distOf(b) || 999))).slice(0, 20);
+      .sort((a,b) => ((distOf(a) ?? 999) - (distOf(b) ?? 999))).slice(0, 20);
   }
   recs = recs.filter(d => getAction(d.name).day !== dy.n);
   if (!recs.length) return '<div style="font-size:12px;color:var(--muted)">Nothing to recommend — set a focus area above, or use the All tab.</div>';
@@ -2534,12 +2534,17 @@ function isAnchor(d){ const a = getAction(d.name); return a.status === 'booked' 
 // in for one, so a "morning" place still lands before an "evening" one.
 const BLOCK_TIME = { morning: '08:00', afternoon: '13:00', evening: '18:00', unscheduled: '99:98' };
 function timeRank(a){ return parseTimeTo24(a.time) || BLOCK_TIME[effectiveBlock(a)] || '99:99'; }
-function byTimeThenPriority(x, y){
-  return timeRank(getAction(x.name)).localeCompare(timeRank(getAction(y.name))) || (y.priority - x.priority);
+// Ties break on booked-first (a confirmed thing anchors the day), then name —
+// there is no priority ranking in this trip, only booked or not.
+function byDayOrder(x, y){
+  const ax = getAction(x.name), ay = getAction(y.name);
+  return timeRank(ax).localeCompare(timeRank(ay))
+      || ((ay.status === 'booked') - (ax.status === 'booked'))
+      || x.name.localeCompare(y.name);
 }
 function dayBuckets(n){
   const items = DATA.filter(d => getAction(d.name).day === n && getAction(d.name).status !== 'skip')
-    .sort(byTimeThenPriority);
+    .sort(byDayOrder);
   return { anchors: items.filter(isAnchor), consider: items.filter(d => !isAnchor(d)) };
 }
 // Old stored statuses stay untouched; this only decides how they read on screen.
@@ -2892,7 +2897,7 @@ function renderDayRecsList(dy){
   else if (recTab === 'nearby') pool = pool.filter(d => d.city === dy.c && typeof d.lat === 'number');
   if (q) pool = pool.filter(d => matchesSearch(d, q));
   if (recTab === 'nearby') pool.sort((a,b) => (distOf(a) ?? 9999) - (distOf(b) ?? 9999));
-  else pool.sort((a,b) => (a.city === dy.c ? 0 : 1) - (b.city === dy.c ? 0 : 1) || b.priority - a.priority);
+  else pool.sort((a,b) => (a.city === dy.c ? 0 : 1) - (b.city === dy.c ? 0 : 1) || a.name.localeCompare(b.name));
   const total = pool.length;
   const shown = pool.slice(0, 40);
   if (!shown.length) return `<div class="side-sub" style="margin-top:8px">No matches${q ? ' for “' + esc(recSearch) + '”' : ''}. Try a different search or tab.</div>`;
@@ -2988,7 +2993,7 @@ function renderItineraryGeneric() {
 
   DAYS.forEach(day => {
     const hotel = hotelForDay(day.n);
-    const assigned = DATA.filter(d => getAction(d.name).day === day.n).sort(byTimeThenPriority);
+    const assigned = DATA.filter(d => getAction(d.name).day === day.n).sort(byDayOrder);
     html += '<div class="itin-day">';
     html += '<div class="itin-day-header"><div class="itin-day-num">Day ' + day.n + '</div>' +
       '<div class="itin-day-title">' + esc(day.t || day.c || '') + '</div>' +
@@ -3067,8 +3072,8 @@ function renderItineraryJapan() {
     const dayPixJ = photosForDay(day.n);
     // v2: anchors = committed (booked / timed / scheduled); considering = the rest of the day pool
     const dayPool = DATA.filter(d => getAction(d.name).day === day.n && getAction(d.name).status !== 'skip');
-    const assigned = dayPool.filter(isAnchor).sort(byTimeThenPriority);
-    const wants = dayPool.filter(d => !isAnchor(d)).sort(byTimeThenPriority);
+    const assigned = dayPool.filter(isAnchor).sort(byDayOrder);
+    const wants = dayPool.filter(d => !isAnchor(d)).sort(byDayOrder);
 
     html += '<div class="itin-day">';
 
