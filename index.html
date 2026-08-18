@@ -1179,48 +1179,162 @@ function shrinkImage(file){
         const c = document.createElement('canvas');
         c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        return c.toDataURL('image/jpeg', q);
+        const out = c.toDataURL('image/jpeg', q);
+        // Phone browsers cap total canvas memory and are slow to hand it back,
+        // so a long batch stalls partway unless each one is released here.
+        c.width = c.height = 0;
+        return out;
       };
-      resolve({ full: draw(1600, 0.82), thumb: draw(420, 0.7) });
+      let full, thumb;
+      try { full = draw(1600, 0.82); thumb = draw(420, 0.7); }
+      catch (e) { reject(new Error('Ran out of room shrinking that photo')); return; }
+      resolve({ full, thumb });
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
     img.src = url;
   });
 }
 
-// dayN and/or placeName decide where the photo hangs
-async function uploadPhotos(fileList, dayN, placeName, statusEl){
-  const files = [...fileList].filter(f => f.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name));
-  if (!files.length) return;
-  keepSheetEdits(placeName);
-  let done = 0, failed = 0;
-  for (const f of files) {
-    if (statusEl) statusEl.textContent = `Uploading ${done + 1} of ${files.length}…`;
+// --- Batch uploads -------------------------------------------------------
+// A day out is dozens of photos, uploaded over hotel wifi or cell data. Three
+// things make that survivable: each photo is its own request, so one bad photo
+// can't sink the batch; every request can time out and be retried; and nothing
+// is dropped quietly — whatever failed stays on screen with a retry next to it.
+const UPLOAD_AT_ONCE = 3;         // enough to hide latency, gentle on a phone
+const UPLOAD_TIMEOUT_MS = 60000;  // a stalled request must not wedge the batch
+const UPLOAD_ATTEMPTS = 3;
+let uploadJobs = {};   // where the photos are headed -> live progress for that spot
+
+function uploadKey(dayN, placeName){ return (dayN ?? '-') + '|' + (placeName || '-'); }
+function newClientId(){
+  return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
+// Progress lives here rather than in a DOM node: the views re-render as photos
+// land, and the same button can be on screen twice (day bucket + open sheet).
+function uploadStatusText(key){
+  const j = uploadJobs[key];
+  if (!j) return '';
+  if (j.running) return `Uploading ${Math.min(j.done + j.failed.length + 1, j.total)} of ${j.total}…`;
+  if (j.failed.length) return `${j.done} added, ${j.failed.length} didn't go through`;
+  return j.done ? `${j.done} added` : '';
+}
+function uploadStatusHtml(key){
+  const j = uploadJobs[key];
+  const retry = j && !j.running && j.failed.length
+    ? ` <button class="mini" onclick="retryPhotoUploads(${jsq(key)})">Retry ${j.failed.length}</button>` : '';
+  return `<span class="photo-status" data-upload-key="${esc(key)}" style="font-size:11px;color:var(--muted);margin-left:6px">${esc(uploadStatusText(key))}</span>${retry}`;
+}
+// Cheap repaint between full re-renders, so the count ticks up smoothly.
+function paintUploadStatus(key){
+  document.querySelectorAll(`.photo-status[data-upload-key="${CSS.escape(key)}"]`)
+    .forEach(el => { el.textContent = uploadStatusText(key); });
+}
+
+async function postPhoto(file, dayN, placeName, clientId){
+  const { full, thumb } = await shrinkImage(file);
+  const payload = JSON.stringify({
+    tripId: activeTripId, day: dayN ?? null, place: placeName || null,
+    dataUrl: full, thumbUrl: thumb,
+    // The phone's own timestamp, so a batch ends up in the order it was shot
+    // rather than the order the uploads happened to finish.
+    takenAt: file.lastModified ? new Date(file.lastModified).toISOString() : null,
+    clientId,
+  });
+  let lastErr;
+  for (let attempt = 1; attempt <= UPLOAD_ATTEMPTS; attempt++) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), UPLOAD_TIMEOUT_MS);
     try {
-      const { full, thumb } = await shrinkImage(f);
-      const r = await fetch('/api/photos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tripId: activeTripId, day: dayN ?? null, place: placeName || null, dataUrl: full, thumbUrl: thumb }) });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.message || 'upload failed');
-      PHOTOS.push({ id: j.id, day: dayN ?? null, place: placeName || null, caption: '', created_at: j.created_at });
-      done++;
-    } catch(e) { failed++; }
+      const r = await fetch('/api/photos', { method: 'POST', signal: ctl.signal,
+        headers: { 'Content-Type': 'application/json' }, body: payload });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.message || 'Upload failed (' + r.status + ')');
+      return j;
+    } catch (e) {
+      lastErr = e;
+      // A dropped connection is worth another go; too large or malformed is not.
+      if (e.name !== 'AbortError' && /too large|required/i.test(e.message || '')) break;
+      if (attempt < UPLOAD_ATTEMPTS) await new Promise(res => setTimeout(res, 500 * 2 ** (attempt - 1)));
+    } finally { clearTimeout(timer); }
   }
-  if (statusEl) statusEl.textContent = failed ? `${done} added, ${failed} failed` : '';
+  throw lastErr || new Error('Upload failed');
+}
+
+// dayN and/or placeName decide where the photos hang
+async function uploadPhotos(fileList, dayN, placeName){
+  // Retries come back through here carrying the id they were first sent with,
+  // so a photo the server already stored is recognised instead of duplicated.
+  const picked = [...fileList]
+    .map(f => (f && f.file) ? f : { file: f, clientId: newClientId() })
+    .filter(it => it.file && (it.file.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp)$/i.test(it.file.name)));
+  if (!picked.length) return;
+  const key = uploadKey(dayN, placeName);
+  const job = uploadJobs[key] = { dayN: dayN ?? null, placeName: placeName || null,
+                                  total: picked.length, done: 0, failed: [], running: true };
+  keepSheetEdits(placeName);
   refreshPhotoViews();
+
+  // Tiles appear as photos land rather than all at the end, but a re-render per
+  // photo would thrash a long batch, so they catch up a few at a time.
+  let sinceRender = 0;
+  const queue = picked.slice();
+  const worker = async () => {
+    while (queue.length) {
+      const item = queue.shift();
+      try {
+        const j = await postPhoto(item.file, dayN, placeName, item.clientId);
+        // A retry whose first response was merely lost comes back with the id
+        // it already had, so the same photo never lands twice.
+        if (!PHOTOS.some(p => p.id === j.id)) {
+          PHOTOS.push({ id: j.id, day: dayN ?? null, place: placeName || null, caption: '',
+                        created_at: j.created_at, taken_at: j.taken_at || null });
+        }
+        job.done++;
+      } catch (e) {
+        job.failed.push({ ...item, message: e.name === 'AbortError' ? 'timed out' : (e.message || 'failed') });
+      }
+      paintUploadStatus(key);
+      if (++sinceRender >= UPLOAD_AT_ONCE) { sinceRender = 0; sortPhotos(); refreshPhotoViews(); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(UPLOAD_AT_ONCE, picked.length) }, worker));
+
+  job.running = false;
+  sortPhotos();
+  refreshPhotoViews();
+  // A clean batch says so briefly and then gets out of the way; one with
+  // failures stays put, because it still has a retry to offer.
+  if (!job.failed.length) setTimeout(() => {
+    if (uploadJobs[key] === job) { delete uploadJobs[key]; refreshPhotoViews(); }
+  }, 5000);
+}
+// Match the server's ordering, so a photo doesn't jump position on reload.
+function sortPhotos(){
+  PHOTOS.sort((a, b) => {
+    const ta = a.taken_at || a.created_at || '', tb = b.taken_at || b.created_at || '';
+    return ta < tb ? -1 : ta > tb ? 1 : (a.id || 0) - (b.id || 0);
+  });
+}
+// The files are still held, so a batch that half-failed is one tap from whole.
+function retryPhotoUploads(key){
+  const job = uploadJobs[key];
+  if (!job || job.running || !job.failed.length) return;
+  const items = job.failed.map(f => ({ file: f.file, clientId: f.clientId }));
+  const { dayN, placeName } = job;
+  delete uploadJobs[key];
+  uploadPhotos(items, dayN, placeName);
 }
 function refreshPhotoViews(){
+  if (sheetOpenFor(sheetName)) keepSheetEdits(sheetName);
   if (currentView === 'days') renderDays();
   else if (currentView === 'itinerary') renderItinerary();
   if (sheetOpenFor(sheetName)) buildActionSheet();
 }
-// The status element is passed in, not looked up — the same button markup can be
-// on screen twice (day bucket + open sheet).
-function pickPhotos(btn, dayN, placeName){
+function pickPhotos(dayN, placeName){
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
-  const statusEl = btn && btn.parentElement ? btn.parentElement.querySelector('.photo-status') : null;
-  inp.onchange = () => uploadPhotos(inp.files, dayN, placeName, statusEl);
+  inp.onchange = () => uploadPhotos(inp.files, dayN, placeName);
   inp.click();
 }
 function photoGrid(list, size){
@@ -1233,8 +1347,10 @@ function photoGrid(list, size){
 }
 function addPhotoBtn(dayN, placeName){
   if (shareMode) return '';
-  return `<button class="mini" onclick="pickPhotos(this, ${dayN ?? 'null'}, ${placeName ? jsq(placeName) : 'null'})">📷 Add photos</button>
-          <span class="photo-status" style="font-size:11px;color:var(--muted);margin-left:6px"></span>`;
+  const key = uploadKey(dayN, placeName);
+  const busy = uploadJobs[key] && uploadJobs[key].running;
+  return `<button class="mini" ${busy ? 'disabled' : ''} onclick="pickPhotos(${dayN ?? 'null'}, ${placeName ? jsq(placeName) : 'null'})">📷 Add photos</button>
+          ${uploadStatusHtml(key)}`;
 }
 // --- Lightbox ---
 let lightboxId = null;

@@ -90,10 +90,18 @@ async function initDb() {
       data       BYTEA NOT NULL,
       thumb      BYTEA,
       caption    TEXT DEFAULT '',
-      created_at TIMESTAMPTZ DEFAULT now()
+      created_at TIMESTAMPTZ DEFAULT now(),
+      taken_at   TIMESTAMPTZ,
+      client_id  TEXT
     )
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS photos_trip_idx ON photos(trip_id)`);
+  // taken_at keeps a batch in the order the photos were shot, not the order the
+  // uploads happened to finish. client_id makes a retried upload land once.
+  await pool.query(`ALTER TABLE photos ADD COLUMN IF NOT EXISTS taken_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE photos ADD COLUMN IF NOT EXISTS client_id TEXT`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS photos_client_uidx
+                      ON photos(trip_id, client_id) WHERE client_id IS NOT NULL`);
   await pool.query(`ALTER TABLE app_state ADD COLUMN IF NOT EXISTS trip_id TEXT`);
   await pool.query(`ALTER TABLE captures ADD COLUMN IF NOT EXISTS trip_id TEXT`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS app_state_trip_uidx ON app_state(trip_id)`);
@@ -644,20 +652,32 @@ function decodeDataUrl(dataUrl) {
   return { mime: m[1], buf: Buffer.from(m[2], 'base64') };
 }
 
+// A batch is many of these, a few at a time. One request per photo on purpose:
+// a photo that fails is retried on its own instead of sinking the whole batch.
 app.post('/api/photos', async (req, res) => {
   if (!pool) return res.status(400).json({ ok: false, message: 'no db' });
-  const { tripId, day, place, dataUrl, thumbUrl } = req.body || {};
+  const { tripId, day, place, dataUrl, thumbUrl, takenAt, clientId } = req.body || {};
   const img = decodeDataUrl(dataUrl);
   if (!tripId || !img) return res.status(400).json({ ok: false, message: 'tripId and image required' });
   if (img.buf.length > 8 * 1024 * 1024) return res.status(413).json({ ok: false, message: 'Image too large' });
   const thumb = decodeDataUrl(thumbUrl);
+  const shot = takenAt ? new Date(takenAt) : null;
+  const taken = shot && !isNaN(shot) ? shot.toISOString() : null;
+  // Without one from the client every retry would look like a fresh photo.
+  const cid = typeof clientId === 'string' && clientId ? clientId.slice(0, 64) : null;
   try {
+    // A retry after a lost response finds its own earlier row rather than
+    // inserting the photo twice; the no-op SET is what makes RETURNING fire.
     const { rows } = await pool.query(
-      `INSERT INTO photos (trip_id, day, place, mime, data, thumb)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, created_at`,
-      [tripId, Number.isInteger(day) ? day : null, place || null, img.mime, img.buf, thumb ? thumb.buf : null]
+      `INSERT INTO photos (trip_id, day, place, mime, data, thumb, taken_at, client_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (trip_id, client_id) WHERE client_id IS NOT NULL
+       DO UPDATE SET caption = photos.caption
+       RETURNING id, created_at, taken_at`,
+      [tripId, Number.isInteger(day) ? day : null, place || null, img.mime, img.buf,
+       thumb ? thumb.buf : null, taken, cid]
     );
-    res.json({ ok: true, id: rows[0].id, created_at: rows[0].created_at });
+    res.json({ ok: true, id: rows[0].id, created_at: rows[0].created_at, taken_at: rows[0].taken_at });
   } catch (err) {
     console.error('photo upload failed', err);
     res.status(500).json({ ok: false, message: 'Upload failed: ' + (err.message || 'error') });
@@ -670,7 +690,8 @@ app.get('/api/photos', async (req, res) => {
   if (!trip || !pool) return res.json({ ok: true, photos: [] });
   try {
     const { rows } = await pool.query(
-      `SELECT id, day, place, caption, created_at FROM photos WHERE trip_id = $1 ORDER BY created_at`, [trip]);
+      `SELECT id, day, place, caption, created_at, taken_at FROM photos
+        WHERE trip_id = $1 ORDER BY COALESCE(taken_at, created_at), id`, [trip]);
     res.json({ ok: true, photos: rows });
   } catch (err) {
     console.error('photo list failed', err);
