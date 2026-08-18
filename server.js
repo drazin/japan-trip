@@ -150,10 +150,14 @@ app.get('/api/state', async (req, res) => {
 });
 
 app.post('/api/state', async (req, res) => {
-  const { actions, manual, dayPlans, logistics, tripId } = req.body;
+  const { actions, manual, dayPlans, logistics, placeEdits, tripId } = req.body;
   if (!actions) return res.status(400).json({ error: 'Missing actions' });
   try {
-    await writeActions(tripId, { actions, manual: manual || [], dayPlans: dayPlans || {}, logistics: logistics || {} });
+    // placeEdits are renames and detail fixes keyed by a place's original name;
+    // they are replayed over the bundled data on load, which is what lets a
+    // place from the dataset be edited without the change vanishing on reload.
+    await writeActions(tripId, { actions, manual: manual || [], dayPlans: dayPlans || {},
+                                 logistics: logistics || {}, placeEdits: placeEdits || {} });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -696,6 +700,24 @@ app.get('/api/photos', async (req, res) => {
   } catch (err) {
     console.error('photo list failed', err);
     res.status(500).json({ ok: false, photos: [] });
+  }
+});
+
+// Renaming a place has to bring its photos with it, or they end up filed under
+// a title that no longer exists anywhere in the app. Registered above /:id so
+// the literal path wins over the parameter.
+app.patch('/api/photos/place', async (req, res) => {
+  if (!pool) return res.status(400).json({ ok: false, message: 'no db' });
+  const { tripId, from, to } = req.body || {};
+  if (!tripId || !from) return res.status(400).json({ ok: false, message: 'tripId and from required' });
+  try {
+    const { rowCount } = await pool.query(
+      'UPDATE photos SET place = $1 WHERE trip_id = $2 AND place = $3',
+      [to || null, tripId, from]);
+    res.json({ ok: true, moved: rowCount });
+  } catch (err) {
+    console.error('photo re-key failed', err);
+    res.status(500).json({ ok: false, message: 'Could not move those photos' });
   }
 });
 

@@ -705,19 +705,26 @@ let LOGISTICS_KEY = 'trip-logistics';
 let STORAGE_KEY = 'drazin-japan-actions';
 let MANUAL_KEY = 'drazin-japan-manual';
 let DAYPLANS_KEY = 'drazin-japan-dayplans';
+let PLACEEDITS_KEY = 'drazin-japan-placeedits';
 function setTripKeys(){
   STORAGE_KEY = 'drazin-actions:' + activeTripId;
   MANUAL_KEY  = 'drazin-manual:'  + activeTripId;
   DAYPLANS_KEY= 'drazin-dayplans:'+ activeTripId;
+  PLACEEDITS_KEY = 'drazin-placeedits:' + activeTripId;
 }
 let itemActions = {};
 let dayPlans = {};
+// Corrections to places, keyed by the name a place originally had. Replayed over
+// the bundled data on every load, so fixing a title or a typo'd neighborhood
+// sticks even for places that didn't come from this browser.
+let placeEdits = {};
 let saveTimer = null;
 
 async function loadActions() {
   // Seed from this browser's local copy first so nothing already entered is ever dropped.
   try { itemActions = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { itemActions = {}; }
   try { dayPlans = JSON.parse(localStorage.getItem(DAYPLANS_KEY)) || {}; } catch(e) { dayPlans = {}; }
+  try { placeEdits = JSON.parse(localStorage.getItem(PLACEEDITS_KEY)) || {}; } catch(e) { placeEdits = {}; }
   try { LOGISTICS = JSON.parse(localStorage.getItem(LOGISTICS_KEY)) || {}; } catch(e) { LOGISTICS = {}; }
   let localManual = [];
   try { localManual = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]'); } catch(e) { localManual = []; }
@@ -739,6 +746,8 @@ async function loadActions() {
       LOGISTICS = { ...LOGISTICS, ...(data.logistics || {}) };
       try { localStorage.setItem(LOGISTICS_KEY, JSON.stringify(LOGISTICS)); } catch(e){}
       localStorage.setItem(DAYPLANS_KEY, JSON.stringify(dayPlans));
+      placeEdits = { ...placeEdits, ...(data.placeEdits || {}) };
+      localStorage.setItem(PLACEEDITS_KEY, JSON.stringify(placeEdits));
 
       // Union manual items by name across local + server. The server copy wins for
       // places present in both (it carries fixes like re-geocoded coordinates);
@@ -760,22 +769,34 @@ async function loadActions() {
         || mergedManual.length > serverManual.length
         || beforeKeys > 0 && Object.keys(serverActions).length === 0;
       if (localHasMore) saveActions();
+      applyPlaceEdits();
       return;
     }
   } catch(e) {}
   // Offline / server error: keep the local copy already loaded above.
+  applyPlaceEdits();
+}
+
+// Replay saved corrections over DATA. Runs once the manual list has been folded
+// in, so an edited place is found whichever list it came from.
+function applyPlaceEdits(){
+  Object.entries(placeEdits).forEach(([original, fields]) => {
+    const place = DATA.find(d => d.name === original || d.name === fields.name);
+    if (place) Object.assign(place, fields);
+  });
 }
 
 function saveActions() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(itemActions));
   localStorage.setItem(DAYPLANS_KEY, JSON.stringify(dayPlans));
+  localStorage.setItem(PLACEEDITS_KEY, JSON.stringify(placeEdits));
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     const manual = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]');
     fetch('/api/state', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ actions: itemActions, manual, dayPlans, logistics: LOGISTICS, tripId: activeTripId })
+      body: JSON.stringify({ actions: itemActions, manual, dayPlans, logistics: LOGISTICS, placeEdits, tripId: activeTripId })
     }).catch(() => {});
   }, 500);
 }
@@ -834,10 +855,125 @@ function blockBtns(name){
 let sheetName = null;
 function openActionSheet(el){
   sheetName = el.dataset.actionFor;   // dataset decodes HTML entities, so apostrophes are intact
+  placeEdit = null;                   // never open onto a half-finished edit of another place
   buildActionSheet();
   document.getElementById('action-sheet').classList.add('open');
 }
-function closeActionSheet(){ const s=document.getElementById('action-sheet'); if(s) s.classList.remove('open'); }
+function closeActionSheet(){ placeEdit = null; const s=document.getElementById('action-sheet'); if(s) s.classList.remove('open'); }
+// --- Editing a place ------------------------------------------------------
+// A place's name is its key: actions, photos and the manual list are all filed
+// under it. So a rename is a move, not a relabel, and everything has to travel
+// together or the entry quietly loses its history.
+let placeEdit = null;   // in-progress draft, kept across sheet rebuilds
+
+const EDIT_FIELDS = [
+  ['name', 'Name', 'What it should be called'],
+  ['category', 'Category', 'Food, Attraction, Experience…'],
+  ['neighborhood', 'Neighborhood', 'e.g. Harajuku'],
+  ['city', 'City', 'e.g. Tokyo'],
+  ['address', 'Address', 'Street address'],
+  ['why', 'Why it is on the list', 'What made this worth saving'],
+];
+
+function startPlaceEdit(){
+  const p = DATA.find(d => d.name === sheetName) || { name: sheetName };
+  placeEdit = { original: sheetName };
+  EDIT_FIELDS.forEach(([k]) => { placeEdit[k] = p[k] || ''; });
+  buildActionSheet();
+}
+function cancelPlaceEdit(){ placeEdit = null; buildActionSheet(); }
+// Typing is held in the draft, not read off the DOM, so a re-render mid-edit
+// (a photo landing, say) doesn't wipe what's been typed.
+function placeEditInput(field, value){ if (placeEdit) placeEdit[field] = value; }
+
+function placeEditPanel(){
+  if (!placeEdit) return '';
+  const isManual = (DATA.find(d => d.name === placeEdit.original) || {}).source === 'Manual';
+  const rows = EDIT_FIELDS.map(([k, label, ph]) => `
+       <div style="margin-top:8px">
+         <div class="field-label">${label}</div>
+         <input type="text" class="search-input" style="width:100%" placeholder="${esc(ph)}"
+           value="${esc(placeEdit[k] || '')}" oninput="placeEditInput('${k}', this.value)">
+       </div>`).join('');
+  return `<div style="margin:10px 0;padding:12px;border:1px solid var(--accent);border-radius:12px;background:var(--card2)">
+       <div style="font-size:12px;font-weight:800;color:var(--accent)">Edit this place</div>
+       ${rows}
+       <div style="font-size:11px;color:var(--muted);margin-top:8px">Renaming keeps the day, time, notes, rating and photos attached.</div>
+       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+         ${isManual ? `<button class="mini" style="margin-right:auto;color:var(--red);border-color:rgba(255,107,107,.4)" onclick="deletePlace()">Delete place</button>` : ''}
+         <button class="mini" onclick="cancelPlaceEdit()">Cancel</button>
+         <button class="mini" style="color:var(--green);border-color:rgba(53,208,127,.5)" onclick="savePlaceEdit()">Save changes</button>
+       </div>
+     </div>`;
+}
+
+async function savePlaceEdit(){
+  const d = placeEdit;
+  if (!d) return;
+  const oldName = d.original, newName = (d.name || '').trim();
+  if (!newName) { alert('A place needs a name.'); return; }
+  const clash = DATA.find(p => p.name.toLowerCase() === newName.toLowerCase() && p.name !== oldName);
+  if (clash) { alert(`Another place is already called “${clash.name}”.`); return; }
+
+  const place = DATA.find(p => p.name === oldName);
+  const fields = {};
+  EDIT_FIELDS.forEach(([k]) => { fields[k] = (d[k] || '').trim(); });
+  if (place) Object.assign(place, fields);
+  // Keyed by the original name so the correction can be replayed over the
+  // bundled data on any device, not just the one it was typed on.
+  placeEdits[oldName] = fields;
+
+  if (newName !== oldName) await rekeyPlace(oldName, newName);
+  syncManualPlace(oldName, place);
+  placeEdit = null;
+  sheetName = newName;
+  saveActions();
+  renderAll();
+  buildActionSheet();
+}
+
+// Move everything filed under the old name across to the new one.
+async function rekeyPlace(oldName, newName){
+  if (itemActions[oldName]) { itemActions[newName] = itemActions[oldName]; delete itemActions[oldName]; }
+  PHOTOS.forEach(p => { if (p.place === oldName) p.place = newName; });
+  const job = uploadJobs[uploadKey((itemActions[newName] || {}).day ?? null, oldName)];
+  if (job) job.placeName = newName;
+  try {
+    await fetch('/api/photos/place', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tripId: activeTripId, from: oldName, to: newName }) });
+  } catch(e) { /* the local copy is already right; the server catches up on reload */ }
+}
+
+// The manual list is a separate store, so it needs the edit too — otherwise the
+// old version comes back the next time it is folded into DATA.
+function syncManualPlace(oldName, place){
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem(MANUAL_KEY) || '[]'); } catch(e) { items = []; }
+  const i = items.findIndex(m => m.name === oldName);
+  if (i >= 0) {
+    if (place) items[i] = place; else items.splice(i, 1);
+    localStorage.setItem(MANUAL_KEY, JSON.stringify(items));
+  }
+}
+
+async function deletePlace(){
+  const name = placeEdit ? placeEdit.original : sheetName;
+  const shots = photosForPlace(name).length;
+  const warning = shots ? `\n\nIts ${shots} photo${shots > 1 ? 's' : ''} will be unfiled but not deleted — you'll still find them on the day.` : '';
+  if (!confirm(`Remove “${name}” from the trip?${warning}`)) return;
+  // Photos outlive the place: unfile them rather than destroying them.
+  await rekeyPlace(name, null);
+  const i = DATA.findIndex(p => p.name === name);
+  if (i >= 0) DATA.splice(i, 1);
+  delete itemActions[name];
+  delete placeEdits[name];
+  syncManualPlace(name, null);
+  placeEdit = null;
+  closeActionSheet();
+  saveActions();
+  renderAll();
+}
+
 function buildActionSheet(){
   const name = sheetName, a = getAction(name);
   const place = DATA.find(d => d.name === name) || {};
@@ -920,7 +1056,11 @@ function buildActionSheet(){
      </div>` : '') + provenance;
   ov.innerHTML =
     `<div class="modal-box action-sheet-box">
-       <div class="modal-title" style="font-size:16px">${esc(name)}</div>
+       <div style="display:flex;align-items:flex-start;gap:8px">
+         <div class="modal-title" style="font-size:16px;flex:1">${esc(name)}</div>
+         ${shareMode ? '' : `<button class="mini" onclick="startPlaceEdit()" title="Edit name and details">✏️ Edit</button>`}
+       </div>
+       ${placeEditPanel()}
        ${placeInfo}
        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${acts}</div>
        <div style="font-size:11px;color:var(--muted);margin-top:6px">✅ <b>Booked</b> = reservation confirmed · 📌 <b>Planned</b> = on the itinerary, nothing to book. Set a day & time below for any of these.</div>
